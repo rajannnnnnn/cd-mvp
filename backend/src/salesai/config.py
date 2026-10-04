@@ -87,6 +87,7 @@ class Settings(BaseSettings):
     # --- safety bounds
     max_turn_wait_ms_ceiling: int = 60_000
     default_owner_pause_minutes: int = 120
+    max_ai_turns_per_conversation_10min: int = 30   # flood guard: beyond this the AI stops replying in that chat for a while
 
     @field_validator("master_key")
     @classmethod

@@ -44,7 +44,7 @@ class Runtime:
         self.agent = AgentService(db, self.llm, self.pricing,
                                   Models(settings.llm_model_planner, settings.llm_model_writer, settings.llm_model_check),
                                   llm_checks=settings.llm_provider != "local")
-        self.turns = TurnWorker(db, self.agent, HeuristicEOT())
+        self.turns = TurnWorker(db, self.agent, HeuristicEOT(), max_turns_per_10min=settings.max_ai_turns_per_conversation_10min)
         self.sender = OutboundSender(db, self.channels)
         self.owner = OwnerLoop(db, self.channels, self.llm, settings.llm_model_check)
         self.auth = AuthService(db, self.channels, settings)

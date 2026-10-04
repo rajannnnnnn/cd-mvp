@@ -388,3 +388,30 @@ async def test_final_step_price_is_a_quote_only_in_the_writer_directive_never_th
         assert any(v["amount"] == "7123.45" and v["kind"] == "price" for v in vals)
     assert not [r for r in rec.requests if r.stage == "planner" and "7123" in str(r.input)]
     assert "floor" not in llm_json(rec).lower() and "7123" not in caplog.text
+
+
+async def test_outbound_actions_are_ordered_per_conversation_not_per_number(world):
+    """NFR-4 / fairness: replies to different customers of one number never queue behind each other; only the
+    per-number rate limit (token bucket) is shared."""
+    shop, _ = await shop_with_catalog(world)
+    for phone in ("+919700000071", "+919700000072"):
+        await world.customer_says(shop, phone, "silk saree ka rate kitna hai")
+        await settle(world, shop, phone)
+    async with world.rt.db.system_tx() as s:
+        keys = [r["ordering_key"] for r in await (await s.execute(
+            "SELECT DISTINCT ordering_key FROM outbox WHERE event_type='outbound.action_requested' AND business_id=%s", (shop.business_id,))).fetchall()]
+    convs = {str(c["id"]) for c in await world.q(shop, "SELECT id FROM conversations")}
+    assert len(keys) == 2 and {k.removeprefix("conv:") for k in keys} == convs
+
+
+async def test_a_flooding_customer_is_recorded_but_cannot_run_up_unlimited_replies(world):
+    """One customer sending message after message must not consume unlimited AI turns (cost and fairness)."""
+    shop, _ = await shop_with_catalog(world)
+    world.rt.turns.max_turns_per_10min = 3
+    phone = "+919700000081"
+    for i in range(8):
+        await world.customer_says(shop, phone, f"silk saree ka rate kitna hai {i}")
+        await world.drain_for(0.6)
+    turns = await world.q(shop, "SELECT 1 FROM turns")
+    inbound = await world.q(shop, "SELECT 1 FROM messages WHERE direction='in'")
+    assert len(inbound) == 8 and len(turns) <= 4

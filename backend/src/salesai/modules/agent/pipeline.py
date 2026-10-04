@@ -282,7 +282,7 @@ class AgentService:
                 (plan.lead_stage, plan.lost_reason, jsonb(plan.qualification), plan.selling_stopped, summary,
                  "composing" if acts else "idle", cid))
 
-            key = f"num:{ctx.number['id']}"
+            key = f"conv:{cid}"          # ordered per conversation, never per number: one chatty customer must not delay the rest
             for a in acts:
                 run_at = now + timedelta(milliseconds=a.delay_ms)
                 payload: dict[str, Any] = {"conversation_id": cid, "turn_id": tid, "action": a.action, "version": version,

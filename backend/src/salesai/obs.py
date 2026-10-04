@@ -82,4 +82,5 @@ TURN_SECONDS = Histogram("salesai_turn_seconds", "End-of-turn decision to first 
 LLM_CALLS = Counter("salesai_llm_calls_total", "LLM calls", ["provider", "stage", "outcome"])
 LLM_COST_MICROS = Counter("salesai_llm_cost_micros_total", "LLM cost (1e-6 INR)", ["business_id"])
 VALIDATOR_REJECTIONS = Counter("salesai_reply_check_rejections_total", "Reply checks failed", ["check"])
+FLOOD_GUARD = Counter("salesai_flood_guard_total", "Turns not answered because a conversation exceeded its turn budget")
 SEND_RESULTS = Counter("salesai_send_total", "Outbound sends", ["outcome"])

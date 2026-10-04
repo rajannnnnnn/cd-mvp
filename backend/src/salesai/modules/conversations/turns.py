@@ -12,7 +12,7 @@ from salesai.events.outbox import emit
 from salesai.modules.agent import AgentService
 from salesai.modules.conversations.eot import EndOfTurnPredictor, EotInput
 from salesai.modules.handoffs import create_handoff
-from salesai.obs import bind
+from salesai.obs import FLOOD_GUARD, bind
 from salesai.queue.base import Job
 from salesai.rules import ai_block_reason
 
@@ -20,8 +20,9 @@ log = logging.getLogger("salesai.turns")
 
 
 class TurnWorker:
-    def __init__(self, db: Database, agent: AgentService, eot: EndOfTurnPredictor):
+    def __init__(self, db: Database, agent: AgentService, eot: EndOfTurnPredictor, *, max_turns_per_10min: int = 30):
         self.db, self.agent, self.eot = db, agent, eot
+        self.max_turns_per_10min = max_turns_per_10min
 
     async def eot_check(self, job: Job) -> None:
         p = job.spec.payload
@@ -69,6 +70,11 @@ class TurnWorker:
                                business_id=bid, ordering_key=f"conv:{cid}", entity_key=f"conversation:{cid}", entity_version=version,
                                run_at=now + timedelta(milliseconds=decision.wait_ms))
                 return
+            if await self._flooded(bid, cid):                  # abuse guard: record the messages, stop spending on replies
+                FLOOD_GUARD.inc()
+                await self._release(bid, cid, version)
+                log.warning("conversation exceeded its AI turn budget; messages recorded, not answered")
+                return
             signals = {"eot": {"reason": decision.reason, "rechecks": rechecks,
                                "waited_ms": int((now - msgs[0]["created_at"]).total_seconds() * 1000), "messages": len(msgs)}}
             outcome = await self.agent.run_turn(bid, cid, version, signals=signals)
@@ -84,6 +90,12 @@ class TurnWorker:
             if conv is None or conv["version"] != version or conv["selling_stopped"] or conv["lead_stage"] in ("won", "lost", "new"):
                 return          # the scheduler already marked nudge_sent_at when it requested this (at most one nudge)
         await self.agent.run_turn(bid, cid, version, trigger="nudge", signals={"nudge": True})
+
+    async def _flooded(self, bid: uuid.UUID, cid: uuid.UUID) -> bool:
+        async with self.db.tenant(bid) as c:
+            n = (await (await c.execute(
+                "SELECT count(*) AS n FROM turns WHERE conversation_id=%s AND created_at > now() - interval '10 minutes'", (cid,))).fetchone())["n"]
+        return int(n) >= self.max_turns_per_10min
 
     async def _release(self, bid: uuid.UUID, cid: uuid.UUID, version: int) -> None:
         async with self.db.tenant(bid) as c:

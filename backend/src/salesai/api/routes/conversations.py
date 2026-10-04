@@ -240,7 +240,7 @@ async def send_message(conversation_id: uuid.UUID, body: SendIn, rt: RT, p: Tena
         await c.execute("UPDATE messages SET status='cancelled', error='superseded' WHERE conversation_id=%s AND direction='out' AND sender='ai' AND status='queued'", (conversation_id,))
         await c.execute("UPDATE messages SET answered=true WHERE conversation_id=%s AND direction='in' AND NOT answered", (conversation_id,))
         await emit(c, "outbound.action_requested", {"conversation_id": conversation_id, "action": "send_text", "message_id": m["id"], "version": v, "human": True, "last_part": True},
-                   business_id=p.bid, ordering_key=f"num:{conv['whatsapp_number_id']}")
+                   business_id=p.bid, ordering_key=f"conv:{conversation_id}")
     await rt.queue.cancel_superseded(f"conversation:{conversation_id}", v)
     return _msg(m)
 
