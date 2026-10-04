@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Building2, ChevronDown, Home, Inbox, KanbanSquare, LogOut, Megaphone, MessageCircle, Mic2, Moon, MoreHorizontal, Package, Play, Settings, ShieldCheck, Sun, Users, Wifi, WifiOff } from 'lucide-react'
+import { BarChart3, Building2, ChevronDown, CreditCard, FileText, Home, Inbox, KanbanSquare, LogOut, Megaphone, MessageCircle, Mic2, Moon, MoreHorizontal, Package, Play, Settings, ShieldCheck, Sun, Users, Wifi, WifiOff } from 'lucide-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { useT } from '@/i18n'
 import { Avatar, Logo, Switch, Modal, useToast } from '@/ui'
@@ -12,8 +12,9 @@ import { useBusiness, useOverview, usePublicConfig } from '@/api/hooks'
 import { api, ok } from '@/api/client'
 import { currentTheme, setTheme, type Theme } from '@/lib/theme'
 import { tr } from '@/i18n/tr'
+import { useBilling } from '@/features/billing/hooks'
 
-type Item = { to: string; icon: any; key: string; label: string; badge?: number; dev?: boolean }
+type Item = { to: string; icon: any; key: string; label: string; badge?: number; dev?: boolean; owner?: boolean }
 
 export default function Shell() {
   const { me, role, logout, switchBusiness, reload } = useAuth()
@@ -23,7 +24,7 @@ export default function Shell() {
   const backToConsole = async () => {
     try {
       const stash = sessionStorage.getItem('saathi.operator.stash')
-      if (stash) { sessionStorage.removeItem('saathi.operator.stash'); qc.clear(); tokens.set(JSON.parse(stash)); await reload(); nav('/operator') } else await logout()
+      if (stash) { sessionStorage.removeItem('saathi.operator.stash'); qc.clear(); tokens.set(JSON.parse(stash)); await reload(); window.location.assign('/app/operator') } else await logout()
     } catch { await logout() }
   }
   const loc = useLocation()
@@ -32,6 +33,7 @@ export default function Shell() {
   const isOwner = role === 'owner' || role === 'staff'
   const biz = useBusiness(isOwner)
   const ov = useOverview(14, isOwner)
+  const bill = useBilling(role === 'owner')
   const [live, setLive] = useState(false)
   const [theme, setThemeState] = useState<Theme>(currentTheme())
   const [more, setMore] = useState(false)
@@ -50,12 +52,19 @@ export default function Shell() {
     { to: '/offers', icon: Megaphone, key: 'nav.offers', label: tr('Offers') },
     { to: '/voice', icon: Mic2, key: 'nav.voice', label: tr('My voice') },
     { to: '/customers', icon: Users, key: 'nav.customers', label: tr('Customers') },
+    { to: '/analytics', icon: BarChart3, key: 'nav.analytics', label: tr('Analytics') },
+    { to: '/reports', icon: FileText, key: 'nav.reports', label: tr('Reports') },
     { to: '/playground', icon: Play, key: 'nav.playground', label: tr('Playground'), dev: true },
+    { to: '/billing', icon: CreditCard, key: 'nav.billing', label: tr('Billing'), owner: true },
     { to: '/settings', icon: Settings, key: 'nav.settings', label: tr('Settings') },
   ] : [{ to: '/operator', icon: ShieldCheck, key: 'nav.operator', label: tr('Operator console') }], [isOwner, needs])
-  const visible = items.filter((i) => !i.dev || cfg.data?.simulator_enabled)
+  const visible = items.filter((i) => (!i.dev || cfg.data?.simulator_enabled) && (!i.owner || role === 'owner'))
   const mobile = isOwner ? [visible[0], visible[1], visible[2], visible[4]] : visible
   const aiOn = biz.data?.ai_enabled ?? false
+  const bd = bill.data
+  const banner = !bd ? null : bd.state === 'trial_ended' || bd.state === 'canceled' ? { tone: 'bad', text: tr('Your plan has ended and the assistant is paused.') }
+    : bd.status === 'past_due' ? { tone: 'warn', text: tr('A payment is overdue.') }
+    : bd.status === 'trialing' && (bd.trial_days_left ?? 99) <= 3 ? { tone: 'warn', text: tr('{n} days left in your free trial.', { n: bd.trial_days_left ?? 0 }) } : null
 
   const toggleAi = async (v: boolean) => {
     try { const b = await ok(api.POST('/api/v1/business/ai', { body: { enabled: v } })); qc.setQueryData(['business'], b); toast(v ? t('ai.on', 'AI assistant is ON') : t('ai.paused', 'AI assistant paused')) } catch (e) { toast((e as Error).message, 'error') }
@@ -101,6 +110,7 @@ export default function Shell() {
           <button className="btn btn-ghost btn-icon" onClick={flipTheme} aria-label={tr('Theme')}>{theme === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}</button>
           <button className="lg:hidden" onClick={() => setMenu(true)} aria-label={tr('Account')}><Avatar name={me?.name ?? me?.phone} size={32} /></button>
         </header>
+        {banner && <Link to="/billing" className={cx('block px-4 py-2 text-center text-[13px] font-semibold lg:px-8', banner.tone === 'bad' ? 'bg-danger text-white' : 'bg-accent-soft text-[rgb(150_92_0)]')}>{banner.text} <span className="underline">{tr('Open billing')}</span></Link>}
         <main className="min-w-0 flex-1"><Outlet /></main>
       </div>
 

@@ -9,6 +9,7 @@ import { useT } from '@/i18n'
 import { Badge, Confirm, EmptyState, ErrorNote, Field, Modal, Segmented, Skeleton, Spinner, Switch, useToast } from '@/ui'
 import { ago, cx, phone as fmtPhone } from '@/lib/format'
 import { tr } from '@/i18n/tr'
+import { currentSlug, shopUrl } from '@/lib/slug'
 
 type Tab = 'shop' | 'assistant' | 'pacing' | 'team' | 'numbers' | 'devices'
 const DAYS = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']] as const
@@ -20,7 +21,7 @@ function useSaveBusiness() {
   const qc = useQueryClient(); const toast = useToast()
   return useMutation({
     mutationFn: (body: Schemas['BusinessPatch']) => ok(api.PATCH('/api/v1/business', { body })),
-    onSuccess: (b) => { qc.setQueryData(['business'], b); toast(tr('Saved')) }, onError: (e) => toast((e as Error).message, 'error'),
+    onSuccess: (b) => { qc.setQueryData(['business'], b); toast(tr('Saved')); if (currentSlug() && b.slug !== currentSlug()) window.location.replace(shopUrl(b.slug, '/settings')) }, onError: (e) => toast((e as Error).message, 'error'),
   })
 }
 function Chips({ values, onChange, placeholder, disabled }: { values: string[]; onChange: (v: string[]) => void; placeholder: string; disabled?: boolean }) {
@@ -42,6 +43,7 @@ function parseHours(h: unknown): Record<string, { open: boolean; from: string; t
 function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }) {
   const p = b.profile as any
   const [name, setName] = useState(b.name)
+  const [slug, setSlug] = useState(b.slug)
   const [address, setAddress] = useState<string>(p.address ?? '')
   const [shopPhone, setShopPhone] = useState<string>(p.phone ?? '')
   const [delivery, setDelivery] = useState<string>(p.delivery ?? '')
@@ -53,6 +55,7 @@ function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }
   const save = useSaveBusiness()
   const submit = () => save.mutate({
     name: name.trim() || undefined,
+    slug: slug !== b.slug ? slug : undefined,
     profile: { address, phone: shopPhone, delivery, returns, payment_modes: pay, delivery_areas: areas, facts, hours: Object.fromEntries(DAYS.map(([k]) => [k, hours[k].open ? `${hours[k].from}-${hours[k].to}` : 'closed'])) },
   })
   return (
@@ -60,6 +63,9 @@ function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }
       <Section title={tr('Your shop')} sub={tr('The assistant only states facts that are written here or in your catalog.')} footer={canEdit && <button className="btn btn-primary" disabled={save.isPending} onClick={submit}>{save.isPending && <Spinner />} {tr('Save changes')}</button>}>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={tr('Shop name')}><input className="input" value={name} onChange={(e) => setName(e.target.value)} disabled={!canEdit} /></Field>
+          <Field label={tr('Your web address')} hint={tr('Where you sign in to your shop. Changing it changes the link.')}>
+            <div className="flex items-stretch overflow-hidden rounded-xl border border-line bg-surface focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/15"><span className="grid place-items-center border-r border-line bg-surface2 px-3 text-sm text-muted">{window.location.host}/app/</span>
+              <input className="min-w-0 flex-1 bg-transparent px-3 py-3 font-semibold outline-none" value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))} disabled={!canEdit} aria-label={tr('Your web address')} /></div></Field>
           <Field label={tr('Shop phone')} hint={tr('Shown to customers who ask')}><input className="input" value={shopPhone} onChange={(e) => setShopPhone(e.target.value)} disabled={!canEdit} /></Field>
         </div>
         <Field label={tr('Address')}><textarea className="textarea min-h-[70px]" value={address} onChange={(e) => setAddress(e.target.value)} disabled={!canEdit} /></Field>
@@ -203,6 +209,7 @@ function NumbersTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolea
   return (
     <Section title={tr('WhatsApp numbers')} sub={tr('Numbers the assistant answers on. Your own WhatsApp Business app keeps working alongside it.')}>
       {!b.numbers.length && <EmptyState icon={<Phone className="h-6 w-6" />} title={tr('No number connected yet')} body={signup ? tr('Connect your WhatsApp Business number in a few taps.') : tr('Your Saathi contact will connect your WhatsApp number with you.')} />}
+      {!!cfg.data?.simulator_enabled && canEdit && <div className="flex justify-end"><button className="btn btn-outline" onClick={async () => { try { await ok(api.POST('/api/v1/numbers/test')); await qc.invalidateQueries({ queryKey: ['business'] }); toast(tr('Test number added')) } catch (e) { toast((e as Error).message, 'error') } }}><Plus className="h-4 w-4" /> {tr('Add a test number')}</button></div>}
       {signup && canEdit && <div className="flex justify-end"><button className="btn btn-primary" disabled={connecting} onClick={connect}>{connecting ? <Spinner /> : <Plus className="h-4 w-4" />} {tr('Connect a WhatsApp number')}</button></div>}
       <div className="divide-y divide-line/60">
         {b.numbers.map((n) => (

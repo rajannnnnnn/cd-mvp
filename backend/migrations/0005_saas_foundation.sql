@@ -5,13 +5,16 @@ ALTER TABLE businesses
   ADD COLUMN signup_source text;
 ALTER TABLE accounts ADD COLUMN signup_source text;
 
--- backfill slugs for businesses that already exist: name -> lowercase words joined by '-', unique by numeric suffix
+-- backfill slugs for businesses that already exist: name -> lowercase words joined by '-', unique by numeric suffix.
+-- (the table is FORCE ROW LEVEL SECURITY; the owner role sees no rows unless that is lifted for this one statement)
+ALTER TABLE businesses NO FORCE ROW LEVEL SECURITY;
 WITH base AS (
   SELECT id, created_at,
          COALESCE(NULLIF(left(trim(both '-' from lower(regexp_replace(name, '[^a-zA-Z0-9]+', '-', 'g'))), 34), ''), 'shop') AS s
   FROM businesses),
 ranked AS (SELECT id, s, row_number() OVER (PARTITION BY s ORDER BY created_at, id) AS rn FROM base)
 UPDATE businesses b SET slug = CASE WHEN r.rn = 1 THEN r.s ELSE r.s || '-' || r.rn END FROM ranked r WHERE r.id = b.id;
+ALTER TABLE businesses FORCE ROW LEVEL SECURITY;
 
 ALTER TABLE businesses ALTER COLUMN slug SET NOT NULL;
 -- direct inserts (tests, imports) that do not choose a slug get a unique, valid placeholder; the application always chooses one from the name

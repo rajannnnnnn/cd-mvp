@@ -31,6 +31,10 @@ Everything else about the product is real code, not mock-ups.
 - **The frontend must be impressive and honest** for the co-founders, in English and Hindi, mobile first.
 - "Saathi" is a **placeholder brand** (`VITE_BRAND`); the founder has not chosen a name or legal entity.
 - No pull requests unless the founder asks.
+- **Full self-serve SaaS** (added 2026-10-04): marketing home, pricing and ad pages; sign-up and sign-in by mobile number with **any one-time code
+  accepted for now** (the real OTP comes once the company exists); onboarding (business, products, WhatsApp, assistant preferences); shop
+  addresses (`/<shop-name>` lands on the dashboard); analytics, reports, AI preferences; billing. **The app is English only**; voice notes are
+  removed from the product surface. Operations must work even where real messaging or payments cannot be tested yet.
 
 ## 3. Milestone status (from `CLAUDE.md`)
 
@@ -52,6 +56,7 @@ Legend: **Done** = implemented and covered by automated tests. **Partial** = imp
 | M12 | Frontend | **Done** | Marketing site (EN/HI, live price-limits demo, legal pages), login, dashboard, chats, pipeline, inbox, catalog (write-only floor, ladder preview), offers, "My voice" style examples (how the owner writes; not voice notes), customers, settings (including the owner's own data export and delete), playground, operator console. **The app is English only by founder decision**; the marketing site keeps its EN/HI toggle. Voice notes appear nowhere in the product surface. The in-app "Connect a WhatsApp number" button exists but is unverified against Meta. |
 | M13 | Hardening | **Partial** | Structured JSON logs with redaction and a request id on every API call, Prometheus metrics, operator alerts **routed to a webhook and/or WhatsApp** (ADR 0017), scheduler retention, evaluation suite, load-test harness with results (section 4). **Missing: distributed tracing across the queue hops, a run of the evaluations on real models.** |
 | M14 | Meta onboarding | **Partial** | Embedded Signup completion, account/quality events, disconnection handling are implemented and tested against fakes. **Needs verification with a real Meta test number**; the browser-side Embedded Signup button is built but tested only against fakes. |
+| M15 | SaaS layer (founder request, 2026-10-04) | **Done in the simulated environment** | Self-serve sign-up by mobile number (any code accepted in demo mode), onboarding wizard (business, details, products, WhatsApp, assistant preferences, go live), shop addresses `/app/<slug>` with `/<slug>` short links, marketing home + pricing + ad landing + contact pages, billing (plans, 14-day trial, subscriptions, GST invoices, usage and limits, test and manual payment providers, operator reconciliation), analytics, reports with CSV export. **Unverified:** the Caddy short-link rule (no Caddy binary here), real payments, real OTP delivery. ADRs 0018, 0019. |
 
 ## 4. What has been verified, and how
 
@@ -101,6 +106,13 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
 9. Redis backend runs standalone/Sentinel (single hash tag); sharding is a later step.
 10. Template management: the product sends only inside the 24-hour window; a window-closed send fails safely into an owner handoff
     (INV-8, INV-12). No owner-defined WhatsApp templates exist yet, and none are needed until the founder wants proactive outreach.
+11. **`OTP_ACCEPT_ANY`** lets anyone sign in as any number. It is refused in `ENV=production`, but any other environment that is reachable
+    from the internet with real data is exposed. Turn it off (and set up WhatsApp delivery) before real customers.
+12. **Plan prices, limits and the invoice seller details are placeholders** (`plans.py`, `INVOICE_SELLER_*`). No real money moves: the test
+    gateway settles instantly and `manual` needs the platform team to confirm. There is no card/UPI gateway adapter yet (ADR 0019).
+13. **Caddy short links** (`/<shop>` → `/app/<shop>`) and clean URLs are written for production but could not be exercised here (no Caddy
+    binary); the Vite dev server implements the same rules and is browser-tested. The new marketing pages (pricing, start, contact) are English only.
+14. Billing emails/WhatsApp reminders (trial ending, invoice due) are not sent; the app shows banners and the operator is alerted.
 
 ## 6. Decisions needed from the founder
 
@@ -111,7 +123,8 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
 | LLM vendor/model approval and an API key (paid) | Real evaluations, cost per conversation, pricing | Local stand-in only |
 | Meta developer account / test number / Tech Provider path | Real-world verification of the adapter | Simulated network only |
 | Pilot shops and categories (CR-5 excludes prohibited categories) | Seed data, evaluation scenarios | Demo shops |
-| Subscription price (after cost measurement) | Marketing copy says "pricing after pilot" | Unpriced pilot |
+| Real plan prices, included conversations and overage rates | Placeholders are live on the pricing page and in invoices | ₹999 / ₹2,499 / ₹5,999 per month + 18% GST |
+| Company name, address and GSTIN for invoices and legal pages; a payment gateway account (Razorpay is the natural fit) | Invoices show bracketed placeholders; payments can only be collected by transfer | Placeholders; manual payments |
 | Default AI negotiation per item (recommended: off, owner opts in) | Product default | Off unless the owner enables |
 
 ## 7. Next steps, in priority order
@@ -140,7 +153,7 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
    template approved in Meta before a pilot.
 9. Meta Data Use Checkup reminder and a quality-rating based throttling policy.
 
-**Out of scope until the founder says so:** voice-note transcription, v2/v3 items in `docs/PRD.md`, payments/billing.
+**Out of scope until the founder says so:** voice-note transcription, v2/v3 items in `docs/PRD.md`, card/UPI gateway integration and refunds.
 
 ## 8. Working in this repository
 
@@ -159,5 +172,7 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
   shared suite; Anthropic adapter and Embedded Signup completion tested against local fakes; ADRs; browser and unit tests;
   this handoff documentation.
 - **Session 4 (this one):** reply-latency root cause fixed (outbound ordering per conversation, flood guard; ADR 0016); owner self-service data
-  export and delete; alert routing (ADR 0017); voice notes removed from the product surface; app made English-only; then the full
-  SaaS slice requested by the founder (see the section below once recorded).
+  export and delete; alert routing (ADR 0017); voice notes removed from the product surface; app made English-only; then the full self-serve
+  SaaS slice requested by the founder (milestone M15; ADRs 0018 and 0019): sign-up, onboarding, shop addresses, marketing pricing/ad/contact
+  pages, billing, analytics, reports, operator billing console. A migration bug that only shows on databases with data (row-level security hid
+  the rows being backfilled) was found on the dev database and is now guarded by `test_migrations.py`.

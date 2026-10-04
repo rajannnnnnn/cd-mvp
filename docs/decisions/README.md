@@ -22,3 +22,5 @@ superseded by a new ADR, never rewritten. Status is `accepted` unless stated.
 | [0015](0015-voice-notes-deferred.md) | Voice-note transcription deferred by the founder; the seam is kept |
 | [0016](0016-per-conversation-ordering-and-flood-guard.md) | Outbound ordering per conversation; per-conversation AI turn budget |
 | [0017](0017-alert-routing.md) | Alert routing to the platform team |
+| [0018](0018-self-serve-signup-onboarding-slugs.md) | Self-serve sign-up, onboarding and shop addresses |
+| [0019](0019-billing.md) | Billing: plans, trial, GST invoices, payment provider port |

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { login, noHorizontalScroll, OWNER } from './helpers'
+import { login, noHorizontalScroll, OWNER, SHOP } from './helpers'
 
 test.describe('mobile first: owners work from phones', () => {
   test('marketing pages never scroll sideways', async ({ page }) => {
@@ -21,7 +21,7 @@ test.describe('mobile first: owners work from phones', () => {
 
   test('a conversation fills the screen on a phone and goes back to the list', async ({ page }) => {
     await login(page, OWNER)
-    await page.goto('/app/chats')
+    await page.goto(`${SHOP}/chats`)
     await page.getByText('Priya Kulkarni').first().click()
     await expect(page.locator('.bubble').first()).toBeVisible()
     await page.getByRole('button', { name: 'Back' }).click()

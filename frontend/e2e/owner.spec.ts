@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { login, OWNER } from './helpers'
+import { login, OWNER, SHOP } from './helpers'
 
 test.describe('owner app', () => {
   test.beforeEach(async ({ page }) => { await login(page, OWNER) })
@@ -20,7 +20,7 @@ test.describe('owner app', () => {
   })
 
   test('a conversation opens with its history, lead details and negotiation', async ({ page }) => {
-    await page.goto('/app/chats')
+    await page.goto(`${SHOP}/chats`)
     await page.getByText('Priya Kulkarni').first().click()
     await expect(page.getByText(/Banarasi Silk Saree/).first()).toBeVisible()
     await expect(page.getByText(/AI offered/).first()).toBeVisible()
@@ -28,7 +28,7 @@ test.describe('owner app', () => {
   })
 
   test('taking over a chat lets the owner reply and pauses the AI there', async ({ page }) => {
-    await page.goto('/app/chats')
+    await page.goto(`${SHOP}/chats`)
     await page.getByText('Deepak Wagh').first().click()                 // a conversation whose 24-hour window is open
     await page.getByRole('button', { name: 'Take over' }).click()
     const box = page.getByPlaceholder(/Type a reply/i).first()
@@ -39,14 +39,14 @@ test.describe('owner app', () => {
   })
 
   test('pipeline groups every conversation by stage', async ({ page }) => {
-    await page.goto('/app/pipeline')
+    await page.goto(`${SHOP}/pipeline`)
     for (const stage of ['New', 'Exploring', 'Interested', 'Negotiating', 'Ready to buy']) await expect(page.getByRole('heading', { name: stage, exact: false }).first()).toBeVisible()
     await page.getByText('Anjali Deshmukh').first().click()
-    await expect(page).toHaveURL(/\/app\/chats\//)
+    await expect(page).toHaveURL(/\/app\/[a-z0-9-]+\/chats\//)
   })
 
   test('the inbox lists customers waiting, orders to confirm and questions, and a deal can be confirmed', async ({ page }) => {
-    await page.goto('/app/inbox')
+    await page.goto(`${SHOP}/inbox`)
     await expect(page.getByText('Customers waiting')).toBeVisible()
     await page.getByRole('tab', { name: /To confirm/ }).click()
     await expect(page.getByText(/Banarasi Silk Saree/).first()).toBeVisible()
@@ -55,7 +55,7 @@ test.describe('owner app', () => {
   })
 
   test('offers can be created, switched off and deleted', async ({ page }) => {
-    await page.goto('/app/offers')
+    await page.goto(`${SHOP}/offers`)
     await page.getByRole('button', { name: 'New offer' }).click()
     await page.getByPlaceholder('e.g. Festive 10% off').fill('E2E test offer')
     await page.getByPlaceholder('10', { exact: true }).fill('5')
@@ -68,7 +68,7 @@ test.describe('owner app', () => {
   })
 
   test('customers can be marked personal so the assistant never answers them', async ({ page }) => {
-    await page.goto('/app/customers')
+    await page.goto(`${SHOP}/customers`)
     const row = page.locator('div', { hasText: 'Ritu Singh' }).last()
     await expect(page.getByText('Ritu Singh').first()).toBeVisible()
     await page.getByRole('button', { name: 'Personal' }).first().click()
@@ -78,7 +78,7 @@ test.describe('owner app', () => {
   })
 
   test('settings: shop details and the reply-speed preset save', async ({ page }) => {
-    await page.goto('/app/settings')
+    await page.goto(`${SHOP}/settings`)
     await page.getByLabel('Shop phone').fill('+91 99999 00002')
     await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page.getByText('Saved').first()).toBeVisible()
@@ -89,7 +89,7 @@ test.describe('owner app', () => {
   })
 
   test('settings: the owner can download their data and is asked to type the shop name before deleting', async ({ page }) => {
-    await page.goto('/app/settings')
+    await page.goto(`${SHOP}/settings`)
     await page.getByRole('tab', { name: /Security/ }).click()
     const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download my data' }).click()])
     expect(dl.suggestedFilename()).toBe('my-shop-data.json')

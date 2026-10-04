@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test'
-import { login, OWNER } from './helpers'
+import { login, OWNER, SHOP } from './helpers'
 
 test.describe('playground: a customer chats with the shop through the real pipeline', () => {
   test('the assistant answers from the catalog and never goes below the owner’s floor (INV-2, INV-3)', async ({ page }) => {
     await login(page, OWNER)
-    await page.goto('/app/playground')
+    await page.goto(`${SHOP}/playground`)
     await page.getByTitle('New random customer').click()
     const box = page.getByPlaceholder('Message')
     const say = async (text: string) => { await box.fill(text); await box.press('Enter') }
@@ -31,7 +31,7 @@ test.describe('playground: a customer chats with the shop through the real pipel
 
   test('the owner’s phone receives alerts and obeys commands', async ({ page }) => {
     await login(page, OWNER)
-    await page.goto('/app/playground')
+    await page.goto(`${SHOP}/playground`)
     const owner = page.locator('.phone').nth(1)
     await expect(owner.locator('.bubble-in').first()).toBeVisible({ timeout: 20_000 })
     const box = owner.getByPlaceholder(/stop|summary/i)

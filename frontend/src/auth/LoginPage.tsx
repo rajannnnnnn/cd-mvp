@@ -121,8 +121,8 @@ export default function LoginPage() {
         <div className="mx-auto flex w-full max-w-[400px] flex-1 flex-col justify-center py-8">
           {step === 'phone' && (
             <div className="animate-fadeUp">
-              <h2 className="font-display text-[28px] font-extrabold leading-tight">{t('login.title', 'Sign in with your WhatsApp number')}</h2>
-              <p className="mt-2 text-[15px] text-muted">{t('login.subtitle', 'We’ll send a code to your number. No password to remember.')}</p>
+              <h2 className="font-display text-[28px] font-extrabold leading-tight">{t('login.title', 'Sign in or create your account')}</h2>
+              <p className="mt-2 text-[15px] text-muted">{t('login.subtitle', 'Enter your WhatsApp number. New here? We’ll set up your shop in a few minutes. No password to remember.')}</p>
               <form className="mt-8" onSubmit={(e) => { e.preventDefault(); if (full) send() }}>
                 <label className="field-label" htmlFor="phone">{t('login.phone', 'Mobile number')}</label>
                 <div className={cx('flex items-stretch overflow-hidden rounded-xl border bg-surface transition focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/15', err ? 'border-danger' : 'border-line')}>
@@ -130,7 +130,7 @@ export default function LoginPage() {
                   <input id="phone" autoFocus inputMode="tel" autoComplete="tel-national" placeholder="98765 43210" value={local} onChange={(e) => setLocal(e.target.value)} className="tnum min-w-0 flex-1 bg-transparent px-3.5 py-3.5 text-lg font-semibold outline-none placeholder:font-normal placeholder:text-muted/60" />
                 </div>
                 {err && <p className="mt-2 text-sm font-medium text-danger">{err}</p>}
-                <button className="btn btn-primary btn-lg mt-5 w-full" disabled={!full || busy}>{busy ? <Spinner /> : <MessageCircle className="h-5 w-5" />}{t('login.send', 'Send code on WhatsApp')}</button>
+                <button className="btn btn-primary btn-lg mt-5 w-full" disabled={!full || busy}>{busy ? <Spinner /> : <MessageCircle className="h-5 w-5" />}{t('login.send', 'Continue with WhatsApp')}</button>
               </form>
               {dev && (
                 <div className="mt-8 rounded-2xl border border-dashed border-line p-4">
@@ -146,9 +146,10 @@ export default function LoginPage() {
               <h2 className="font-display text-[28px] font-extrabold leading-tight">{t('login.code', 'Enter the 6-digit code')}</h2>
               <p className="mt-2 flex items-center gap-2 text-[15px] text-muted"><CheckCheck className="h-4 w-4 text-brand" />{t('login.sent', 'Sent to your WhatsApp')} · <b className="tnum text-ink">{full}</b></p>
               <div className="mt-8"><OtpBoxes value={code} onChange={(v) => { setCode(v); setAutofilled(false) }} disabled={busy} autoFocus /></div>
+              {!!cfg.data?.otp_accept_any && <p className="mt-3 rounded-xl bg-accent-soft px-3 py-2 text-xs font-semibold text-[rgb(150_92_0)]">Demo mode: any 6 digits will sign you in.</p>}
               {autofilled && <p className="mt-3 flex items-center gap-2 text-xs font-medium text-brand-ink"><Sparkles className="h-3.5 w-3.5" />{tr('Auto-filled from the simulated WhatsApp (development only)')}</p>}
               {err && <p className="mt-3 text-sm font-medium text-danger">{err}</p>}
-              <button className="btn btn-primary btn-lg mt-6 w-full" disabled={code.length !== 6 || busy} onClick={() => verify()}>{busy ? <Spinner /> : <ShieldCheck className="h-5 w-5" />}{t('login.verify', 'Sign in')}</button>
+              <button className="btn btn-primary btn-lg mt-6 w-full" disabled={code.length !== 6 || busy} onClick={() => verify()}>{busy ? <Spinner /> : <ShieldCheck className="h-5 w-5" />}{t('login.verify', 'Continue')}</button>
               <button className="btn btn-ghost mt-3 w-full" disabled={wait > 0 || busy} onClick={send}>{wait > 0 ? `${t('login.resend', 'Resend code')} (${wait}s)` : t('login.resend', 'Resend code')}</button>
             </div>)}
 

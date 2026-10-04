@@ -13,7 +13,11 @@ environment variables only; production refuses to start in that mode.
 
 **Demo sign-in.** The WhatsApp network is simulated: on the login page choose a demo number and the login code appears in
 the simulated phone and is filled in automatically.
-Owner `+91 99999 00001` (shop "Sharma Sarees & Fabrics"), operator `+91 99999 00000`; other demo shops: Gupta Mobile Point
+**Any new mobile number signs up** and is taken through onboarding to a new shop (the demo stack sets `OTP_ACCEPT_ANY=true`, so any
+6 digits are accepted; turn it off with `OTP_ACCEPT_ANY=false`, which production requires). A shop lives at `/app/<shop-address>/…`, and
+`/<shop-address>` (for example `/sharma-sarees-fabrics`) is a short link to it. Pages: `/` (home), `/pricing`, `/start` (ad landing, not indexed),
+`/contact`.
+Demo logins: owner `+91 99999 00001` (shop "Sharma Sarees & Fabrics"), operator `+91 99999 00000`; other demo shops: Gupta Mobile Point
 (`+91 99999 00011`), Fresh Basket Kirana (`+91 99999 00021`).
 
 Status of this path: the compose file validates (`docker compose config`) and the backend wheel, role start-up and
@@ -43,6 +47,13 @@ Every setting is documented in `.env.example` (a test fails if one is missing).
 Container/CI quirks seen in the authoring environment: the Postgres server needed `127.0.0.1` set to `trust` in
 `pg_hba.conf`; the Vite dev server must be restarted after editing `tailwind.config.js` or `vite.config.ts`; do not kill
 processes with `pkill -f vite` from a shell whose own command line contains the word (it kills the shell).
+
+## 2b. Billing, alerts and other new settings
+
+`PAYMENT_PROVIDER=test` (demo) settles invoices instantly and the UI says TEST MODE; `manual` (production) leaves invoices open for the
+platform team to confirm in Operator → Billing. `INVOICE_SELLER_*` fill the tax invoice. `ALERT_WEBHOOK_URL` / `ALERT_WHATSAPP_NUMBERS`
+route operator alerts to the team (ADR 0017). Plans and prices live in `backend/src/salesai/modules/billing/plans.py`; after changing them run
+`python scripts/export_plans.py` (the pricing page and billing screen read the exported file; a test fails if it is stale).
 
 ## 3. Quality gates (what CI runs)
 

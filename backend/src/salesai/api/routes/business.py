@@ -258,7 +258,7 @@ async def _activate_after_number(rt: Runtime, p: Principal) -> None:
     """A shop that finished onboarding without a number starts answering as soon as one is connected."""
     async with tx(rt, p) as c:
         row = await (await c.execute("SELECT status, onboarding FROM businesses WHERE id=%s", (p.bid,))).fetchone()
-        if row and row["status"] == "active" and (row["onboarding"] or {}).get("completed_at"):
+        if row and row["status"] == "active":
             await c.execute("UPDATE businesses SET ai_enabled=true WHERE id=%s", (p.bid,))
 
 

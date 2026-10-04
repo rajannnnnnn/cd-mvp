@@ -9,7 +9,7 @@ import { Badge, Confirm, EmptyState, ErrorNote, Field, Modal, Segmented, Skeleto
 import { ago, cx, inr, phone as fmtPhone } from '@/lib/format'
 
 export const STASH_KEY = 'saathi.operator.stash'
-type Tab = 'tenants' | 'alerts' | 'queues' | 'webhooks' | 'turns' | 'costs'
+type Tab = 'tenants' | 'alerts' | 'queues' | 'webhooks' | 'turns' | 'costs' | 'billing'
 const sevTone = (s: string) => (s === 'critical' || s === 'error' ? 'red' : s === 'warning' ? 'amber' : 'blue') as 'red' | 'amber' | 'blue'
 
 function Table({ head, children, empty }: { head: string[]; children: ReactNode; empty?: ReactNode }) {
@@ -178,6 +178,29 @@ function Turns() {
     </Table>
     <p className="mt-2 text-[12.5px] text-muted">Decision metadata only: no customer message content is shown here.</p></>)
 }
+function PlatformBilling() {
+  const toast = useToast(); const qc = useQueryClient()
+  const sum = useQuery({ queryKey: ['op-billing'], queryFn: () => ok(api.GET('/api/v1/operator/billing')), refetchInterval: 30_000 })
+  const open = useQuery({ queryKey: ['op-invoices'], queryFn: () => ok(api.GET('/api/v1/operator/invoices')), refetchInterval: 30_000 })
+  const paid = useMutation({
+    mutationFn: (id: string) => ok(api.POST('/api/v1/operator/invoices/{invoice_id}/mark-paid', { params: { path: { invoice_id: id } } })),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['op-invoices'] }); qc.invalidateQueries({ queryKey: ['op-billing'] }); toast('Marked as paid') }, onError: (e) => toast((e as Error).message, 'error'),
+  })
+  const rupees = (p: number) => '₹' + (p / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })
+  const by = (sum.data?.subscriptions_by_status ?? {}) as Record<string, number>
+  return (<div className="space-y-5">
+    {sum.error && <ErrorNote error={sum.error} retry={() => sum.refetch()} />}
+    {sum.data && <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <Stat label="Monthly recurring revenue" value={rupees(Number(sum.data.mrr_paise))} icon={<CircleDollarSign className="h-4 w-4" />} />
+      <Stat label="Collected this month" value={rupees(Number(sum.data.collected_this_month_paise))} icon={<CircleDollarSign className="h-4 w-4" />} tone="blue" />
+      <Stat label="Outstanding" value={rupees(Number(sum.data.outstanding_paise))} sub={`${sum.data.open_invoices} open invoices`} icon={<Inbox className="h-4 w-4" />} tone="amber" />
+      <Stat label="Subscriptions" value={Object.values(by).reduce((a, b) => a + b, 0)} sub={Object.entries(by).map(([k, v]) => `${v} ${k}`).join(' · ')} icon={<Building2 className="h-4 w-4" />} />
+    </div>}
+    <Table head={['Invoice', 'Business', 'Plan', 'Total', 'Due', '']} empty={<EmptyState title="No open invoices" body="Bank-transfer and UPI payments waiting to be confirmed appear here." />}>
+      {open.data?.map((i) => <tr key={String(i.id)} className="hover:bg-surface2/40"><Td className="font-bold">{String(i.number)}</Td><Td>{String(i.business_name)}</Td><Td>{String(i.plan)}</Td><Td className="tnum">{rupees(Number(i.total_paise))}</Td><Td className="text-xs text-muted">{ago(String(i.due_at))}</Td>
+        <Td><button className="btn btn-primary btn-sm" disabled={paid.isPending} onClick={() => paid.mutate(String(i.id))}>Mark paid</button></Td></tr>)}
+    </Table></div>)
+}
 function Costs() {
   const q = useQuery({ queryKey: ['op-costs'], queryFn: () => ok(api.GET('/api/v1/operator/costs')), refetchInterval: 30_000 })
   return (<>{q.error && <ErrorNote error={q.error} retry={() => q.refetch()} />}
@@ -195,13 +218,13 @@ export default function Operator() {
     { value: 'alerts' as const, label: <span className="inline-flex items-center gap-1.5"><AlertOctagon className="h-4 w-4" />Alerts{n > 0 && <span className="rounded-full bg-danger px-1.5 text-[11px] font-bold leading-4 text-white">{n}</span>}</span> },
     { value: 'queues' as const, label: <span className="inline-flex items-center gap-1.5"><Activity className="h-4 w-4" />Queues</span> },
     { value: 'webhooks' as const, label: <span className="inline-flex items-center gap-1.5"><Webhook className="h-4 w-4" />Webhooks</span> },
-    { value: 'turns' as const, label: 'AI turns' }, { value: 'costs' as const, label: <span className="inline-flex items-center gap-1.5"><CircleDollarSign className="h-4 w-4" />Costs</span> },
+    { value: 'billing' as const, label: <span className="inline-flex items-center gap-1.5"><CircleDollarSign className="h-4 w-4" />Billing</span> }, { value: 'turns' as const, label: 'AI turns' }, { value: 'costs' as const, label: <span className="inline-flex items-center gap-1.5"><CircleDollarSign className="h-4 w-4" />Costs</span> },
   ]
   return (
     <div className="mx-auto max-w-[1240px] space-y-5 px-4 py-6 lg:px-8 lg:py-8">
       <div><h1 className="text-[28px] font-extrabold">Operator console</h1><p className="text-[15px] text-muted">Every business on the platform: health, volume, cost, and the plumbing underneath.</p></div>
       <div className="-mx-4 overflow-x-auto px-4"><Segmented value={tab} onChange={setTab} options={tabs} className="w-max" /></div>
-      {tab === 'tenants' && <Tenants />}{tab === 'alerts' && <Alerts />}{tab === 'queues' && <Queues />}{tab === 'webhooks' && <Webhooks />}{tab === 'turns' && <Turns />}{tab === 'costs' && <Costs />}
+      {tab === 'tenants' && <Tenants />}{tab === 'alerts' && <Alerts />}{tab === 'queues' && <Queues />}{tab === 'webhooks' && <Webhooks />}{tab === 'turns' && <Turns />}{tab === 'costs' && <Costs />}{tab === 'billing' && <PlatformBilling />}
     </div>
   )
 }

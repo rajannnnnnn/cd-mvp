@@ -26,7 +26,7 @@ test.describe('operator console', () => {
 
     const row = page.locator('tr', { hasText: name })
     await row.getByRole('button', { name: /Open as owner/ }).click()
-    await expect(page).toHaveURL(/\/app\/home/)
+    await expect(page).toHaveURL(/\/app\/[a-z0-9-]+\/home/)
     await expect(page.getByText(/Viewing as owner/)).toBeVisible()
     await page.getByText(/Back to console/).click()
     await expect(page).toHaveURL(/\/app\/operator/)

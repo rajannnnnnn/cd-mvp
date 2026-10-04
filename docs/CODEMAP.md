@@ -16,6 +16,7 @@ Where things live, and which automated tests prove each invariant. Keep this cur
 | `delivery` | human-like planner, send-time checks, per-number rate limit, business hours | channels, handoffs |
 | `agent` | context assembly, planner → engine → writer → checks pipeline, prompts, LLM providers (`llm/`) | catalog, delivery, handoffs, pricing, sales |
 | `conversations` | inbound router, end-of-turn predictor, turn worker | agent, channels, handoffs |
+| `billing` | plans catalogue, trial, subscriptions, usage and plan limits, GST invoices, payment provider port (test, manual), renewal cycle (ADR 0019) | – |
 | `alerting` | pushes operator alerts to the platform team: JSON webhook and WhatsApp sinks, reminders, retries (ADR 0017) | channels |
 | `notifications` | owner loop: alerts, WhatsApp commands, config-by-chat with read-back, daily summary | agent, catalog, channels, handoffs, sales |
 
@@ -29,7 +30,7 @@ Process roles of the one image: `api`, `ingress`, `web` (both), `worker`, `sched
 ## Frontend (`frontend/src`)
 
 `site/` marketing page logic (hero, price-limits demo, EN/HI), `auth/` (login, token store), `api/` (generated typed client,
-SSE), `app/` (shell, routes), `features/` (dashboard, conversations, pipeline, inbox, catalog, offers, voice, customers,
+SSE), `app/` (shell, routes), `features/` (onboarding wizard, billing, analytics and reports, dashboard, conversations, pipeline, inbox, catalog, offers, voice (owner style examples), customers,
 settings, playground, operator), `ui/` (design system), `i18n/`, `lib/`. Static pages at the root: `index.html`,
 `privacy.html`, `terms.html`, `data-deletion.html`; the app is `app/index.html` served under `/app`.
 

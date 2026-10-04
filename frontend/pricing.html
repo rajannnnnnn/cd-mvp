@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b8f5b" />
+  <meta name="brand" content="{{brand}}" />
+  <title>Pricing — {{brand}}</title>
+  <meta name="description" content="Simple plans for shops that sell on WhatsApp. Start with a free 14-day trial, no card needed." />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <script src="/theme-init.js"></script>
+  <script type="module" src="/src/site/site.ts"></script>
+</head>
+<body>
+<!--@header-->
+<main>
+  <section class="section">
+    <div class="wrap">
+      <div class="mx-auto max-w-2xl text-center">
+        <div class="kicker">Pricing</div>
+        <h1 class="h-display text-[36px] sm:text-[52px]">Simple plans. Start free.</h1>
+        <p class="lead mt-5">Every shop gets a 14-day free trial of the Growth plan. No card, no commitment. Prices below are per month and exclude 18% GST.</p>
+        <div class="mt-8 inline-flex rounded-full border border-line bg-surface p-1 text-[14.5px] font-semibold" role="group" aria-label="Billing period">
+          <button type="button" class="rounded-full px-5 py-2 bg-brand text-white" data-interval="month" aria-pressed="true">Monthly</button>
+          <button type="button" class="rounded-full px-5 py-2 text-muted" data-interval="year" aria-pressed="false">Yearly · 2 months free</button>
+        </div>
+      </div>
+      <div class="mt-14"><!--@plans--></div>
+      <p class="mt-8 text-center text-[13.5px] text-muted">Prices are shown in Indian rupees and exclude GST. You get a proper GST invoice for every payment.</p>
+    </div>
+  </section>
+
+  <section class="section bg-surface">
+    <div class="wrap grid items-start gap-12 lg:grid-cols-2">
+      <div>
+        <div class="kicker">What counts as a conversation</div>
+        <h2 class="h-display text-[30px] sm:text-[40px]">You only pay for conversations your assistant handles.</h2>
+        <p class="lead mt-5">One customer, one month: if the assistant replied to them, that is one conversation, however many messages it took. If you go over the included amount your assistant keeps answering and the extras appear on your next invoice. Nothing is ever cut off mid-chat.</p>
+      </div>
+      <div class="card p-7"><!--@overage--></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap max-w-[860px]">
+      <div class="text-center"><div class="kicker">Every plan includes</div><h2 class="h-display text-[30px] sm:text-[40px]">The things that make it safe to hand over your WhatsApp.</h2></div>
+      <ul class="mt-10 grid gap-4 sm:grid-cols-2 text-[15.5px]">
+        <li class="card card-pad"><b>A private lowest price.</b> The assistant never goes below it, and can’t even see it.</li>
+        <li class="card card-pad"><b>Hindi, English and Hinglish.</b> It mirrors each customer.</li>
+        <li class="card card-pad"><b>You stay in charge.</b> Take over any chat, pause the assistant, change anything from WhatsApp.</li>
+        <li class="card card-pad"><b>Your data is yours.</b> Download everything or delete it for good, any time.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section bg-surface">
+    <div class="wrap max-w-[820px]">
+      <div class="text-center"><div class="kicker">Questions</div><h2 class="h-display text-[30px] sm:text-[40px]">Billing, answered.</h2></div>
+      <div class="mt-10 divide-y divide-line/60 rounded-2xl border border-line/70 bg-bg">
+        <details class="group p-5"><summary class="text-[16.5px] font-bold">Do I need a card to start?</summary><p class="mt-3 text-[15.5px] leading-relaxed text-muted">No. Sign up with your mobile number, set up your shop and use the full Growth plan for 14 days. We only ask for payment if you choose a plan.</p></details>
+        <details class="group p-5"><summary class="text-[16.5px] font-bold">What happens when the trial ends?</summary><p class="mt-3 text-[15.5px] leading-relaxed text-muted">The assistant pauses and your shop stays exactly as you left it: catalog, customers, settings. Choose a plan whenever you are ready and it switches back on.</p></details>
+        <details class="group p-5"><summary class="text-[16.5px] font-bold">Can I change or cancel my plan?</summary><p class="mt-3 text-[15.5px] leading-relaxed text-muted">Yes. Upgrades apply immediately and credit the unused part of your current period. Downgrades and cancellations take effect at the end of the period you have paid for.</p></details>
+        <details class="group p-5"><summary class="text-[16.5px] font-bold">How do I pay, and do I get a GST invoice?</summary><p class="mt-3 text-[15.5px] leading-relaxed text-muted">You get a GST invoice for every payment, available from the Billing screen. Payment is by UPI or bank transfer; online card payments are coming.</p></details>
+        <details class="group p-5"><summary class="text-[16.5px] font-bold">Is there a contract?</summary><p class="mt-3 text-[15.5px] leading-relaxed text-muted">No lock-in. Monthly plans can be cancelled any time; yearly plans are paid up front and give you two months free.</p></details>
+        <details class="group p-5"><summary class="text-[16.5px] font-bold">Do I need a new WhatsApp number?</summary><p class="mt-3 text-[15.5px] leading-relaxed text-muted">No. The assistant works on your own business number, and your WhatsApp Business app keeps working next to it.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap text-center">
+      <h2 class="h-display mx-auto max-w-2xl text-[30px] sm:text-[42px]">Ready to try it on your own customers?</h2>
+      <p class="lead mx-auto mt-4 max-w-xl">Set up in about five minutes. Your first 14 days are free.</p>
+      <div class="mt-8"><a href="/app/login?src=pricing-bottom" class="btn btn-primary btn-lg" data-cta>Start free trial</a></div>
+    </div>
+  </section>
+</main>
+
+<!--@footer-->
+</body>
+</html>

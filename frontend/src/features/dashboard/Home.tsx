@@ -13,6 +13,23 @@ import { useToast } from '@/ui'
 import { useQueryClient } from '@tanstack/react-query'
 import { tr } from '@/i18n/tr'
 
+function SetupCard() {
+  const q = useQuery({ queryKey: ['onboarding'], queryFn: () => ok(api.GET('/api/v1/onboarding')) })
+  const todo = q.data?.steps.filter((s) => s.key !== 'business' && !s.done && (s.key !== 'live' || !q.data.complete)) ?? []
+  if (!q.data || todo.length === 0) return null
+  const done = q.data.steps.filter((s) => s.done).length
+  return (
+    <section className="card card-pad border-brand/30 bg-gradient-to-br from-brand-soft/60 to-surface">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1"><h2 className="font-display text-lg font-extrabold">{tr('Finish setting up your shop')}</h2>
+          <p className="text-sm text-muted">{tr('{done} of {total} steps done. A few more and your assistant is ready.', { done, total: q.data.steps.length })}</p></div>
+        <Link className="btn btn-primary" to={`/onboarding?step=${todo[0].key}`}>{tr('Continue setup')} <ArrowRight className="h-4 w-4" /></Link>
+      </div>
+      <ul className="mt-3 flex flex-wrap gap-2">{todo.map((s) => <li key={s.key}><Link className="chip" to={`/onboarding?step=${s.key}`}>{tr(s.title)}{s.skipped ? ' · ' + tr('skipped') : ''}</Link></li>)}</ul>
+    </section>
+  )
+}
+
 export default function Home() {
   const { t } = useT()
   const { me } = useAuth()
@@ -57,6 +74,7 @@ export default function Home() {
 
       {ov.error && <ErrorNote error={ov.error} retry={() => ov.refetch()} />}
 
+      <SetupCard />
       {/* ------------- needs you */}
       {needsCount > 0 && (
         <Link to="/inbox" className="group flex items-center gap-4 overflow-hidden rounded-2xl border border-accent/40 bg-gradient-to-r from-accent-soft to-surface p-4 shadow-card transition hover:shadow-pop">

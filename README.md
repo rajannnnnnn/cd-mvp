@@ -15,6 +15,7 @@ engineering decisions are recorded as ADRs.
 | Frontend (marketing site, owner app, operator console, playground) | **Built**; app in English, marketing site in English and Hindi; browser tests run against the dev stack |
 | Meta WhatsApp Cloud API | Adapter and Embedded Signup completion **implemented against documented formats and a fake Graph server; not yet verified with a real Meta number** (none exists yet) |
 | LLM | Deterministic local stand-in is the default (no API key yet). Anthropic adapter implemented and tested against a local fake of the Messages API; **real-model evaluations not yet run** |
+| Self-serve SaaS layer (sign-up by mobile number, onboarding wizard, shop addresses, pricing and billing with GST invoices, analytics, reports) | **Built and tested in the simulated environment**; any one-time code is accepted in demo mode; no real money moves (test gateway) |
 | Voice notes | **Deferred by the founder** (seam kept, ADR 0015) |
 | Deployment | **Not deployed (by decision).** Compose stack and images are defined; they have not been built with a Docker daemon yet (CI does it) |
 

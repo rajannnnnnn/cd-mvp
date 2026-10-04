@@ -33,7 +33,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     status, me, role: me?.role ?? null, reload: load, adopt,
     requestOtp: async (phone) => { await ok(api.POST('/api/v1/auth/otp/request', { body: { phone } })) },
     verifyOtp: async (phone, code) => {
-      const r: any = await ok(api.POST('/api/v1/auth/otp/verify', { body: { phone, code } }))
+      let source: string | undefined
+      try { source = sessionStorage.getItem('saathi.src') ?? localStorage.getItem('saathi.src') ?? undefined } catch { /* storage unavailable */ }
+      const r: any = await ok(api.POST('/api/v1/auth/otp/verify', { body: { phone, code, source } }))
       if (r.choose_business) return { choose: { businesses: r.businesses, ticket: r.ticket } }
       await adopt(r); return {}
     },

@@ -111,7 +111,7 @@ async def _state(rt: Any, p: Any) -> OnboardingOut:
     ob = b["onboarding"] or {}
     skipped = set(ob.get("skipped", []))
     prof = b["profile"] or {}
-    live = b["status"] == "active" and bool(ob.get("completed_at"))
+    live = b["status"] == "active"           # shops added by hand are active from the start
     steps = [
         Step(key="business", title="Your business", hint="Name, type and city", done=True, skipped=False, required=True),
         Step(key="details", title="Shop details", hint="Address, opening hours, delivery, payment modes and returns: facts the assistant may state",
@@ -121,7 +121,7 @@ async def _state(rt: Any, p: Any) -> OnboardingOut:
         Step(key="whatsapp", title="Connect WhatsApp", hint="Connect your business number so the assistant can answer customers",
              done=connected > 0, skipped="whatsapp" in skipped, required=False),
         Step(key="assistant", title="Assistant preferences", hint="Language, how proactive it is and whether it may bargain",
-             done=bool(ob.get("assistant_reviewed")), skipped="assistant" in skipped, required=False),
+             done=bool(ob.get("assistant_reviewed")) or live, skipped="assistant" in skipped, required=False),
         Step(key="live", title="Go live", hint="Switch the assistant on", done=live, skipped=False, required=True),
     ]
     ready = products > 0

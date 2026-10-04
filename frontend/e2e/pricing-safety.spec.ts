@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { login, OWNER } from './helpers'
+import { login, OWNER, SHOP } from './helpers'
 
 /** INV-1 in the browser: the lowest price is typed once and never comes back, in the UI or in any API response. */
 test.describe('floor prices stay private', () => {
@@ -8,7 +8,7 @@ test.describe('floor prices stay private', () => {
   test('the catalog editor never shows a stored floor and no API response carries one', async ({ page }) => {
     const bodies: string[] = []
     page.on('response', async (r) => { if (r.url().includes('/api/v1/') && r.headers()['content-type']?.includes('json')) bodies.push(await r.text().catch(() => '')) })
-    await page.goto('/app/catalog')
+    await page.goto(`${SHOP}/catalog`)
     await page.getByText('Banarasi Silk Saree').first().click()
     await expect(page.getByText('Saved privately').first()).toBeVisible()
     await expect(page.getByText('Edit product')).toBeVisible()
@@ -20,7 +20,7 @@ test.describe('floor prices stay private', () => {
   })
 
   test('typing a floor previews the engine ladder, ending exactly at the floor', async ({ page }) => {
-    await page.goto('/app/catalog')
+    await page.goto(`${SHOP}/catalog`)
     await page.getByRole('button', { name: 'Add product' }).click()
     await page.getByPlaceholder('e.g. Banarasi Silk Saree').fill('E2E ladder item')
     await page.getByPlaceholder('e.g. 7650').fill('1000')

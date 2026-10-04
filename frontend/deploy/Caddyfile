@@ -7,6 +7,7 @@
 
 {$SITE_ADDRESS} {
 	encode zstd gzip
+	root * /srv
 
 	header {
 		X-Content-Type-Options nosniff
@@ -52,7 +53,16 @@
 		file_server
 	}
 
-	# --- marketing site and legal pages: plain static HTML
+	# --- a shop's own address: /sharma-sarees goes to its app at /app/sharma-sarees (marketing pages and files are served first)
+	@vanity {
+		path_regexp vanity ^/([a-z0-9][a-z0-9-]{1,38}[a-z0-9])/?$
+		not file {path} {path}.html {path}/index.html
+	}
+	handle @vanity {
+		redir /app/{re.vanity.1} 302
+	}
+
+	# --- marketing site and legal pages: plain static HTML (clean URLs: /pricing serves pricing.html)
 	handle {
 		root * /srv
 		@assets path /assets/*

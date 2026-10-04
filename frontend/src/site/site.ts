@@ -116,3 +116,31 @@ function ladderDemo() {
   render()
 }
 ladderDemo()
+
+
+/* ------------------------------------------------------------------ pricing toggle, campaign source */
+function initPricing() {
+  const buttons = $$<HTMLButtonElement>('[data-interval]')
+  if (!buttons.length) return
+  const set = (interval: 'month' | 'year') => {
+    for (const b of buttons) { const on = b.dataset.interval === interval; b.setAttribute('aria-pressed', String(on)); b.classList.toggle('bg-brand', on); b.classList.toggle('text-white', on); b.classList.toggle('text-muted', !on) }
+    for (const el of $$('[data-price]')) el.textContent = (interval === 'year' ? el.dataset.year : el.dataset.month) ?? ''
+    for (const el of $$('[data-yearly-note]')) { el.hidden = interval !== 'year'; el.textContent = el.dataset.text ?? '' }
+  }
+  for (const b of buttons) b.addEventListener('click', () => set(b.dataset.interval === 'year' ? 'year' : 'month'))
+}
+initPricing()
+
+/** Remember where a visitor came from (utm_source/campaign or our own src tag) so sign-up can record it. */
+function captureSource() {
+  const q = new URLSearchParams(location.search)
+  const tag = [q.get('utm_source'), q.get('utm_campaign')].filter(Boolean).join('/') || q.get('src') || q.get('ref')
+  if (tag) safe(() => { localStorage.setItem('saathi.src', tag.slice(0, 80)); sessionStorage.setItem('saathi.src', tag.slice(0, 80)) }, undefined)
+  const stored = safe(() => localStorage.getItem('saathi.src'), null)
+  for (const a of $$<HTMLAnchorElement>('a[data-cta]')) {
+    const u = new URL(a.getAttribute('href') ?? '/app/login', location.origin)
+    if (stored && !u.searchParams.has('src')) u.searchParams.set('src', stored)
+    a.setAttribute('href', u.pathname + u.search)
+  }
+}
+captureSource()
