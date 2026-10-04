@@ -15,6 +15,7 @@ from salesai.modules.alerting import AlertRouter
 from salesai.modules.alerting.router import WhatsAppSink
 from salesai.modules.alerting.webhook_sink import WebhookSink
 from salesai.modules.auth import AuthService
+from salesai.modules.billing import BillingService, ManualProvider, TestGateway
 from salesai.modules.channels import ChannelRegistry
 from salesai.modules.channels.simulator import SimulatorNetwork
 from salesai.modules.conversations import HeuristicEOT, InboundRouter, TurnWorker
@@ -62,6 +63,7 @@ class Runtime:
         self.auth = AuthService(db, self.channels, settings)
         self.sim = SimulatorNetwork(db, settings.meta_app_secret)
         self.alerts = build_alert_router(db, self.channels, settings)
+        self.billing = BillingService(db, ManualProvider(settings.payment_instructions) if settings.payment_provider == "manual" else TestGateway(), seller={"name": settings.invoice_seller_name, "address": settings.invoice_seller_address, "gstin": settings.invoice_seller_gstin})
         self.hub: Any = None
         self.extra: dict[str, Any] = {}
         self._wire()

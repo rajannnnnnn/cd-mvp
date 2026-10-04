@@ -136,6 +136,7 @@ class Scheduler:
                         await self.tick_nudges()
                         await self.tick_gauges()
                         await self.rt.alerts.dispatch()
+                        await self.rt.billing.run_cycle()
                         if int(loop.time()) % 3600 < 60:
                             await self.tick_retention()
                         slow_at = loop.time() + 30

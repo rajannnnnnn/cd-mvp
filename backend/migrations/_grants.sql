@@ -39,3 +39,8 @@ GRANT SELECT ON audit_log TO app_system;
 GRANT SELECT ON turns, messages, handoffs TO app_system;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO app_system;
 GRANT EXECUTE ON FUNCTION current_business_id() TO app_system;
+
+-- ---------------------------------------------------------------- billing (platform writes, tenants read their own rows)
+GRANT SELECT ON subscriptions, invoices, payments TO app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON subscriptions, invoices, payments TO app_system;
+GRANT USAGE ON SEQUENCE invoice_number_seq TO app_system;

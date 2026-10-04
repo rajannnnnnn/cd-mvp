@@ -282,3 +282,23 @@ async def costs(rt: RT, p: Operator, days: Annotated[int, Query(ge=1, le=90)] = 
                FROM businesses b LEFT JOIN turns t ON t.business_id=b.id AND t.created_at > now() - make_interval(days => %s) GROUP BY b.id, b.name ORDER BY micros DESC""", (days,))).fetchall()
     return [CostRow(business_id=r["id"], business_name=r["name"], conversations=int(r["conversations"]), turns=int(r["turns"]), tokens=int(r["tokens"]),
                     cost_inr=round(int(r["micros"]) / 1e6, 4), cost_per_conversation_inr=round(int(r["micros"]) / 1e6 / int(r["conversations"]), 4) if r["conversations"] else None) for r in rows]
+
+
+@router.get("/billing", summary="Platform billing summary: subscriptions by status, MRR, collections, outstanding")
+async def billing_summary(rt: RT, p: Operator) -> dict[str, Any]:
+    return await rt.billing.platform_summary()
+
+
+@router.get("/invoices", summary="Open invoices across the platform (to reconcile manual payments)")
+async def open_invoices(rt: RT, p: Operator) -> list[dict[str, Any]]:
+    async with rt.db.system_tx() as c:
+        rows = await (await c.execute(
+            """SELECT i.id, i.number, i.status, i.total_paise, i.issued_at, i.due_at, b.name AS business_name, i.plan
+               FROM invoices i JOIN businesses b ON b.id = i.business_id WHERE i.status='open' ORDER BY i.due_at LIMIT 200""")).fetchall()
+    return [dict(r) for r in rows]
+
+
+@router.post("/invoices/{invoice_id}/mark-paid", summary="Confirm a bank transfer / UPI payment for an invoice")
+async def mark_paid(invoice_id: uuid.UUID, rt: RT, p: Operator, reference: Annotated[str | None, Query(max_length=80)] = None) -> dict[str, Any]:
+    inv = await rt.billing.settle_manually(invoice_id, reference)
+    return {"id": str(inv["id"]), "number": inv["number"], "status": inv["status"]}

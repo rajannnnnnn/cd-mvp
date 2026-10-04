@@ -46,7 +46,10 @@ def test_production_refuses_the_simulator_the_local_llm_and_placeholder_secrets(
                   "ANTHROPIC_API_KEY": "k", "JWT_SECRET": "dev-" + "x" * 40}):
         with pytest.raises(ValidationError):
             settings(**over)
-    settings(ENV="production", SIMULATOR_ENABLED="false", OTP_CHANNEL="whatsapp_cloud", LLM_PROVIDER="anthropic", ANTHROPIC_API_KEY="k")
+    ok = dict(ENV="production", SIMULATOR_ENABLED="false", OTP_CHANNEL="whatsapp_cloud", LLM_PROVIDER="anthropic", ANTHROPIC_API_KEY="k", PAYMENT_PROVIDER="manual")
+    settings(**ok)
+    with pytest.raises(ValidationError, match="PAYMENT_PROVIDER"):
+        settings(**{**ok, "PAYMENT_PROVIDER": "test"})                 # the test gateway takes no money; never in production
 
 
 def test_missing_or_short_secrets_stop_startup():
@@ -76,7 +79,7 @@ def test_no_credentials_are_committed_to_the_repository():
 
 
 def test_accept_any_code_is_refused_in_production_and_allowed_elsewhere():
-    prod = dict(ENV="production", SIMULATOR_ENABLED="false", OTP_CHANNEL="whatsapp_cloud", LLM_PROVIDER="anthropic", ANTHROPIC_API_KEY="k")
+    prod = dict(ENV="production", SIMULATOR_ENABLED="false", OTP_CHANNEL="whatsapp_cloud", LLM_PROVIDER="anthropic", ANTHROPIC_API_KEY="k", PAYMENT_PROVIDER="manual")
     with pytest.raises(ValueError, match="OTP_ACCEPT_ANY"):
         settings(OTP_ACCEPT_ANY="true", **prod)
     settings(ENV="staging", OTP_ACCEPT_ANY="true")                      # demo environments may use it

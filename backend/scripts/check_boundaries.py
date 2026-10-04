@@ -40,9 +40,10 @@ ALLOWED_DEPS: dict[str, set[str]] = {
     "conversations": {"agent", "channels", "handoffs"},
     "notifications": {"agent", "catalog", "channels", "handoffs", "sales"},
     "alerting": {"channels"},
+    "billing": set(),
 }
 # api is the HTTP layer: it may use these module interfaces (never the reverse).
-API_MAY_USE = {"auth", "catalog", "channels", "handoffs", "pricing", "sales", "tenants"}
+API_MAY_USE = {"auth", "billing", "catalog", "channels", "handoffs", "pricing", "sales", "tenants"}
 
 # B2: submodules that are part of a module's public interface (everything else is internal)
 PUBLIC_SUBMODULES: dict[str, set[str]] = {
@@ -51,6 +52,7 @@ PUBLIC_SUBMODULES: dict[str, set[str]] = {
     "pricing": {"engine"},
     "channels": {"base", "ingress"},
     "alerting": set(),
+    "billing": set(),
 }
 
 # B4: vendor package -> the only files allowed to import it (paths relative to the package root)

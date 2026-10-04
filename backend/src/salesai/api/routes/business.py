@@ -194,6 +194,8 @@ async def patch_business(body: BusinessPatch, rt: RT, p: Owner) -> BusinessOut:
 
 @router.post("/business/ai", response_model=BusinessOut, summary="Pause or resume the AI for the whole business")
 async def toggle_ai(body: AiToggle, rt: RT, p: Tenant) -> BusinessOut:
+    if body.enabled:
+        await rt.billing.assert_can_run(p.bid)
     async with tx(rt, p) as c:
         await c.execute("UPDATE businesses SET ai_enabled=%s WHERE id=%s", (body.enabled, p.bid))
         await repo.audit(c, p.bid, p.account_id, p.role, "ai.resumed" if body.enabled else "ai.paused", "business", str(p.bid))
@@ -216,6 +218,7 @@ class ConnectIn(BaseModel):
 @router.post("/numbers/connect", response_model=NumberOut, status_code=201,
              summary="Finish Meta Embedded Signup for the owner's WhatsApp number (owner)")
 async def connect_number(body: ConnectIn, rt: RT, p: Owner) -> Any:
+    await rt.billing.check_limit(p.bid, "numbers")
     s = rt.settings
     if not (s.meta_app_id and s.meta_config_id):
         raise ApiError(503, "signup_unavailable", "Connecting a WhatsApp number is not switched on yet. Your Saathi contact can connect it for you.")
@@ -239,6 +242,7 @@ async def connect_number(body: ConnectIn, rt: RT, p: Owner) -> Any:
 @router.post("/numbers/test", response_model=NumberOut, status_code=201,
              summary="Add a simulated WhatsApp test number (demo and development only; owner)")
 async def add_test_number(rt: RT, p: Owner) -> Any:
+    await rt.billing.check_limit(p.bid, "numbers")
     if not rt.settings.simulator_enabled:
         raise ApiError(404, "not_found", "Test numbers are not available in this environment.")
     import secrets
@@ -269,6 +273,7 @@ async def team(rt: RT, p: Tenant) -> Any:
 
 @router.post("/team", response_model=TeamMemberOut, status_code=201)
 async def add_member(body: TeamIn, rt: RT, p: Owner) -> Any:
+    await rt.billing.check_limit(p.bid, "team")
     try:
         phone = normalize_phone(body.phone)
     except ValueError as e:

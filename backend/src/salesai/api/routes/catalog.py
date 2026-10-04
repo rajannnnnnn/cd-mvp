@@ -40,6 +40,7 @@ async def list_products(rt: RT, p: Tenant, search: str | None = None, category: 
 
 @router.post("/products", response_model=ProductOut, status_code=201, summary="Create a product with variants and pricing (owner)")
 async def create_product(body: ProductIn, response: Response, rt: RT, p: Owner, idempotency_key: IdemKey = None) -> Any:
+    await rt.billing.check_limit(p.bid, "products")
     async def run(c: Conn) -> tuple[int, Any]:
         pid = await repo.create_product(c, p.bid, body, actor=p.account_id)
         out = await repo.get_product(c, pid)

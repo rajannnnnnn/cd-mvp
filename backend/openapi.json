@@ -107,6 +107,159 @@
         "title": "AnswerIn",
         "type": "object"
       },
+      "BillingOut": {
+        "properties": {
+          "assistant_paused_by_billing": {
+            "title": "Assistant Paused By Billing",
+            "type": "boolean"
+          },
+          "cancel_at_period_end": {
+            "title": "Cancel At Period End",
+            "type": "boolean"
+          },
+          "current_period_end": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Period End"
+          },
+          "current_period_start": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Period Start"
+          },
+          "interval": {
+            "title": "Interval",
+            "type": "string"
+          },
+          "limits": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Limits",
+            "type": "object"
+          },
+          "open_invoice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OpenInvoice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payment_mode": {
+            "title": "Payment Mode",
+            "type": "string"
+          },
+          "pending_interval": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Interval"
+          },
+          "pending_plan": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Plan"
+          },
+          "plan": {
+            "title": "Plan",
+            "type": "string"
+          },
+          "plan_name": {
+            "title": "Plan Name",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "trial_days_left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial Days Left"
+          },
+          "trial_ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial Ends At"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/Usage"
+          }
+        },
+        "required": [
+          "status",
+          "state",
+          "plan",
+          "plan_name",
+          "interval",
+          "trial_ends_at",
+          "trial_days_left",
+          "current_period_start",
+          "current_period_end",
+          "cancel_at_period_end",
+          "pending_plan",
+          "pending_interval",
+          "usage",
+          "limits",
+          "open_invoice",
+          "assistant_paused_by_billing",
+          "payment_mode"
+        ],
+        "title": "BillingOut",
+        "type": "object"
+      },
       "BusinessBrief": {
         "properties": {
           "id": {
@@ -1815,6 +1968,138 @@
         "title": "HandoffOut",
         "type": "object"
       },
+      "InvoiceLine": {
+        "properties": {
+          "amount_paise": {
+            "title": "Amount Paise",
+            "type": "integer"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          },
+          "unit_paise": {
+            "title": "Unit Paise",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "description",
+          "quantity",
+          "unit_paise",
+          "amount_paise"
+        ],
+        "title": "InvoiceLine",
+        "type": "object"
+      },
+      "InvoiceOut": {
+        "properties": {
+          "billing_interval": {
+            "title": "Billing Interval",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "due_at": {
+            "format": "date-time",
+            "title": "Due At",
+            "type": "string"
+          },
+          "gst_paise": {
+            "title": "Gst Paise",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "issued_at": {
+            "format": "date-time",
+            "title": "Issued At",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/InvoiceLine"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "paid_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paid At"
+          },
+          "period_end": {
+            "format": "date-time",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date-time",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "plan": {
+            "title": "Plan",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "paid",
+              "void"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "subtotal_paise": {
+            "title": "Subtotal Paise",
+            "type": "integer"
+          },
+          "total_paise": {
+            "title": "Total Paise",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "status",
+          "plan",
+          "billing_interval",
+          "period_start",
+          "period_end",
+          "lines",
+          "subtotal_paise",
+          "gst_paise",
+          "total_paise",
+          "currency",
+          "issued_at",
+          "due_at",
+          "paid_at"
+        ],
+        "title": "InvoiceOut",
+        "type": "object"
+      },
       "LadderIn": {
         "properties": {
           "concession_steps": {
@@ -2683,6 +2968,36 @@
         "title": "OnboardingOut",
         "type": "object"
       },
+      "OpenInvoice": {
+        "properties": {
+          "due_at": {
+            "format": "date-time",
+            "title": "Due At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "total_paise": {
+            "title": "Total Paise",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "total_paise",
+          "due_at"
+        ],
+        "title": "OpenInvoice",
+        "type": "object"
+      },
       "OtpRequest": {
         "properties": {
           "phone": {
@@ -2793,6 +3108,114 @@
         "title": "Overview",
         "type": "object"
       },
+      "PaidInvoice": {
+        "properties": {
+          "billing_interval": {
+            "title": "Billing Interval",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "due_at": {
+            "format": "date-time",
+            "title": "Due At",
+            "type": "string"
+          },
+          "gst_paise": {
+            "title": "Gst Paise",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "issued_at": {
+            "format": "date-time",
+            "title": "Issued At",
+            "type": "string"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/InvoiceLine"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "number": {
+            "title": "Number",
+            "type": "string"
+          },
+          "paid_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paid At"
+          },
+          "payment": {
+            "$ref": "#/components/schemas/PaymentOutcome"
+          },
+          "period_end": {
+            "format": "date-time",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date-time",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "plan": {
+            "title": "Plan",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "paid",
+              "void"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "subtotal_paise": {
+            "title": "Subtotal Paise",
+            "type": "integer"
+          },
+          "total_paise": {
+            "title": "Total Paise",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "status",
+          "plan",
+          "billing_interval",
+          "period_start",
+          "period_end",
+          "lines",
+          "subtotal_paise",
+          "gst_paise",
+          "total_paise",
+          "currency",
+          "issued_at",
+          "due_at",
+          "paid_at",
+          "payment"
+        ],
+        "title": "PaidInvoice",
+        "type": "object"
+      },
       "PauseIn": {
         "properties": {
           "minutes": {
@@ -2804,6 +3227,40 @@
           }
         },
         "title": "PauseIn",
+        "type": "object"
+      },
+      "PaymentOutcome": {
+        "properties": {
+          "instructions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructions"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "succeeded",
+              "pending",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "mode"
+        ],
+        "title": "PaymentOutcome",
         "type": "object"
       },
       "PersonalIn": {
@@ -4088,6 +4545,53 @@
         "title": "StyleOut",
         "type": "object"
       },
+      "SubscribeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "interval": {
+            "default": "month",
+            "enum": [
+              "month",
+              "year"
+            ],
+            "title": "Interval",
+            "type": "string"
+          },
+          "plan": {
+            "title": "Plan",
+            "type": "string"
+          }
+        },
+        "required": [
+          "plan"
+        ],
+        "title": "SubscribeIn",
+        "type": "object"
+      },
+      "SubscribeOut": {
+        "properties": {
+          "invoice": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InvoiceOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scheduled": {
+            "title": "Scheduled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "scheduled",
+          "invoice"
+        ],
+        "title": "SubscribeOut",
+        "type": "object"
+      },
       "SwitchIn": {
         "properties": {
           "business_id": {
@@ -4555,6 +5059,82 @@
           "checks_failed"
         ],
         "title": "TurnRow",
+        "type": "object"
+      },
+      "Usage": {
+        "properties": {
+          "conversations": {
+            "title": "Conversations",
+            "type": "integer"
+          },
+          "extra_conversations": {
+            "title": "Extra Conversations",
+            "type": "integer"
+          },
+          "included_conversations": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Included Conversations"
+          },
+          "numbers": {
+            "title": "Numbers",
+            "type": "integer"
+          },
+          "overage_estimate_paise": {
+            "title": "Overage Estimate Paise",
+            "type": "integer"
+          },
+          "period_end": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period End"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
+          "products": {
+            "title": "Products",
+            "type": "integer"
+          },
+          "team": {
+            "title": "Team",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "conversations",
+          "products",
+          "numbers",
+          "team",
+          "included_conversations",
+          "extra_conversations",
+          "overage_estimate_paise",
+          "period_start",
+          "period_end"
+        ],
+        "title": "Usage",
         "type": "object"
       },
       "ValidationError": {
@@ -5315,6 +5895,383 @@
         "summary": "Switch Business",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/v1/billing": {
+      "get": {
+        "operationId": "billing_api_v1_billing_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The subscription, usage and what is due",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/api/v1/billing/cancel": {
+      "post": {
+        "operationId": "cancel_api_v1_billing_cancel_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel at the end of the paid period (or end the trial now)",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/api/v1/billing/invoices": {
+      "get": {
+        "operationId": "invoices_api_v1_billing_invoices_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InvoiceOut"
+                  },
+                  "title": "Response Invoices Api V1 Billing Invoices Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Invoices",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/api/v1/billing/invoices/{invoice_id}/document": {
+      "get": {
+        "operationId": "document_api_v1_billing_invoices__invoice_id__document_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invoice_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Invoice Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "A printable tax invoice",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/api/v1/billing/invoices/{invoice_id}/pay": {
+      "post": {
+        "operationId": "pay_api_v1_billing_invoices__invoice_id__pay_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invoice_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Invoice Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaidInvoice"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pay an open invoice",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/api/v1/billing/resume": {
+      "post": {
+        "operationId": "resume_api_v1_billing_resume_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Keep the subscription after all",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/api/v1/billing/subscribe": {
+      "post": {
+        "operationId": "subscribe_api_v1_billing_subscribe_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscribeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscribeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Choose a plan: upgrades bill now, downgrades apply at the end of the period",
+        "tags": [
+          "billing"
         ]
       }
     },
@@ -7840,6 +8797,57 @@
         ]
       }
     },
+    "/api/v1/operator/billing": {
+      "get": {
+        "operationId": "billing_summary_api_v1_operator_billing_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Billing Summary Api V1 Operator Billing Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Platform billing summary: subscriptions by status, MRR, collections, outstanding",
+        "tags": [
+          "operator"
+        ]
+      }
+    },
     "/api/v1/operator/businesses": {
       "get": {
         "operationId": "businesses_api_v1_operator_businesses_get",
@@ -8341,6 +9349,138 @@
         ]
       }
     },
+    "/api/v1/operator/invoices": {
+      "get": {
+        "operationId": "open_invoices_api_v1_operator_invoices_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Open Invoices Api V1 Operator Invoices Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open invoices across the platform (to reconcile manual payments)",
+        "tags": [
+          "operator"
+        ]
+      }
+    },
+    "/api/v1/operator/invoices/{invoice_id}/mark-paid": {
+      "post": {
+        "operationId": "mark_paid_api_v1_operator_invoices__invoice_id__mark_paid_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invoice_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Invoice Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "reference",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 80,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reference"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Mark Paid Api V1 Operator Invoices  Invoice Id  Mark Paid Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm a bank transfer / UPI payment for an invoice",
+        "tags": [
+          "operator"
+        ]
+      }
+    },
     "/api/v1/operator/queues": {
       "get": {
         "operationId": "queues_api_v1_operator_queues_get",
@@ -8699,6 +9839,29 @@
         "summary": "Re-process a stored webhook (idempotent: duplicates are ignored)",
         "tags": [
           "operator"
+        ]
+      }
+    },
+    "/api/v1/plans": {
+      "get": {
+        "operationId": "plans_api_v1_plans_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Plans Api V1 Plans Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Plans and prices (public)",
+        "tags": [
+          "billing"
         ]
       }
     },

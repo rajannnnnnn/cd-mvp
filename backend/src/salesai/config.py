@@ -85,6 +85,13 @@ class Settings(BaseSettings):
     llm_model_check: str = "claude-haiku-4-5"
     llm_timeout_s: float = 30.0
 
+    # --- billing: how money is collected. `test` settles instantly (demo); `manual` = bank transfer/UPI marked paid by the platform team
+    payment_provider: Literal["test", "manual"] = "test"
+    payment_instructions: str = "Pay by UPI or bank transfer to the account shared by our team and quote the invoice number."
+    invoice_seller_name: str = "[Company name]"
+    invoice_seller_address: str = "[Registered address]"
+    invoice_seller_gstin: str = "[GSTIN]"
+
     # --- alert routing: where operator alerts are pushed (empty = console only)
     alert_webhook_url: str = ""
     alert_whatsapp_numbers: str = ""        # comma-separated E.164 numbers of the platform team
@@ -116,6 +123,8 @@ class Settings(BaseSettings):
                 raise ValueError("OTP_ACCEPT_ANY must be false in production: it would let anyone sign in as any number")
             if self.simulator_enabled or self.otp_channel == "simulator":
                 raise ValueError("SIMULATOR_ENABLED must be false and OTP_CHANNEL=whatsapp_cloud in production")
+            if self.payment_provider == "test":
+                raise ValueError("PAYMENT_PROVIDER=test settles invoices without taking money; use PAYMENT_PROVIDER=manual in production")
             if self.llm_provider == "local":
                 raise ValueError("LLM_PROVIDER=local is not allowed in production")
             weak = ("change-me", "dev-", "test-")

@@ -157,6 +157,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/billing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The subscription, usage and what is due */
+        get: operations["billing_api_v1_billing_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel at the end of the paid period (or end the trial now) */
+        post: operations["cancel_api_v1_billing_cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Invoices */
+        get: operations["invoices_api_v1_billing_invoices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/invoices/{invoice_id}/document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A printable tax invoice */
+        get: operations["document_api_v1_billing_invoices__invoice_id__document_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/invoices/{invoice_id}/pay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pay an open invoice */
+        post: operations["pay_api_v1_billing_invoices__invoice_id__pay_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Keep the subscription after all */
+        post: operations["resume_api_v1_billing_resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/subscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Choose a plan: upgrades bill now, downgrades apply at the end of the period */
+        post: operations["subscribe_api_v1_billing_subscribe_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/business": {
         parameters: {
             query?: never;
@@ -535,6 +654,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/numbers/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a simulated WhatsApp test number (demo and development only; owner) */
+        post: operations["add_test_number_api_v1_numbers_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/offers": {
         parameters: {
             query?: never;
@@ -571,6 +707,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Where this account is in onboarding */
+        get: operations["state_api_v1_onboarding_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboarding/business": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create the business for a newly signed-up number */
+        post: operations["create_api_v1_onboarding_business_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboarding/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Categories */
+        get: operations["categories_api_v1_onboarding_categories_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboarding/go-live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Finish onboarding and switch the assistant on */
+        post: operations["go_live_api_v1_onboarding_go_live_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboarding/slug": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Is this web address free? (works before a business exists) */
+        get: operations["slug_check_api_v1_onboarding_slug_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboarding/steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark an optional step skipped or reviewed */
+        post: operations["step_api_v1_onboarding_steps_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/operator/alerts": {
         parameters: {
             query?: never;
@@ -599,6 +837,23 @@ export interface paths {
         put?: never;
         /** Resolve Alert */
         post: operations["resolve_alert_api_v1_operator_alerts__alert_id__resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/operator/billing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Platform billing summary: subscriptions by status, MRR, collections, outstanding */
+        get: operations["billing_summary_api_v1_operator_billing_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -709,6 +964,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/operator/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Open invoices across the platform (to reconcile manual payments) */
+        get: operations["open_invoices_api_v1_operator_invoices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/operator/invoices/{invoice_id}/mark-paid": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm a bank transfer / UPI payment for an invoice */
+        post: operations["mark_paid_api_v1_operator_invoices__invoice_id__mark_paid_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/operator/queues": {
         parameters: {
             query?: never;
@@ -805,6 +1094,23 @@ export interface paths {
         put?: never;
         /** Re-process a stored webhook (idempotent: duplicates are ignored) */
         post: operations["replay_webhook_api_v1_operator_webhooks__webhook_id__replay_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Plans and prices (public) */
+        get: operations["plans_api_v1_plans_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1164,6 +1470,57 @@ export interface components {
              */
             confirm: boolean;
         };
+        /** BillingOut */
+        BillingOut: {
+            /** Assistant Paused By Billing */
+            assistant_paused_by_billing: boolean;
+            /** Cancel At Period End */
+            cancel_at_period_end: boolean;
+            /** Current Period End */
+            current_period_end: string | null;
+            /** Current Period Start */
+            current_period_start: string | null;
+            /** Interval */
+            interval: string;
+            /** Limits */
+            limits: {
+                [key: string]: number | null;
+            };
+            open_invoice: components["schemas"]["OpenInvoice"] | null;
+            /** Payment Mode */
+            payment_mode: string;
+            /** Pending Interval */
+            pending_interval: string | null;
+            /** Pending Plan */
+            pending_plan: string | null;
+            /** Plan */
+            plan: string;
+            /** Plan Name */
+            plan_name: string;
+            /** State */
+            state: string;
+            /** Status */
+            status: string;
+            /** Trial Days Left */
+            trial_days_left: number | null;
+            /** Trial Ends At */
+            trial_ends_at: string | null;
+            usage: components["schemas"]["Usage"];
+        };
+        /** BusinessBrief */
+        BusinessBrief: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Status */
+            status: string;
+        };
         /** BusinessChoice */
         BusinessChoice: {
             /**
@@ -1175,6 +1532,33 @@ export interface components {
             name: string;
             /** Role */
             role: string;
+            /** Slug */
+            slug?: string | null;
+        };
+        /** BusinessCreate */
+        BusinessCreate: {
+            /** Category */
+            category?: string | null;
+            /** City */
+            city?: string | null;
+            /**
+             * Language
+             * @default hinglish
+             * @enum {string}
+             */
+            language: "en" | "hi" | "hinglish";
+            /**
+             * Name
+             * @description The shop or business name customers know
+             */
+            name: string;
+            /** Owner Name */
+            owner_name: string;
+            /**
+             * Slug
+             * @description Preferred web address; adjusted if taken
+             */
+            slug?: string | null;
         };
         /** BusinessOut */
         BusinessOut: {
@@ -1207,6 +1591,8 @@ export interface components {
             sales_settings: {
                 [key: string]: unknown;
             };
+            /** Slug */
+            slug: string;
             /** Status */
             status: string;
             /** Timezone */
@@ -1223,6 +1609,11 @@ export interface components {
             name?: string | null;
             profile?: components["schemas"]["ProfileIn"] | null;
             sales_settings?: components["schemas"]["SalesSettingsIn"] | null;
+            /**
+             * Slug
+             * @description The shop's web address: /app/<slug>
+             */
+            slug?: string | null;
             /** Timezone */
             timezone?: string | null;
             timing_params?: components["schemas"]["TimingIn"] | null;
@@ -1714,6 +2105,68 @@ export interface components {
              */
             status: "open" | "resolved";
         };
+        /** InvoiceLine */
+        InvoiceLine: {
+            /** Amount Paise */
+            amount_paise: number;
+            /** Description */
+            description: string;
+            /** Quantity */
+            quantity: number;
+            /** Unit Paise */
+            unit_paise: number;
+        };
+        /** InvoiceOut */
+        InvoiceOut: {
+            /** Billing Interval */
+            billing_interval: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Gst Paise */
+            gst_paise: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Issued At
+             * Format: date-time
+             */
+            issued_at: string;
+            /** Lines */
+            lines: components["schemas"]["InvoiceLine"][];
+            /** Number */
+            number: string;
+            /** Paid At */
+            paid_at: string | null;
+            /**
+             * Period End
+             * Format: date-time
+             */
+            period_end: string;
+            /**
+             * Period Start
+             * Format: date-time
+             */
+            period_start: string;
+            /** Plan */
+            plan: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "paid" | "void";
+            /** Subtotal Paise */
+            subtotal_paise: number;
+            /** Total Paise */
+            total_paise: number;
+        };
         /** LadderIn */
         LadderIn: {
             /** Concession Steps */
@@ -1782,7 +2235,7 @@ export interface components {
              * Role
              * @enum {string}
              */
-            role: "owner" | "staff" | "operator";
+            role: "owner" | "staff" | "operator" | "setup";
         };
         /** MessageOut */
         MessageOut: {
@@ -2008,6 +2461,35 @@ export interface components {
             /** Variant Id */
             variant_id?: string | null;
         };
+        /** OnboardingOut */
+        OnboardingOut: {
+            business: components["schemas"]["BusinessBrief"] | null;
+            /** Complete */
+            complete: boolean;
+            /** Has Business */
+            has_business: boolean;
+            /** Ready To Go Live */
+            ready_to_go_live: boolean;
+            /** Steps */
+            steps: components["schemas"]["Step"][];
+        };
+        /** OpenInvoice */
+        OpenInvoice: {
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Number */
+            number: string;
+            /** Total Paise */
+            total_paise: number;
+        };
         /** OtpRequest */
         OtpRequest: {
             /**
@@ -2032,6 +2514,11 @@ export interface components {
             code: string;
             /** Phone */
             phone: string;
+            /**
+             * Source
+             * @description Where the visitor came from (campaign tag); kept on first sign-up only
+             */
+            source?: string | null;
         };
         /** Overview */
         Overview: {
@@ -2050,6 +2537,58 @@ export interface components {
                 [key: string]: number;
             };
         };
+        /** PaidInvoice */
+        PaidInvoice: {
+            /** Billing Interval */
+            billing_interval: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Gst Paise */
+            gst_paise: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Issued At
+             * Format: date-time
+             */
+            issued_at: string;
+            /** Lines */
+            lines: components["schemas"]["InvoiceLine"][];
+            /** Number */
+            number: string;
+            /** Paid At */
+            paid_at: string | null;
+            payment: components["schemas"]["PaymentOutcome"];
+            /**
+             * Period End
+             * Format: date-time
+             */
+            period_end: string;
+            /**
+             * Period Start
+             * Format: date-time
+             */
+            period_start: string;
+            /** Plan */
+            plan: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "paid" | "void";
+            /** Subtotal Paise */
+            subtotal_paise: number;
+            /** Total Paise */
+            total_paise: number;
+        };
         /** PauseIn */
         PauseIn: {
             /**
@@ -2057,6 +2596,18 @@ export interface components {
              * @default 120
              */
             minutes: number;
+        };
+        /** PaymentOutcome */
+        PaymentOutcome: {
+            /** Instructions */
+            instructions?: string | null;
+            /** Mode */
+            mode: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "succeeded" | "pending" | "failed";
         };
         /** PersonalIn */
         PersonalIn: {
@@ -2220,8 +2771,14 @@ export interface components {
         };
         /** ProfileIn */
         ProfileIn: {
+            /** About */
+            about?: string | null;
             /** Address */
             address?: string | null;
+            /** Category */
+            category?: string | null;
+            /** City */
+            city?: string | null;
             /** Delivery */
             delivery?: string | null;
             /** Delivery Areas */
@@ -2386,6 +2943,48 @@ export interface components {
             /** Text */
             text?: string | null;
         };
+        /** SlugCheck */
+        SlugCheck: {
+            /** Available */
+            available: boolean;
+            /** Reason */
+            reason?: string | null;
+            /** Slug */
+            slug: string;
+            /** Suggestion */
+            suggestion: string;
+        };
+        /** Step */
+        Step: {
+            /** Done */
+            done: boolean;
+            /** Hint */
+            hint: string;
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "business" | "details" | "products" | "whatsapp" | "assistant" | "live";
+            /** Required */
+            required: boolean;
+            /** Skipped */
+            skipped: boolean;
+            /** Title */
+            title: string;
+        };
+        /** StepAction */
+        StepAction: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "skip" | "done" | "undo";
+            /**
+             * Step
+             * @enum {string}
+             */
+            step: "details" | "whatsapp" | "assistant";
+        };
         /** StyleIn */
         StyleIn: {
             /** Customer Text */
@@ -2424,6 +3023,23 @@ export interface components {
             situation: string;
             /** Source */
             source: string;
+        };
+        /** SubscribeIn */
+        SubscribeIn: {
+            /**
+             * Interval
+             * @default month
+             * @enum {string}
+             */
+            interval: "month" | "year";
+            /** Plan */
+            plan: string;
+        };
+        /** SubscribeOut */
+        SubscribeOut: {
+            invoice: components["schemas"]["InvoiceOut"] | null;
+            /** Scheduled */
+            scheduled: boolean;
         };
         /** SwitchIn */
         SwitchIn: {
@@ -2544,7 +3160,7 @@ export interface components {
              * Role
              * @enum {string}
              */
-            role: "owner" | "staff" | "operator";
+            role: "owner" | "staff" | "operator" | "setup";
             /**
              * Token Type
              * @default bearer
@@ -2580,6 +3196,27 @@ export interface components {
             model: string | null;
             /** Output Tokens */
             output_tokens: number | null;
+        };
+        /** Usage */
+        Usage: {
+            /** Conversations */
+            conversations: number;
+            /** Extra Conversations */
+            extra_conversations: number;
+            /** Included Conversations */
+            included_conversations: number | null;
+            /** Numbers */
+            numbers: number;
+            /** Overage Estimate Paise */
+            overage_estimate_paise: number;
+            /** Period End */
+            period_end: string | null;
+            /** Period Start */
+            period_start: string | null;
+            /** Products */
+            products: number;
+            /** Team */
+            team: number;
         };
         /** ValidationError */
         ValidationError: {
@@ -2984,6 +3621,231 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Tokens"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    billing_api_v1_billing_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_api_v1_billing_cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    invoices_api_v1_billing_invoices_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    document_api_v1_billing_invoices__invoice_id__document_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pay_api_v1_billing_invoices__invoice_id__pay_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaidInvoice"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_api_v1_billing_resume_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    subscribe_api_v1_billing_subscribe_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubscribeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscribeOut"];
                 };
             };
             /** @description Validation Error */
@@ -3889,6 +4751,37 @@ export interface operations {
             };
         };
     };
+    add_test_number_api_v1_numbers_test_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NumberOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_offers_api_v1_offers_get: {
         parameters: {
             query?: never;
@@ -4023,6 +4916,191 @@ export interface operations {
             };
         };
     };
+    state_api_v1_onboarding_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_api_v1_onboarding_business_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BusinessCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Tokens"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    categories_api_v1_onboarding_categories_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+        };
+    };
+    go_live_api_v1_onboarding_go_live_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    slug_check_api_v1_onboarding_slug_get: {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlugCheck"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    step_api_v1_onboarding_steps_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StepAction"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     alerts_api_v1_operator_alerts_get: {
         parameters: {
             query?: {
@@ -4076,6 +5154,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    billing_summary_api_v1_operator_billing_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description Validation Error */
             422: {
@@ -4368,6 +5479,76 @@ export interface operations {
             };
         };
     };
+    open_invoices_api_v1_operator_invoices_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_paid_api_v1_operator_invoices__invoice_id__mark_paid_post: {
+        parameters: {
+            query?: {
+                reference?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     queues_api_v1_operator_queues_get: {
         parameters: {
             query?: never;
@@ -4559,6 +5740,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plans_api_v1_plans_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };

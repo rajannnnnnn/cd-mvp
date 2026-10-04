@@ -91,6 +91,7 @@ async def create(body: BusinessCreate, request: Request, rt: RT, p: Setup) -> To
     cb = await create_business(rt.db, rt.settings.master_key_bytes, name=body.name.strip(), owner_phone=p.phone, owner_name=body.owner_name.strip(),
                                plan="trial", language="en", profile=profile, ai_enabled=False, signup_source=src["signup_source"] if src else None,
                                actor="owner", slug_hint=hint)
+    await rt.billing.start_trial(cb.business_id)
     async with rt.db.tenant(cb.business_id) as c:
         await c.execute("UPDATE businesses SET sales_settings = sales_settings || %s::jsonb WHERE id=%s",
                         (jsonb({"language_default": body.language}), cb.business_id))
@@ -160,6 +161,7 @@ async def step(body: StepAction, rt: RT, p: Owner) -> Any:
 
 @router.post("/go-live", response_model=OnboardingOut, summary="Finish onboarding and switch the assistant on")
 async def go_live(rt: RT, p: Owner) -> Any:
+    await rt.billing.assert_can_run(p.bid)
     st = await _state(rt, p)
     if not st.ready_to_go_live:
         raise ApiError(409, "not_ready", "Add at least one product or service before going live.")

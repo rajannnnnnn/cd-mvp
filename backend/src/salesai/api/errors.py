@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from psycopg import errors as pgerr
 
 from salesai.modules.auth import AuthError
+from salesai.modules.billing import BillingError
 
 log = logging.getLogger("salesai.api")
 
@@ -32,6 +33,10 @@ def install(app: FastAPI) -> None:
     @app.exception_handler(AuthError)
     async def _auth(_: Request, e: AuthError) -> JSONResponse:
         return JSONResponse(body(e.code, e.message), status_code=e.status, headers={"WWW-Authenticate": "Bearer"} if e.status == 401 else None)
+
+    @app.exception_handler(BillingError)
+    async def _billing(_: Request, e: BillingError) -> JSONResponse:
+        return JSONResponse(body(e.code, e.message), status_code=e.status)
 
     @app.exception_handler(RequestValidationError)
     async def _val(_: Request, e: RequestValidationError) -> JSONResponse:

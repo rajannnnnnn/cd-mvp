@@ -1,0 +1,76 @@
+{
+  "currency": "INR",
+  "gst_percent": 18,
+  "trial_days": 14,
+  "trial_plan": "growth",
+  "plans": [
+    {
+      "code": "starter",
+      "name": "Starter",
+      "tagline": "For a single counter getting started",
+      "price_month_paise": 99900,
+      "price_year_paise": 999000,
+      "included_conversations": 500,
+      "overage_paise": 300,
+      "max_numbers": 1,
+      "max_products": 200,
+      "max_team": 2,
+      "features": [
+        "1 WhatsApp number",
+        "500 AI conversations a month",
+        "Up to 200 products",
+        "2 team members",
+        "Dashboard and daily summary",
+        "Pricing you control, with a private lowest price"
+      ],
+      "popular": false,
+      "public": true
+    },
+    {
+      "code": "growth",
+      "name": "Growth",
+      "tagline": "For a busy shop that lives on WhatsApp",
+      "price_month_paise": 249900,
+      "price_year_paise": 2499000,
+      "included_conversations": 2000,
+      "overage_paise": 200,
+      "max_numbers": 2,
+      "max_products": 1000,
+      "max_team": 5,
+      "features": [
+        "Up to 2 WhatsApp numbers",
+        "2,000 AI conversations a month",
+        "Up to 1,000 products",
+        "5 team members",
+        "Analytics and downloadable reports",
+        "Offers and festive discounts",
+        "Priority support"
+      ],
+      "popular": true,
+      "public": true
+    },
+    {
+      "code": "scale",
+      "name": "Scale",
+      "tagline": "For several counters or branches",
+      "price_month_paise": 599900,
+      "price_year_paise": 5999000,
+      "included_conversations": 6000,
+      "overage_paise": 150,
+      "max_numbers": 3,
+      "max_products": null,
+      "max_team": 15,
+      "features": [
+        "Up to 3 WhatsApp numbers",
+        "6,000 AI conversations a month",
+        "Unlimited products",
+        "15 team members",
+        "Analytics and downloadable reports",
+        "Onboarding help from our team",
+        "Priority support"
+      ],
+      "popular": false,
+      "public": true
+    }
+  ]
+}

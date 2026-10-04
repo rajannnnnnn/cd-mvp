@@ -4,7 +4,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict WrDsnXDY2nwVluMXoqKPpB9FxwVl9ZdKlIHVDGsIi0NS3oYW5cVimrbqbg5Q4m3
+\restrict 0tF4UX3202nT0IA28KBaTr46KfkaCgkDqWKONiyuPdeIqMQcgn6SYn0mJHxm2cB
 
 -- Dumped from database version 16.14 (Ubuntu 16.14-0ubuntu0.24.04.1)
 -- Dumped by pg_dump version 16.14 (Ubuntu 16.14-0ubuntu0.24.04.1)
@@ -131,6 +131,7 @@ CREATE TABLE public.accounts (
     language text DEFAULT 'en'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     last_login_at timestamp with time zone,
+    signup_source text,
     CONSTRAINT accounts_language_check CHECK ((language = ANY (ARRAY['en'::text, 'hi'::text]))),
     CONSTRAINT accounts_phone_check CHECK ((phone ~ '^\+[1-9][0-9]{7,14}$'::text)),
     CONSTRAINT accounts_platform_role_check CHECK ((platform_role = 'operator'::text)),
@@ -246,6 +247,10 @@ CREATE TABLE public.businesses (
     limits jsonb DEFAULT '{}'::jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    slug text DEFAULT ('b-'::text || substr(replace((gen_random_uuid())::text, '-'::text, ''::text), 1, 12)) NOT NULL,
+    onboarding jsonb DEFAULT '{}'::jsonb NOT NULL,
+    signup_source text,
+    CONSTRAINT businesses_slug_format CHECK ((slug ~ '^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$'::text)),
     CONSTRAINT businesses_status_check CHECK ((status = ANY (ARRAY['onboarding'::text, 'active'::text, 'paused'::text, 'churned'::text])))
 );
 
@@ -487,6 +492,49 @@ CREATE TABLE public.idempotency_keys (
 );
 
 ALTER TABLE ONLY public.idempotency_keys FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: invoice_number_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.invoice_number_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: invoices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.invoices (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    business_id uuid NOT NULL,
+    number text NOT NULL,
+    status text DEFAULT 'open'::text NOT NULL,
+    plan text NOT NULL,
+    billing_interval text DEFAULT 'month'::text NOT NULL,
+    period_start timestamp with time zone NOT NULL,
+    period_end timestamp with time zone NOT NULL,
+    lines jsonb NOT NULL,
+    subtotal_paise bigint NOT NULL,
+    gst_paise bigint NOT NULL,
+    total_paise bigint NOT NULL,
+    currency text DEFAULT 'INR'::text NOT NULL,
+    issued_at timestamp with time zone DEFAULT now() NOT NULL,
+    due_at timestamp with time zone NOT NULL,
+    paid_at timestamp with time zone,
+    CONSTRAINT invoices_billing_interval_check CHECK ((billing_interval = ANY (ARRAY['month'::text, 'year'::text]))),
+    CONSTRAINT invoices_gst_paise_check CHECK ((gst_paise >= 0)),
+    CONSTRAINT invoices_status_check CHECK ((status = ANY (ARRAY['open'::text, 'paid'::text, 'void'::text]))),
+    CONSTRAINT invoices_subtotal_paise_check CHECK ((subtotal_paise >= 0)),
+    CONSTRAINT invoices_total_paise_check CHECK ((total_paise >= 0))
+);
+
+ALTER TABLE ONLY public.invoices FORCE ROW LEVEL SECURITY;
 
 
 --
@@ -765,6 +813,26 @@ ALTER TABLE ONLY public.owner_messages FORCE ROW LEVEL SECURITY;
 
 
 --
+-- Name: payments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.payments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    business_id uuid NOT NULL,
+    invoice_id uuid NOT NULL,
+    provider text NOT NULL,
+    provider_ref text NOT NULL,
+    amount_paise bigint NOT NULL,
+    status text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT payments_amount_paise_check CHECK ((amount_paise >= 0)),
+    CONSTRAINT payments_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'succeeded'::text, 'failed'::text])))
+);
+
+ALTER TABLE ONLY public.payments FORCE ROW LEVEL SECURITY;
+
+
+--
 -- Name: price_floors; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -857,6 +925,31 @@ CREATE TABLE public.style_examples (
 );
 
 ALTER TABLE ONLY public.style_examples FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: subscriptions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.subscriptions (
+    business_id uuid NOT NULL,
+    plan text NOT NULL,
+    status text NOT NULL,
+    billing_interval text DEFAULT 'month'::text NOT NULL,
+    trial_ends_at timestamp with time zone,
+    current_period_start timestamp with time zone,
+    current_period_end timestamp with time zone,
+    cancel_at_period_end boolean DEFAULT false NOT NULL,
+    pending_plan text,
+    pending_interval text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT subscriptions_billing_interval_check CHECK ((billing_interval = ANY (ARRAY['month'::text, 'year'::text]))),
+    CONSTRAINT subscriptions_pending_interval_check CHECK ((pending_interval = ANY (ARRAY['month'::text, 'year'::text]))),
+    CONSTRAINT subscriptions_status_check CHECK ((status = ANY (ARRAY['trialing'::text, 'active'::text, 'past_due'::text, 'canceled'::text, 'pilot'::text])))
+);
+
+ALTER TABLE ONLY public.subscriptions FORCE ROW LEVEL SECURITY;
 
 
 --
@@ -1151,6 +1244,30 @@ ALTER TABLE ONLY public.idempotency_keys
 
 
 --
+-- Name: invoices invoices_business_id_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.invoices
+    ADD CONSTRAINT invoices_business_id_id_key UNIQUE (business_id, id);
+
+
+--
+-- Name: invoices invoices_number_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.invoices
+    ADD CONSTRAINT invoices_number_key UNIQUE (number);
+
+
+--
+-- Name: invoices invoices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.invoices
+    ADD CONSTRAINT invoices_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: jobs jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1236,6 +1353,22 @@ ALTER TABLE ONLY public.owner_messages
 
 ALTER TABLE ONLY public.owner_messages
     ADD CONSTRAINT owner_messages_wa_message_id_key UNIQUE (wa_message_id);
+
+
+--
+-- Name: payments payments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payments
+    ADD CONSTRAINT payments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: payments payments_provider_provider_ref_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payments
+    ADD CONSTRAINT payments_provider_provider_ref_key UNIQUE (provider, provider_ref);
 
 
 --
@@ -1327,6 +1460,14 @@ ALTER TABLE ONLY public.style_examples
 
 
 --
+-- Name: subscriptions subscriptions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subscriptions
+    ADD CONSTRAINT subscriptions_pkey PRIMARY KEY (business_id);
+
+
+--
 -- Name: turns turns_business_id_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1396,6 +1537,13 @@ CREATE INDEX auth_sessions_family_idx ON public.auth_sessions USING btree (famil
 
 
 --
+-- Name: businesses_slug_uq; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX businesses_slug_uq ON public.businesses USING btree (slug);
+
+
+--
 -- Name: config_proposals_one_pending; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1421,6 +1569,13 @@ CREATE INDEX deals_biz_idx ON public.deals USING btree (business_id, status, cre
 --
 
 CREATE INDEX handoffs_open_idx ON public.handoffs USING btree (business_id, status, created_at DESC);
+
+
+--
+-- Name: invoices_business_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX invoices_business_idx ON public.invoices USING btree (business_id, issued_at DESC);
 
 
 --
@@ -1669,6 +1824,13 @@ CREATE TRIGGER products_updated BEFORE UPDATE ON public.products FOR EACH ROW EX
 
 
 --
+-- Name: subscriptions subscriptions_touch; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER subscriptions_touch BEFORE UPDATE ON public.subscriptions FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+
+--
 -- Name: whatsapp_numbers wa_numbers_updated; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -1780,6 +1942,14 @@ ALTER TABLE ONLY public.idempotency_keys
 
 
 --
+-- Name: invoices invoices_business_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.invoices
+    ADD CONSTRAINT invoices_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id) ON DELETE CASCADE;
+
+
+--
 -- Name: knowledge_gaps knowledge_gaps_business_id_conversation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1860,6 +2030,14 @@ ALTER TABLE ONLY public.owner_messages
 
 
 --
+-- Name: payments payments_business_id_invoice_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payments
+    ADD CONSTRAINT payments_business_id_invoice_id_fkey FOREIGN KEY (business_id, invoice_id) REFERENCES public.invoices(business_id, id) ON DELETE CASCADE;
+
+
+--
 -- Name: price_floors price_floors_business_id_variant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1897,6 +2075,14 @@ ALTER TABLE ONLY public.products
 
 ALTER TABLE ONLY public.style_examples
     ADD CONSTRAINT style_examples_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id) ON DELETE CASCADE;
+
+
+--
+-- Name: subscriptions subscriptions_business_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subscriptions
+    ADD CONSTRAINT subscriptions_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id) ON DELETE CASCADE;
 
 
 --
@@ -1976,6 +2162,12 @@ ALTER TABLE public.handoffs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.idempotency_keys ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: invoices; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: knowledge_gaps; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -2021,6 +2213,12 @@ ALTER TABLE public.outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.owner_messages ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: payments; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: price_floors; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -2049,6 +2247,12 @@ ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.style_examples ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: subscriptions; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: outbox tenant_insert; Type: POLICY; Schema: public; Owner: -
@@ -2121,6 +2325,13 @@ CREATE POLICY tenant_isolation ON public.idempotency_keys USING ((business_id = 
 
 
 --
+-- Name: invoices tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.invoices USING ((business_id = public.current_business_id())) WITH CHECK ((business_id = public.current_business_id()));
+
+
+--
 -- Name: knowledge_gaps tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -2153,6 +2364,13 @@ CREATE POLICY tenant_isolation ON public.offers USING ((business_id = public.cur
 --
 
 CREATE POLICY tenant_isolation ON public.owner_messages USING ((business_id = public.current_business_id())) WITH CHECK ((business_id = public.current_business_id()));
+
+
+--
+-- Name: payments tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.payments USING ((business_id = public.current_business_id())) WITH CHECK ((business_id = public.current_business_id()));
 
 
 --
@@ -2191,6 +2409,13 @@ CREATE POLICY tenant_isolation ON public.style_examples USING ((business_id = pu
 
 
 --
+-- Name: subscriptions tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.subscriptions USING ((business_id = public.current_business_id())) WITH CHECK ((business_id = public.current_business_id()));
+
+
+--
 -- Name: turns tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -2220,5 +2445,5 @@ ALTER TABLE public.whatsapp_numbers ENABLE ROW LEVEL SECURITY;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict WrDsnXDY2nwVluMXoqKPpB9FxwVl9ZdKlIHVDGsIi0NS3oYW5cVimrbqbg5Q4m3
+\unrestrict 0tF4UX3202nT0IA28KBaTr46KfkaCgkDqWKONiyuPdeIqMQcgn6SYn0mJHxm2cB
 
