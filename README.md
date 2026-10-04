@@ -22,7 +22,8 @@ engineering decisions are recorded as ADRs.
 ## Run it
 
 ```bash
-scripts/up.sh --demo          # Docker: whole product on one machine, with demo shops and conversations
+scripts/up.sh --demo          # Docker (Mac/Linux/WSL/Git Bash): whole product on one machine, with demo shops and conversations
+# Windows PowerShell:  powershell -ExecutionPolicy Bypass -File scripts\up.ps1 -Demo
 # then open http://localhost:8080  (marketing site), /app (the app)
 ```
 Local development without Docker, tests, and every other command: **`docs/RUNNING.md`**.

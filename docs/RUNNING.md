@@ -3,7 +3,8 @@
 ## 1. Everything in Docker (one machine, one command)
 
 ```bash
-scripts/up.sh --demo      # builds images, generates deploy/.env with fresh secrets, starts the stack, loads demo data
+# Windows (PowerShell, from the repository folder):  powershell -ExecutionPolicy Bypass -File scripts\up.ps1 -Demo   (-Down / -Reset also work)
+scripts/up.sh --demo      # Mac/Linux/WSL/Git Bash: builds images, generates deploy/.env with fresh secrets, starts the stack, loads demo data
 scripts/up.sh --down      # stop        scripts/up.sh --reset    # stop and delete the database volume
 ```
 Open `http://localhost:8080` (marketing site) and `/app` (the product). The stack is `postgres`, one-off `migrate`,
