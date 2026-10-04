@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { BellRing, Building2, Clock, Laptop, Phone, Plus, ShieldCheck, Sliders, Smartphone, Trash2, Users, X } from 'lucide-react'
 import { api, ok, type Schemas } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
-import { useBusiness } from '@/api/hooks'
+import { useBusiness, usePublicConfig } from '@/api/hooks'
+import { startEmbeddedSignup } from './signup'
 import { useT } from '@/i18n'
 import { Badge, Confirm, EmptyState, ErrorNote, Field, Modal, Segmented, Skeleton, Spinner, Switch, useToast } from '@/ui'
 import { ago, cx, phone as fmtPhone } from '@/lib/format'
@@ -182,11 +183,26 @@ function TeamTab({ canEdit }: { canEdit: boolean }) {
 }
 
 /* ------------------------------------------------------------------ Numbers */
-function NumbersTab({ b }: { b: Schemas['BusinessOut'] }) {
+function NumbersTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }) {
+  const cfg = usePublicConfig()
+  const toast = useToast(); const qc = useQueryClient()
+  const [connecting, setConnecting] = useState(false)
+  const signup = cfg.data?.embedded_signup as { app_id: string; config_id: string; graph_version: string } | null | undefined
+  const connect = async () => {
+    if (!signup) return
+    setConnecting(true)
+    try {
+      const r = await startEmbeddedSignup(signup)
+      await ok(api.POST('/api/v1/numbers/connect', { body: { code: r.code, waba_id: r.waba_id, phone_number_id: r.phone_number_id, coexistence: r.coexistence } }))
+      await qc.invalidateQueries({ queryKey: ['business'] })
+      toast('WhatsApp number connected')
+    } catch (e) { toast((e as Error).message, 'error') } finally { setConnecting(false) }
+  }
   const tone = (s: string) => (s === 'connected' || s === 'active' ? 'green' : s === 'disconnected' ? 'red' : 'amber') as 'green' | 'red' | 'amber'
   return (
     <Section title="WhatsApp numbers" sub="Numbers the assistant answers on. Your own WhatsApp Business app keeps working alongside it.">
-      {!b.numbers.length && <EmptyState icon={<Phone className="h-6 w-6" />} title="No number connected yet" body="Your Saathi contact will connect your WhatsApp number with you." />}
+      {!b.numbers.length && <EmptyState icon={<Phone className="h-6 w-6" />} title="No number connected yet" body={signup ? 'Connect your WhatsApp Business number in a few taps.' : 'Your Saathi contact will connect your WhatsApp number with you.'} />}
+      {signup && canEdit && <div className="flex justify-end"><button className="btn btn-primary" disabled={connecting} onClick={connect}>{connecting ? <Spinner /> : <Plus className="h-4 w-4" />} Connect a WhatsApp number</button></div>}
       <div className="divide-y divide-line/60">
         {b.numbers.map((n) => (
           <div key={n.id} className="flex flex-wrap items-center gap-3 py-3">
@@ -246,7 +262,7 @@ export default function Settings() {
       {biz.data && tab === 'assistant' && <AssistantTab key={dataKey} b={biz.data} canEdit={canEdit} />}
       {biz.data && tab === 'pacing' && <PacingTab key={dataKey} b={biz.data} canEdit={canEdit} />}
       {tab === 'team' && <TeamTab canEdit={canEdit} />}
-      {biz.data && tab === 'numbers' && <NumbersTab b={biz.data} />}
+      {biz.data && tab === 'numbers' && <NumbersTab b={biz.data} canEdit={canEdit} />}
       {tab === 'devices' && <DevicesTab />}
     </div>
   )

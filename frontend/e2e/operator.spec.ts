@@ -8,9 +8,9 @@ test.describe('operator console', () => {
     await expect(page.getByText('Sharma Sarees & Fabrics')).toBeVisible()
     await expect(page.getByText('Gupta Mobile Point')).toBeVisible()
     for (const tab of ['Alerts', 'Queues', 'Webhooks', 'AI turns', 'Costs']) {
-      await page.getByRole('button', { name: tab }).click()
+      await page.getByRole('tab', { name: tab }).click()
     }
-    await page.getByRole('button', { name: 'Queues' }).click()
+    await page.getByRole('tab', { name: 'Queues' }).click()
     await expect(page.getByText('conversation.turns')).toBeVisible()
   })
 
@@ -22,7 +22,7 @@ test.describe('operator console', () => {
     await page.getByLabel('Owner’s name').fill('Test Owner')
     await page.getByLabel(/Owner’s WhatsApp number/).fill(`+91${phone}`)
     await page.getByRole('button', { name: 'Create business' }).click()
-    await expect(page.getByText(name)).toBeVisible()
+    await expect(page.locator('tr', { hasText: name })).toBeVisible()
 
     const row = page.locator('tr', { hasText: name })
     await row.getByRole('button', { name: /Open as owner/ }).click()
@@ -36,6 +36,6 @@ test.describe('operator console', () => {
     await expect(del).toBeDisabled()
     await page.getByRole('dialog').getByRole('textbox').fill(name)
     await del.click()
-    await expect(page.getByText(name)).toHaveCount(0)
+    await expect(page.locator('tr', { hasText: name })).toHaveCount(0)
   })
 })

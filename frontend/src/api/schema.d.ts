@@ -500,6 +500,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/numbers/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Finish Meta Embedded Signup for the owner's WhatsApp number (owner) */
+        post: operations["connect_number_api_v1_numbers_connect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/offers": {
         parameters: {
             query?: never;
@@ -1230,6 +1247,27 @@ export interface components {
             phone_number_id: string;
             /** Verified Name */
             verified_name?: string | null;
+            /** Waba Id */
+            waba_id: string;
+        };
+        /**
+         * ConnectIn
+         * @description What the browser hands back after Meta's Embedded Signup popup finishes.
+         */
+        ConnectIn: {
+            /**
+             * Code
+             * @description Short-lived authorization code from the Embedded Signup flow.
+             */
+            code: string;
+            /**
+             * Coexistence
+             * @description True when the number stays on the WhatsApp Business app.
+             * @default false
+             */
+            coexistence: boolean;
+            /** Phone Number Id */
+            phone_number_id: string;
             /** Waba Id */
             waba_id: string;
         };
@@ -3719,6 +3757,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NumberOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    connect_number_api_v1_numbers_connect_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NumberOut"];
                 };
             };
             /** @description Validation Error */

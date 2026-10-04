@@ -380,6 +380,43 @@
         "title": "CloudNumberIn",
         "type": "object"
       },
+      "ConnectIn": {
+        "description": "What the browser hands back after Meta's Embedded Signup popup finishes.",
+        "properties": {
+          "code": {
+            "description": "Short-lived authorization code from the Embedded Signup flow.",
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Code",
+            "type": "string"
+          },
+          "coexistence": {
+            "default": false,
+            "description": "True when the number stays on the WhatsApp Business app.",
+            "title": "Coexistence",
+            "type": "boolean"
+          },
+          "phone_number_id": {
+            "maxLength": 40,
+            "minLength": 3,
+            "title": "Phone Number Id",
+            "type": "string"
+          },
+          "waba_id": {
+            "maxLength": 40,
+            "minLength": 3,
+            "title": "Waba Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "waba_id",
+          "phone_number_id"
+        ],
+        "title": "ConnectIn",
+        "type": "object"
+      },
       "ConversationDetail": {
         "properties": {
           "ai_paused_reason": {
@@ -6597,6 +6634,65 @@
           }
         },
         "summary": "Numbers",
+        "tags": [
+          "business"
+        ]
+      }
+    },
+    "/api/v1/numbers/connect": {
+      "post": {
+        "operationId": "connect_number_api_v1_numbers_connect_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NumberOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finish Meta Embedded Signup for the owner's WhatsApp number (owner)",
         "tags": [
           "business"
         ]

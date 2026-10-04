@@ -64,6 +64,16 @@ Tests use a real Postgres (a fresh database per session), the real queue, worker
 Vendors are replaced only by local servers that speak their wire format (`tests/fake_anthropic.py`, `tests/fake_graph.py`);
 Redis tests start a throw-away `redis-server` (or use `TEST_REDIS_URL`).
 
+Conversation evaluations (`backend/tests/evals/`, 32 scenarios in Hindi/English/Hinglish over three business types, with
+invariant graders on every scenario) run with the normal suite against the local stand-in. To evaluate a real model:
+`LLM_PROVIDER=anthropic ANTHROPIC_API_KEY=... EVAL_REPORT=eval-<model>.json pytest tests/evals -q` (costs money; the report
+holds transcripts, failures, tokens, cost per conversation and latency).
+
+Load tests against a running stack (`backend/loadtest/run.py`; needs the seeded demo data):
+`python -m loadtest.run webhook --base http://127.0.0.1:8001 --requests 1500 --concurrency 5` (NFR-1/NFR-3) and
+`python -m loadtest.run conversations --base ... --customers 60` (NFR-2/NFR-5); results land in `backend/loadtest/results/`.
+Start a dedicated webhook receiver for these with `HTTP_PORT=8001 python -m salesai ingress`.
+
 Regenerating derived files: `scripts/dump_schema.sh` (db/schema.sql snapshot), `backend/scripts/gen_golden.py`
 (price-schedule golden file, then re-run both test suites).
 

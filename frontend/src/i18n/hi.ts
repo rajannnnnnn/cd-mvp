@@ -1,7 +1,7 @@
 /** Hindi strings keyed by id. English lives next to the code as the default (t(key, 'English')); a missing Hindi key
  *  falls back to English, so new screens never break in Hindi. */
 export const hi: Record<string, string> = {
-  'nav.home': 'होम', 'nav.chats': 'चैट', 'nav.pipeline': 'पाइपलाइन', 'nav.catalog': 'कैटलॉग', 'nav.offers': 'ऑफ़र', 'nav.voice': 'मेरी भाषा',
+  'pipeline.sub': 'हर ग्राहक की बातचीत, खरीदने के कितने करीब है उसके हिसाब से। AI लोगों को आगे बढ़ाता है; आप कोई भी चैट खोल सकते हैं।', 'nav.home': 'होम', 'nav.chats': 'चैट', 'nav.pipeline': 'पाइपलाइन', 'nav.catalog': 'कैटलॉग', 'nav.offers': 'ऑफ़र', 'nav.voice': 'मेरी भाषा',
   'nav.inbox': 'मेरे लिए', 'nav.customers': 'ग्राहक', 'nav.settings': 'सेटिंग्स', 'nav.playground': 'प्लेग्राउंड', 'nav.operator': 'ऑपरेटर',
   'common.save': 'सेव करें', 'common.cancel': 'रद्द करें', 'common.delete': 'हटाएँ', 'common.edit': 'बदलें', 'common.add': 'जोड़ें', 'common.search': 'खोजें',
   'common.loading': 'लोड हो रहा है…', 'common.retry': 'फिर कोशिश करें', 'common.close': 'बंद करें', 'common.yes': 'हाँ', 'common.no': 'नहीं', 'common.back': 'वापस',

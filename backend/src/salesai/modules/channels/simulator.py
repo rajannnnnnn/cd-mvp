@@ -154,7 +154,10 @@ class SimulatorNetwork:
         await self._post(build_account_payload(n["phone_number_id"], n["display_phone"], field, event))
 
     async def thread(self, phone: str, business_phone: str, after_id: int = 0, limit: int = 200) -> list[dict[str, Any]]:
+        """Messages of one phone↔number thread, oldest first. Without `after_id` it returns the NEWEST `limit`
+        messages (a long-lived thread must show its latest, not its first, messages)."""
         async with self.db.system_tx() as c:
             return await (await c.execute(
-                "SELECT * FROM sim_messages WHERE phone=%s AND business_phone=%s AND id > %s ORDER BY id LIMIT %s",
+                """SELECT * FROM (SELECT * FROM sim_messages WHERE phone=%s AND business_phone=%s AND id > %s
+                                  ORDER BY id DESC LIMIT %s) t ORDER BY id""",
                 (wa_id(phone), business_phone, after_id, limit))).fetchall()

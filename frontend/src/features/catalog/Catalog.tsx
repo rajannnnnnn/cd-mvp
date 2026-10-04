@@ -51,7 +51,7 @@ function LadderPreview({ d }: { d: Draft }) {
       {q.isLoading && <Spinner />}
       {q.data && <div className="flex flex-wrap items-center gap-1.5 text-sm font-bold tnum">
         <span>{inr(q.data.list_price)}</span>
-        {q.data.steps.map((s, i) => <span key={i} className="flex items-center gap-1.5"><ChevronRight className="h-3.5 w-3.5 text-muted" /><span className={cx(s == null && 'text-muted')}>{s == null ? '—' : inr(s)}</span></span>)}
+        {q.data.steps.map((s, i) => <span key={i} className="flex items-center gap-1.5"><ChevronRight className="h-3.5 w-3.5 text-muted" /><span className={cx(s == null && 'inline-flex items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-white')}>{s == null ? <><Lock className="h-3 w-3" />{inr(fp)}</> : inr(s)}</span></span>)}
       </div>}
       <p className="mt-2 text-[12px] text-muted">Computed by the same pricing engine the assistant uses. It never goes below your lowest price.</p>
     </div>

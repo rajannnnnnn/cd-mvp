@@ -45,6 +45,7 @@ export default function LoginPage() {
   const [wait, setWait] = useState(0)
   const [choose, setChoose] = useState<{ businesses: { id: string; name: string; role: string }[]; ticket: string } | null>(null)
   const [autofilled, setAutofilled] = useState(false)
+  const [baseline, setBaseline] = useState(0)          // newest login code already in the simulated inbox when this request began
   const full = useMemo(() => { const d = local.replace(/\D/g, ''); return d.length === 10 ? `+91${d}` : local.trim().startsWith('+') ? `+${d}` : d.length >= 11 ? `+${d}` : '' }, [local])
 
   useEffect(() => { if (wait <= 0) return; const id = setTimeout(() => setWait((w) => w - 1), 1000); return () => clearTimeout(id) }, [wait])
@@ -54,7 +55,7 @@ export default function LoginPage() {
     queryKey: ['sim-inbox', full], enabled: dev && step === 'code' && !!full, refetchInterval: 1200, retry: false,
     queryFn: () => ok(api.GET('/api/v1/sim/inbox', { params: { query: { phone: full } } })),
   })
-  const msgs = (inbox.data ?? []).filter((m) => m.template_name === 'otp_login')
+  const msgs = (inbox.data ?? []).filter((m) => m.template_name === 'otp_login' && m.id > baseline)
   const latest = msgs[msgs.length - 1]
   useEffect(() => {
     const m = latest?.body?.match(/\b(\d{6})\b/)
@@ -63,7 +64,11 @@ export default function LoginPage() {
 
   const send = async () => {
     setErr(null); setBusy(true)
-    try { await requestOtp(full); setStep('code'); setCode(''); setAutofilled(false); setWait(30) }
+    try {
+      let base = 0
+      if (dev) { try { const all = await ok(api.GET('/api/v1/sim/inbox', { params: { query: { phone: full } } })); base = Math.max(0, ...all.filter((m) => m.template_name === 'otp_login').map((m) => m.id)) } catch { /* inbox unavailable */ } }
+      await requestOtp(full); setBaseline(base); setStep('code'); setCode(''); setAutofilled(false); setWait(30)
+    }
     catch (e) { setErr((e as ApiError).message) } finally { setBusy(false) }
   }
   const verify = async (c = code) => {

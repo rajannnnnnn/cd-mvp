@@ -143,7 +143,10 @@ def run_checks(parts: list[str], ctx: CheckContext) -> CheckResult:
     letters = [c for c in text if c.isalpha()]
     if letters:
         dev = sum(1 for c in letters if DEV.match(c)) / len(letters)
-        if ctx.customer_script == "devanagari" and dev < 0.3:
+        # product and brand names are normally written in Latin script even inside a Hindi sentence, so a
+        # Devanagari customer is answered in Devanagari when the reply has real Devanagari words, not only when most letters are
+        dev_words = sum(1 for w in text.split() if any(DEV.match(ch) for ch in w))
+        if ctx.customer_script == "devanagari" and dev < 0.3 and dev_words < 2:
             res.failures.append(Failure("script", "customer writes Devanagari; reply must too"))
         if ctx.customer_script == "latin" and dev > 0.3:
             res.failures.append(Failure("script", "customer writes Latin script; reply must not be Devanagari"))

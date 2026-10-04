@@ -65,8 +65,21 @@ def extract_numbers(text: str) -> list[Decimal]:
     return out
 
 
+# Everyday Hindi retail nouns the stand-in understands in Devanagari (a real model needs no list; owners can also add
+# aliases to a product). Each maps to the Latin words catalogs usually use.
+HINDI_LEXICON = {
+    "चावल": "rice basmati chawal", "दाल": "dal toor", "तेल": "oil tel", "साड़ी": "saree sari", "साडी": "saree sari",
+    "कुर्ता": "kurta", "लहंगा": "lehenga", "फोन": "phone mobile", "मोबाइल": "mobile phone", "कवर": "cover case", "आटा": "atta flour",
+    "चीनी": "sugar", "नमक": "salt", "दूध": "milk", "सूट": "suit", "दुपट्टा": "dupatta", "ब्लाउज": "blouse",
+}
+
+
 def tokens(s: str) -> list[str]:
-    return [w for w in re.findall(r"[a-z0-9ऀ-ॿ]+", s.lower()) if len(w) >= 3 and w not in STOP]
+    s = s.lower()
+    for hi, latin in HINDI_LEXICON.items():
+        if hi in s:
+            s += " " + latin
+    return [w for w in re.findall(r"[a-z0-9ऀ-ॿ]+", s) if len(w) >= 3 and w not in STOP]
 
 
 def match_variants(text: str, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
