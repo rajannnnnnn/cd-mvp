@@ -86,3 +86,20 @@ async def db(env: dict[str, str]):  # noqa: ARG001
     await database.open()
     yield database
     await database.close()
+
+
+@pytest_asyncio.fixture(scope="session")
+async def rt(env: dict[str, str]):  # noqa: ARG001
+    from salesai.config import get_settings
+    from salesai.runtime import Runtime
+    from tests.world import pg_queue_factory
+
+    runtime = await Runtime.create(get_settings(), queue_factory=pg_queue_factory)
+    yield runtime
+    await runtime.close()
+
+
+@pytest_asyncio.fixture
+async def world(rt):
+    from tests.world import World
+    return World(rt)

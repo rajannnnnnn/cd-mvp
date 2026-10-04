@@ -8,7 +8,7 @@ from typing import Literal
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-Role = Literal["api", "ingress", "worker", "scheduler", "migrate", "all"]
+Role = Literal["api", "ingress", "web", "worker", "scheduler", "migrate", "all"]
 
 ALL_QUEUES = (
     "inbound.events",
@@ -64,6 +64,8 @@ class Settings(BaseSettings):
 
     # --- channels
     simulator_enabled: bool = True
+    otp_channel: Literal["simulator", "whatsapp_cloud"] = "simulator"   # how login codes reach a number
+    platform_wa_access_token: str = ""      # platform sender (login codes) when otp_channel=whatsapp_cloud
     # Business number the platform uses to send owner login codes / alerts when a business
     # has no number yet (e.g. operator onboarding).
     platform_sender_phone_number_id: str = "sim-platform"
@@ -98,8 +100,8 @@ class Settings(BaseSettings):
         if self.llm_provider == "anthropic" and not self.anthropic_api_key:
             raise ValueError("LLM_PROVIDER=anthropic requires ANTHROPIC_API_KEY")
         if self.env == "production":
-            if self.simulator_enabled:
-                raise ValueError("SIMULATOR_ENABLED must be false in production")
+            if self.simulator_enabled or self.otp_channel == "simulator":
+                raise ValueError("SIMULATOR_ENABLED must be false and OTP_CHANNEL=whatsapp_cloud in production")
             if self.llm_provider == "local":
                 raise ValueError("LLM_PROVIDER=local is not allowed in production")
             weak = ("change-me", "dev-", "test-")
