@@ -21,6 +21,10 @@ TEMPLATES: dict[str, dict[str, str]] = {
         "en": "📊 {{1}} — daily summary\n{{2}}",
         "hi": "📊 {{1}} — दैनिक सारांश\n{{2}}",
     },
+    "operator_alert": {          # platform team only (alert routing); the parameter is one line of text
+        "en": "Sales AI platform alert: {{1}}",
+        "hi": "Sales AI प्लेटफ़ॉर्म अलर्ट: {{1}}",
+    },
     "disconnect_alert": {
         "en": "⚠️ {{1}}: your WhatsApp number {{2}} is disconnected. The AI assistant has been paused. Reason: {{3}}",
         "hi": "⚠️ {{1}}: आपका WhatsApp नंबर {{2}} डिस्कनेक्ट हो गया है। AI असिस्टेंट रोक दिया गया है। कारण: {{3}}",

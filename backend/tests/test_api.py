@@ -400,3 +400,44 @@ async def test_export_and_hard_delete_remove_every_trace(world, client, pg_urls)
         assert (await (await c.execute("SELECT count(*) AS n FROM sim_messages WHERE business_phone=%s", (shop.business_phone,))).fetchone())["n"] == 0
         assert (await (await c.execute("SELECT count(*) AS n FROM accounts WHERE id=%s", (shop.owner_account_id,))).fetchone())["n"] == 0
     assert (await client.get(f"{V1}/business", headers=hdr(tok))).status_code == 401           # the owner's sessions died with the tenant
+
+
+async def test_owner_can_export_and_delete_their_own_data(world, client, pg_urls):
+    shop, tok = await owner(world, client, "Self Service Shop")
+    await client.post(f"{V1}/products", headers=hdr(tok), json=PRODUCT)
+    phone = "+919811100019"
+    await world.customer_says(shop, phone, "silk saree price?")
+    await settle(world, shop, phone)
+
+    r = await client.get(f"{V1}/business/export", headers=hdr(tok))
+    assert r.status_code == 200 and "attachment" in r.headers["content-disposition"]
+    body = r.json()
+    assert body["products"] and body["messages"] and "812.34" not in r.text            # INV-1: the lowest price never leaves, even to its owner
+    audit = await world.q(shop, "SELECT action FROM audit_log WHERE action='data.exported'")
+    assert len(audit) == 1
+
+    # staff cannot do either
+    team = await client.post(f"{V1}/team", headers=hdr(tok), json={"phone": "+919811100020", "name": "Staffer", "role": "staff"})
+    assert team.status_code in (200, 201), team.text
+    st = await login(client, "+919811100020")
+    assert (await client.get(f"{V1}/business/export", headers=hdr(st))).status_code == 403
+    assert (await client.delete(f"{V1}/business", headers=hdr(st), params={"confirm_name": "Self Service Shop"})).status_code == 403
+
+    r = await client.delete(f"{V1}/business", headers=hdr(tok), params={"confirm_name": "wrong name"})
+    assert r.status_code == 422
+    r = await client.delete(f"{V1}/business", headers=hdr(tok), params={"confirm_name": "Self Service Shop"})
+    assert r.status_code == 200 and r.json()["deleted"]["businesses"] == 1
+    async with await psycopg.AsyncConnection.connect(pg_urls["super"], autocommit=True, row_factory=psycopg.rows.dict_row) as c:
+        for t in ("conversations", "messages", "customers", "products"):
+            n = (await (await c.execute(f"SELECT count(*) AS n FROM {t} WHERE business_id=%s", (shop.business_id,))).fetchone())["n"]  # noqa: S608
+            assert n == 0, t
+    assert (await client.get(f"{V1}/business", headers=hdr(tok))).status_code == 401
+
+
+async def test_support_sessions_cannot_delete_a_business(world, client):
+    op = await operator_token(world, client)
+    shop, _ = await owner(world, client, "Protected Shop")
+    imp = (await client.post(f"{V1}/operator/businesses/{shop.business_id}/impersonate", headers=hdr(op))).json()
+    r = await client.delete(f"{V1}/business", headers=hdr(imp), params={"confirm_name": "Protected Shop"})
+    assert r.status_code == 403
+    assert (await client.get(f"{V1}/business/export", headers=hdr(imp))).status_code == 200      # support may view; it cannot erase

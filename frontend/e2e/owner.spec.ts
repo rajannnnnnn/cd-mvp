@@ -87,4 +87,16 @@ test.describe('owner app', () => {
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByText('Saved').first()).toBeVisible()
   })
+
+  test('settings: the owner can download their data and is asked to type the shop name before deleting', async ({ page }) => {
+    await page.goto('/app/settings')
+    await page.getByRole('tab', { name: /Security/ }).click()
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download my data' }).click()])
+    expect(dl.suggestedFilename()).toBe('my-shop-data.json')
+    await page.getByRole('button', { name: /Delete my shop/ }).click()
+    const confirm = page.getByRole('button', { name: 'Delete everything' })
+    await expect(confirm).toBeDisabled()                                  // nothing is deleted until the exact name is typed
+    await page.getByRole('button', { name: 'Cancel' }).click()
+    await expect(page.getByRole('heading', { name: 'Your data' })).toBeVisible()
+  })
 })

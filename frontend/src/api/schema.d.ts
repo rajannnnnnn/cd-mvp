@@ -168,7 +168,8 @@ export interface paths {
         get: operations["get_business_api_v1_business_get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /** Permanently delete your shop and every trace of its data */
+        delete: operations["delete_my_business_api_v1_business_delete"];
         options?: never;
         head?: never;
         /** Patch Business */
@@ -186,6 +187,23 @@ export interface paths {
         put?: never;
         /** Pause or resume the AI for the whole business */
         post: operations["toggle_ai_api_v1_business_ai_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/business/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download all of your shop's data as JSON (never includes lowest prices, tokens or secrets) */
+        get: operations["export_my_data_api_v1_business_export_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3010,6 +3028,41 @@ export interface operations {
             };
         };
     };
+    delete_my_business_api_v1_business_delete: {
+        parameters: {
+            query: {
+                confirm_name: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     patch_business_api_v1_business_patch: {
         parameters: {
             query?: never;
@@ -3067,6 +3120,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BusinessOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_my_data_api_v1_business_export_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

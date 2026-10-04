@@ -39,6 +39,7 @@ ALLOWED_DEPS: dict[str, set[str]] = {
     "agent": {"catalog", "delivery", "handoffs", "pricing", "sales"},
     "conversations": {"agent", "channels", "handoffs"},
     "notifications": {"agent", "catalog", "channels", "handoffs", "sales"},
+    "alerting": {"channels"},
 }
 # api is the HTTP layer: it may use these module interfaces (never the reverse).
 API_MAY_USE = {"auth", "catalog", "channels", "handoffs", "pricing", "sales", "tenants"}
@@ -49,12 +50,13 @@ PUBLIC_SUBMODULES: dict[str, set[str]] = {
     "catalog": {"models", "repo"},
     "pricing": {"engine"},
     "channels": {"base", "ingress"},
+    "alerting": set(),
 }
 
 # B4: vendor package -> the only files allowed to import it (paths relative to the package root)
 VENDOR_ADAPTERS = {
     "anthropic": {"modules/agent/llm/anthropic_provider.py"},
-    "httpx": {"modules/channels/whatsapp.py", "modules/channels/embedded_signup.py", "modules/agent/llm/anthropic_provider.py"},
+    "httpx": {"modules/channels/whatsapp.py", "modules/channels/embedded_signup.py", "modules/agent/llm/anthropic_provider.py", "modules/alerting/webhook_sink.py"},
     "redis": {"queue/redis_backend.py"},
 }
 # B5

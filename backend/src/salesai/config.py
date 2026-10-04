@@ -84,6 +84,12 @@ class Settings(BaseSettings):
     llm_model_check: str = "claude-haiku-4-5"
     llm_timeout_s: float = 30.0
 
+    # --- alert routing: where operator alerts are pushed (empty = console only)
+    alert_webhook_url: str = ""
+    alert_whatsapp_numbers: str = ""        # comma-separated E.164 numbers of the platform team
+    alert_min_severity: Literal["info", "warning", "critical"] = "warning"
+    alert_reminder_minutes: int = 60        # unresolved critical alerts repeat at this interval
+
     # --- safety bounds
     max_turn_wait_ms_ceiling: int = 60_000
     default_owner_pause_minutes: int = 120
@@ -113,6 +119,9 @@ class Settings(BaseSettings):
             for name in ("jwt_secret", "otp_secret", "meta_app_secret", "meta_verify_token"):
                 if any(w in getattr(self, name).lower() for w in weak):
                     raise ValueError(f"{name.upper()} looks like a placeholder; set a real secret")
+        for n in self.alert_numbers:
+            if not n.startswith("+") or not n[1:].isdigit():
+                raise ValueError(f"ALERT_WHATSAPP_NUMBERS entry {n!r} must look like +919999900000")
         unknown = set(self.queues) - set(ALL_QUEUES)
         if unknown:
             raise ValueError(f"unknown queues in WORKER_QUEUES: {sorted(unknown)}")
@@ -121,6 +130,10 @@ class Settings(BaseSettings):
     @property
     def queues(self) -> list[str]:
         return [q.strip() for q in self.worker_queues.split(",") if q.strip()]
+
+    @property
+    def alert_numbers(self) -> list[str]:
+        return [n.strip() for n in self.alert_whatsapp_numbers.split(",") if n.strip()]
 
     @property
     def origins(self) -> list[str]:

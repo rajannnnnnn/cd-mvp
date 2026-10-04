@@ -4988,6 +4988,65 @@
       }
     },
     "/api/v1/business": {
+      "delete": {
+        "operationId": "delete_my_business_api_v1_business_delete",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "confirm_name",
+            "required": true,
+            "schema": {
+              "minLength": 1,
+              "title": "Confirm Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Delete My Business Api V1 Business Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Permanently delete your shop and every trace of its data",
+        "tags": [
+          "business"
+        ]
+      },
       "get": {
         "operationId": "get_business_api_v1_business_get",
         "parameters": [
@@ -5147,6 +5206,53 @@
           }
         },
         "summary": "Pause or resume the AI for the whole business",
+        "tags": [
+          "business"
+        ]
+      }
+    },
+    "/api/v1/business/export": {
+      "get": {
+        "operationId": "export_my_data_api_v1_business_export_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download all of your shop's data as JSON (never includes lowest prices, tokens or secrets)",
         "tags": [
           "business"
         ]

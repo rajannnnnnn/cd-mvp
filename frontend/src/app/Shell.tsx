@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { Building2, ChevronDown, Globe, Home, Inbox, KanbanSquare, LogOut, Megaphone, MessageCircle, Mic2, Moon, MoreHorizontal, Package, Play, Settings, ShieldCheck, Sun, Users, Wifi, WifiOff } from 'lucide-react'
+import { Building2, ChevronDown, Home, Inbox, KanbanSquare, LogOut, Megaphone, MessageCircle, Mic2, Moon, MoreHorizontal, Package, Play, Settings, ShieldCheck, Sun, Users, Wifi, WifiOff } from 'lucide-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { useT } from '@/i18n'
 import { Avatar, Logo, Switch, Modal, useToast } from '@/ui'
@@ -11,12 +11,13 @@ import { startLive } from '@/api/live'
 import { useBusiness, useOverview, usePublicConfig } from '@/api/hooks'
 import { api, ok } from '@/api/client'
 import { currentTheme, setTheme, type Theme } from '@/lib/theme'
+import { tr } from '@/i18n/tr'
 
 type Item = { to: string; icon: any; key: string; label: string; badge?: number; dev?: boolean }
 
 export default function Shell() {
   const { me, role, logout, switchBusiness, reload } = useAuth()
-  const { t, lang, setLang } = useT()
+  const { t } = useT()
   const qc = useQueryClient()
   const nav = useNavigate()
   const backToConsole = async () => {
@@ -41,17 +42,17 @@ export default function Shell() {
 
   const needs = (ov.data?.today.open_handoffs ?? 0) + (ov.data?.today.pending_deals ?? 0)
   const items: Item[] = useMemo(() => isOwner ? [
-    { to: '/home', icon: Home, key: 'nav.home', label: 'Home' },
-    { to: '/chats', icon: MessageCircle, key: 'nav.chats', label: 'Chats' },
-    { to: '/inbox', icon: Inbox, key: 'nav.inbox', label: 'For you', badge: needs },
-    { to: '/pipeline', icon: KanbanSquare, key: 'nav.pipeline', label: 'Pipeline' },
-    { to: '/catalog', icon: Package, key: 'nav.catalog', label: 'Catalog' },
-    { to: '/offers', icon: Megaphone, key: 'nav.offers', label: 'Offers' },
-    { to: '/voice', icon: Mic2, key: 'nav.voice', label: 'My voice' },
-    { to: '/customers', icon: Users, key: 'nav.customers', label: 'Customers' },
-    { to: '/playground', icon: Play, key: 'nav.playground', label: 'Playground', dev: true },
-    { to: '/settings', icon: Settings, key: 'nav.settings', label: 'Settings' },
-  ] : [{ to: '/operator', icon: ShieldCheck, key: 'nav.operator', label: 'Operator console' }], [isOwner, needs])
+    { to: '/home', icon: Home, key: 'nav.home', label: tr('Home') },
+    { to: '/chats', icon: MessageCircle, key: 'nav.chats', label: tr('Chats') },
+    { to: '/inbox', icon: Inbox, key: 'nav.inbox', label: tr('For you'), badge: needs },
+    { to: '/pipeline', icon: KanbanSquare, key: 'nav.pipeline', label: tr('Pipeline') },
+    { to: '/catalog', icon: Package, key: 'nav.catalog', label: tr('Catalog') },
+    { to: '/offers', icon: Megaphone, key: 'nav.offers', label: tr('Offers') },
+    { to: '/voice', icon: Mic2, key: 'nav.voice', label: tr('My voice') },
+    { to: '/customers', icon: Users, key: 'nav.customers', label: tr('Customers') },
+    { to: '/playground', icon: Play, key: 'nav.playground', label: tr('Playground'), dev: true },
+    { to: '/settings', icon: Settings, key: 'nav.settings', label: tr('Settings') },
+  ] : [{ to: '/operator', icon: ShieldCheck, key: 'nav.operator', label: tr('Operator console') }], [isOwner, needs])
   const visible = items.filter((i) => !i.dev || cfg.data?.simulator_enabled)
   const mobile = isOwner ? [visible[0], visible[1], visible[2], visible[4]] : visible
   const aiOn = biz.data?.ai_enabled ?? false
@@ -70,7 +71,7 @@ export default function Shell() {
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0"><div className="truncate text-sm font-bold">{me?.business?.name ?? '—'}</div>
                 <div className="flex items-center gap-1.5 text-xs text-muted"><span className={cx('h-2 w-2 rounded-full', aiOn ? 'bg-brand animate-pulseDot' : 'bg-muted')} />{aiOn ? t('ai.on', 'AI assistant is ON') : t('ai.paused', 'AI assistant paused')}</div></div>
-              <Switch checked={aiOn} onChange={toggleAi} label="AI assistant" />
+              <Switch checked={aiOn} onChange={toggleAi} label={tr('AI assistant')} />
             </div>
           </div>)}
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto">
@@ -83,7 +84,7 @@ export default function Shell() {
         <div className="mt-2 border-t border-line/70 pt-3">
           <button className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-surface2" onClick={() => setMenu(true)}>
             <Avatar name={me?.name ?? me?.phone} size={34} />
-            <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{me?.name ?? 'You'}</div><div className="truncate text-xs text-muted">{me?.phone}</div></div>
+            <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{me?.name ?? tr('You')}</div><div className="truncate text-xs text-muted">{me?.phone}</div></div>
             <ChevronDown className="h-4 w-4 text-muted" />
           </button>
         </div>
@@ -94,12 +95,11 @@ export default function Shell() {
           <div className="lg:hidden"><Logo size={28} wordmark={false} /></div>
           <div className="min-w-0 flex-1 lg:hidden"><div className="truncate text-sm font-bold">{me?.business?.name ?? t('nav.operator', 'Operator console')}</div></div>
           <div className="hidden flex-1 lg:block" />
-          {me?.impersonated && <button className="badge badge-amber cursor-pointer hover:brightness-95" onClick={backToConsole}>Viewing as owner (support) · Back to console</button>}
-          {isOwner && <span className={cx('hidden items-center gap-1.5 text-xs sm:flex', live ? 'text-brand-ink' : 'text-muted')} title={live ? 'Live updates connected' : 'Reconnecting…'}>{live ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}{live ? 'Live' : 'Offline'}</span>}
-          {isOwner && <div className="flex items-center gap-2 lg:hidden"><span className="text-xs font-semibold text-muted">AI</span><Switch checked={aiOn} onChange={toggleAi} label="AI assistant" /></div>}
-          <button className="btn btn-ghost btn-icon" onClick={() => setLang(lang === 'en' ? 'hi' : 'en')} aria-label="Language"><Globe className="h-[18px] w-[18px]" /><span className="ml-1 hidden text-xs font-bold sm:inline">{lang === 'en' ? 'हिं' : 'EN'}</span></button>
-          <button className="btn btn-ghost btn-icon" onClick={flipTheme} aria-label="Theme">{theme === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}</button>
-          <button className="lg:hidden" onClick={() => setMenu(true)} aria-label="Account"><Avatar name={me?.name ?? me?.phone} size={32} /></button>
+          {me?.impersonated && <button className="badge badge-amber cursor-pointer hover:brightness-95" onClick={backToConsole}>{tr('Viewing as owner (support) · Back to console')}</button>}
+          {isOwner && <span className={cx('hidden items-center gap-1.5 text-xs sm:flex', live ? 'text-brand-ink' : 'text-muted')} title={live ? tr('Live updates connected') : tr('Reconnecting…')}>{live ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}{live ? tr('Live') : tr('Offline')}</span>}
+          {isOwner && <div className="flex items-center gap-2 lg:hidden"><span className="text-xs font-semibold text-muted">{tr('AI')}</span><Switch checked={aiOn} onChange={toggleAi} label={tr('AI assistant')} /></div>}
+          <button className="btn btn-ghost btn-icon" onClick={flipTheme} aria-label={tr('Theme')}>{theme === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}</button>
+          <button className="lg:hidden" onClick={() => setMenu(true)} aria-label={tr('Account')}><Avatar name={me?.name ?? me?.phone} size={32} /></button>
         </header>
         <main className="min-w-0 flex-1"><Outlet /></main>
       </div>
@@ -110,21 +110,21 @@ export default function Shell() {
             <i.icon className="h-5 w-5" />{t(i.key, i.label)}
             {!!i.badge && <span className="absolute right-[26%] top-1.5 grid min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">{i.badge}</span>}
           </NavLink>))}
-        {isOwner && <button onClick={() => setMore(true)} className="flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold text-muted"><MoreHorizontal className="h-5 w-5" />More</button>}
+        {isOwner && <button onClick={() => setMore(true)} className="flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold text-muted"><MoreHorizontal className="h-5 w-5" />{tr('More')}</button>}
       </nav>
 
-      <Modal open={more} onClose={() => setMore(false)} title="More">
+      <Modal open={more} onClose={() => setMore(false)} title={tr('More')}>
         <div className="grid grid-cols-3 gap-3">
           {visible.filter((i) => !mobile.includes(i)).map((i) => (
             <NavLink key={i.to} to={i.to} className="flex flex-col items-center gap-2 rounded-2xl bg-surface2 px-2 py-4 text-center text-xs font-semibold"><i.icon className="h-6 w-6 text-brand-ink" />{t(i.key, i.label)}</NavLink>))}
         </div>
       </Modal>
 
-      <Modal open={menu} onClose={() => setMenu(false)} title={me?.name ?? 'Account'}>
+      <Modal open={menu} onClose={() => setMenu(false)} title={me?.name ?? tr('Account')}>
         <div className="space-y-4">
           <div className="flex items-center gap-3"><Avatar name={me?.name ?? me?.phone} size={46} /><div><div className="font-semibold">{me?.name}</div><div className="text-sm text-muted">{me?.phone} · {role}</div></div></div>
           {(me?.businesses?.length ?? 0) > 1 && (
-            <div><div className="panel-title mb-2">Switch business</div>
+            <div><div className="panel-title mb-2">{tr('Switch business')}</div>
               <div className="space-y-1.5">{me!.businesses.map((b) => (
                 <button key={b.id} onClick={() => { switchBusiness(b.id); nav('/home') }} className={cx('flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm', b.id === me?.business?.id ? 'border-brand bg-brand-soft' : 'border-line')}><Building2 className="h-4 w-4" />{b.name}<span className="ml-auto text-xs text-muted">{b.role}</span></button>))}</div></div>)}
           <button className="btn btn-outline w-full" onClick={async () => { await logout(); nav('/login') }}><LogOut className="h-4 w-4" />{t('common.signOut', 'Sign out')}</button>

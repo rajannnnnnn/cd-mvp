@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import uuid
 from decimal import Decimal
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from salesai.api.deps import RT, Owner, Tenant, tx
@@ -13,7 +13,7 @@ from salesai.db import jsonb, required
 from salesai.modules.auth import Principal
 from salesai.modules.catalog import repo
 from salesai.modules.channels import SignupError, complete_signup
-from salesai.modules.tenants import add_cloud_number, upsert_account
+from salesai.modules.tenants import add_cloud_number, delete_tenant, export_tenant, upsert_account
 from salesai.phone import normalize_phone
 from salesai.runtime import Runtime
 
@@ -264,3 +264,25 @@ async def remove_member(member_id: uuid.UUID, rt: RT, p: Owner) -> None:
             raise ApiError(409, "last_owner", "A business needs at least one owner.")
         await c.execute("DELETE FROM business_users WHERE id=%s", (member_id,))
         await repo.audit(c, p.bid, p.account_id, "owner", "team.removed", "business_user", str(member_id))
+
+
+# ---- the owner's own data (DPDP: access and erasure without needing the platform team)
+@router.get("/business/export", summary="Download all of your shop's data as JSON (never includes lowest prices, tokens or secrets)")
+async def export_my_data(rt: RT, p: Owner) -> Response:
+    import json
+    data = await export_tenant(rt.db, p.bid)
+    async with tx(rt, p) as c:
+        await repo.audit(c, p.bid, p.account_id, "owner", "data.exported", "business", str(p.bid))
+    return Response(json.dumps(data, ensure_ascii=False, indent=1), media_type="application/json",
+                    headers={"Content-Disposition": 'attachment; filename="my-shop-data.json"'})
+
+
+@router.delete("/business", summary="Permanently delete your shop and every trace of its data")
+async def delete_my_business(rt: RT, p: Owner, confirm_name: Annotated[str, Query(min_length=1)]) -> dict[str, Any]:
+    if p.impersonated_by is not None:
+        raise ApiError(403, "forbidden", "Support sessions cannot delete a business; the owner must do it.")
+    async with tx(rt, p) as c:
+        row = required(await (await c.execute("SELECT name FROM businesses WHERE id=%s", (p.bid,))).fetchone(), "business")
+    if row["name"] != confirm_name:
+        raise ApiError(422, "confirmation_mismatch", "Type the shop name exactly to confirm deletion.")
+    return {"deleted": await delete_tenant(rt.db, p.bid, rt.queue)}

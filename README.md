@@ -12,7 +12,7 @@ engineering decisions are recorded as ADRs.
 | Area | State |
 |---|---|
 | Backend (API, async pipeline, pricing engine, agent, delivery, owner loop, auth, operator functions) | **Built and tested** (about 190 automated tests, real Postgres, no mocks of product logic) |
-| Frontend (marketing site, owner app, operator console, playground) | **Built**; Hindi/English; browser tests written, run against the dev stack |
+| Frontend (marketing site, owner app, operator console, playground) | **Built**; app in English, marketing site in English and Hindi; browser tests run against the dev stack |
 | Meta WhatsApp Cloud API | Adapter and Embedded Signup completion **implemented against documented formats and a fake Graph server; not yet verified with a real Meta number** (none exists yet) |
 | LLM | Deterministic local stand-in is the default (no API key yet). Anthropic adapter implemented and tested against a local fake of the Messages API; **real-model evaluations not yet run** |
 | Voice notes | **Deferred by the founder** (seam kept, ADR 0015) |

@@ -6,7 +6,7 @@ Where things live, and which automated tests prove each invariant. Keep this cur
 
 | Module | Responsibility | Depends on (enforced by `scripts/check_boundaries.py`) |
 |---|---|---|
-| `tenants` | business creation, accounts, per-tenant key vault (token encryption), export and hard delete | – |
+| `tenants` | business creation, accounts, per-tenant key vault (token encryption), export and hard delete (operator and owner self-service) | – |
 | `catalog` | products, variants, pricing policies, offers, write-only floor writes, retrieval | – |
 | `pricing` | **pure** engine (`engine.py`) and the service that loads policy + floor through the pricing DB role | – |
 | `sales` | deals (orders and visits), lead-stage rules | – |
@@ -16,6 +16,7 @@ Where things live, and which automated tests prove each invariant. Keep this cur
 | `delivery` | human-like planner, send-time checks, per-number rate limit, business hours | channels, handoffs |
 | `agent` | context assembly, planner → engine → writer → checks pipeline, prompts, LLM providers (`llm/`) | catalog, delivery, handoffs, pricing, sales |
 | `conversations` | inbound router, end-of-turn predictor, turn worker | agent, channels, handoffs |
+| `alerting` | pushes operator alerts to the platform team: JSON webhook and WhatsApp sinks, reminders, retries (ADR 0017) | channels |
 | `notifications` | owner loop: alerts, WhatsApp commands, config-by-chat with read-back, daily summary | agent, catalog, channels, handoffs, sales |
 
 Other packages: `api/` (FastAPI routes under `/api/v1`, SSE hub, error format), `queue/` (interface, Postgres and Redis
@@ -54,5 +55,5 @@ settings, playground, operator), `ui/` (design system), `i18n/`, `lib/`. Static 
 Queue properties on both backends (`queue_suite.py`); the full async pipeline on Redis (`TEST_QUEUE_BACKEND=redis`);
 module boundaries (`test_boundaries.py`); API contract drift (`openapi.json` + generated client); the marketing demo's
 price schedule against the real engine (`backend/tests/golden/ladder.json`, `test_golden_ladder.py`, `ladder.test.ts`);
-Hindi coverage of the marketing site (`hi.test.ts`); configuration documented in `.env.example`
+Hindi coverage of the marketing site (`hi.test.ts`); alert routing in `test_alert_routing.py`; configuration documented in `.env.example`
 (`test_config_documented.py`); browser tests in `frontend/e2e/`.

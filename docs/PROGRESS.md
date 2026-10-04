@@ -49,8 +49,8 @@ Legend: **Done** = implemented and covered by automated tests. **Partial** = imp
 | M9 | Owner loop | **Done** | Handoff/deal alerts, knowledge gaps, stop/start, daily summary, config-by-chat with read-back confirmation, disconnection handling, quality alerts. |
 | M10 | Media (voice) | **Deferred by the founder** | ADR 0015. Audio is stored and answered with a polite "please type"; no transcriber. |
 | M11 | API | **Done** | Every PRD capability under `/api/v1`, OpenAPI contract committed, generated typed client, roles (owner, staff, operator), idempotency keys, consistent errors, SSE live updates. Embedded Signup completion endpoint implemented against a fake Graph server (**unverified with real Meta**). |
-| M12 | Frontend | **Done, polish pending** | Marketing site (EN/HI, live price-limits demo, legal pages), login, dashboard, chats, pipeline, inbox, catalog (write-only floor, ladder preview), offers, voice examples, customers, settings, playground, operator console. Hindi covers the marketing site fully and the app shell/main labels only partially. The in-app "Connect a WhatsApp number" button exists but is unverified against Meta. |
-| M13 | Hardening | **Partial** | Structured JSON logs with redaction, Prometheus metrics, operator alerts, scheduler retention, evaluation suite, load-test harness with first results (section 4). **Missing: alert routing, tracing, a run of the evaluations on real models.** |
+| M12 | Frontend | **Done** | Marketing site (EN/HI, live price-limits demo, legal pages), login, dashboard, chats, pipeline, inbox, catalog (write-only floor, ladder preview), offers, "My voice" style examples (how the owner writes; not voice notes), customers, settings (including the owner's own data export and delete), playground, operator console. **The app is English only by founder decision**; the marketing site keeps its EN/HI toggle. Voice notes appear nowhere in the product surface. The in-app "Connect a WhatsApp number" button exists but is unverified against Meta. |
+| M13 | Hardening | **Partial** | Structured JSON logs with redaction and a request id on every API call, Prometheus metrics, operator alerts **routed to a webhook and/or WhatsApp** (ADR 0017), scheduler retention, evaluation suite, load-test harness with results (section 4). **Missing: distributed tracing across the queue hops, a run of the evaluations on real models.** |
 | M14 | Meta onboarding | **Partial** | Embedded Signup completion, account/quality events, disconnection handling are implemented and tested against fakes. **Needs verification with a real Meta test number**; the browser-side Embedded Signup button is built but tested only against fakes. |
 
 ## 4. What has been verified, and how
@@ -95,14 +95,12 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
    examples passed afterwards). Treat any recurrence as real and capture the seed.
 5. **Static typing relaxation** in data-access modules (ADR 0010) is a ratchet to tighten over time.
 6. **Legal pages are drafts** with bracketed placeholders (entity, address, hosting, providers, grievance officer).
-7. **Frontend Hindi** is complete for the marketing site. In the app only the shell, dashboard, chats and login are
-   translated (46 keys); the screens added later (pipeline, inbox, catalog, offers, voice, customers, settings, playground,
-   operator) still use English strings. Wrap them in `t('key', 'English')` and add entries to `src/i18n/hi.ts`; a vitest guard
-   fails if a wrapped string lacks Hindi.
+7. **The app is English only** (founder decision, 2026-10-04). Every user-facing string goes through `t(key, en)` or `tr(en)` (`src/i18n`), so a
+   language can be added later without touching screens. The marketing site keeps its EN/HI toggle (`src/site/hi.ts`, guarded by `hi.test.ts`).
 8. The marketing "Start a pilot" button is a `mailto:` link (`VITE_CONTACT_EMAIL`, placeholder address).
 9. Redis backend runs standalone/Sentinel (single hash tag); sharding is a later step.
-10. No in-app flow for the owner to export or delete their own data; today this is an operator action
-    (`/operator/businesses/{id}/export`, `DELETE`), described on the data-deletion page.
+10. Template management: the product sends only inside the 24-hour window; a window-closed send fails safely into an owner handoff
+    (INV-8, INV-12). No owner-defined WhatsApp templates exist yet, and none are needed until the founder wants proactive outreach.
 
 ## 6. Decisions needed from the founder
 
@@ -122,8 +120,8 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
 1. Run `scripts/up.sh --demo` where a Docker daemon exists; fix whatever breaks (images, Caddy routes, CSP, `config.json`,
    role passwords); confirm the CI `compose` and `e2e` jobs go green. Record results here.
 2. Run the whole browser suite (`frontend/e2e`) against the compose stack and fix any environment-specific failures.
-3. Frontend polish pass: finish Hindi for app screens (every `t('key', 'English')` call needs a `hi.ts` entry), empty and
-   error states, skeletons, keyboard navigation, low-end Android check (bundle sizes are small; measure on throttled CPU).
+3. Frontend polish pass: empty and error states, skeletons, keyboard navigation, low-end Android check (bundle sizes are
+   small; measure on throttled CPU).
 
 **P1 – close the verification gaps**
 4. Run the conversation evaluation suite (`backend/tests/evals/`, command in `docs/RUNNING.md`) against each candidate model
@@ -137,9 +135,10 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
    implemented from Meta's documentation and tested only against fakes.
 
 **P2 – product depth already in PRD v1**
-8. Owner self-service export/delete; operator alert routing (email/WhatsApp to the operator); observability: traces and
-   dashboards for the existing metrics; tighten mypy overrides (ADR 0010).
-9. Meta Data Use Checkup reminder, quality-rating based throttling policy, template management for window-closed sends.
+8. Observability: distributed trace ids across the queue hops (an API request id exists today) and dashboards for the existing
+   metrics; tighten mypy overrides (ADR 0010). Configure `ALERT_WEBHOOK_URL` / `ALERT_WHATSAPP_NUMBERS` and get the `operator_alert`
+   template approved in Meta before a pilot.
+9. Meta Data Use Checkup reminder and a quality-rating based throttling policy.
 
 **Out of scope until the founder says so:** voice-note transcription, v2/v3 items in `docs/PRD.md`, payments/billing.
 
@@ -155,7 +154,10 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
 - **Session 1 (planning):** documents split into `docs/` (PRD, HLD, Technical Design), operating rules in `CLAUDE.md`.
 - **Session 2 (build):** backend M1–M9 and M11 built test-first (real Postgres, simulated network); authentication,
   operator functions, scheduler, seed data; frontend foundation, dashboard, chats.
-- **Session 3 (this one):** remaining owner screens, operator console, playground; marketing site and legal pages;
+- **Session 3:** remaining owner screens, operator console, playground; marketing site and legal pages;
   self-hosted fonts; containers and compose; boundary checker, lint and strict typing gates, CI; Redis queue backend and
   shared suite; Anthropic adapter and Embedded Signup completion tested against local fakes; ADRs; browser and unit tests;
   this handoff documentation.
+- **Session 4 (this one):** reply-latency root cause fixed (outbound ordering per conversation, flood guard; ADR 0016); owner self-service data
+  export and delete; alert routing (ADR 0017); voice notes removed from the product surface; app made English-only; then the full
+  SaaS slice requested by the founder (see the section below once recorded).

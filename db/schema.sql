@@ -4,7 +4,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict CyZ7UzuyTq42RfuMztS0RmTtgzltgqGesBdTIK3fRuro8RtVBAPEu5ucRlLBYXD
+\restrict WrDsnXDY2nwVluMXoqKPpB9FxwVl9ZdKlIHVDGsIi0NS3oYW5cVimrbqbg5Q4m3
 
 -- Dumped from database version 16.14 (Ubuntu 16.14-0ubuntu0.24.04.1)
 -- Dumped by pg_dump version 16.14 (Ubuntu 16.14-0ubuntu0.24.04.1)
@@ -654,6 +654,9 @@ CREATE TABLE public.operator_alerts (
     detail jsonb DEFAULT '{}'::jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     resolved_at timestamp with time zone,
+    notified_at timestamp with time zone,
+    notify_attempts integer DEFAULT 0 NOT NULL,
+    notify_error text,
     CONSTRAINT operator_alerts_severity_check CHECK ((severity = ANY (ARRAY['info'::text, 'warning'::text, 'critical'::text])))
 );
 
@@ -1505,6 +1508,13 @@ CREATE UNIQUE INDEX offers_biz_id_uq ON public.offers USING btree (business_id, 
 
 
 --
+-- Name: operator_alerts_due_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX operator_alerts_due_idx ON public.operator_alerts USING btree (id) WHERE (resolved_at IS NULL);
+
+
+--
 -- Name: otp_ip_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2210,5 +2220,5 @@ ALTER TABLE public.whatsapp_numbers ENABLE ROW LEVEL SECURITY;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict CyZ7UzuyTq42RfuMztS0RmTtgzltgqGesBdTIK3fRuro8RtVBAPEu5ucRlLBYXD
+\unrestrict WrDsnXDY2nwVluMXoqKPpB9FxwVl9ZdKlIHVDGsIi0NS3oYW5cVimrbqbg5Q4m3
 

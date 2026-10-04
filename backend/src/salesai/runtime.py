@@ -11,6 +11,9 @@ from salesai.db import Database
 from salesai.events.relay import OutboxRelay
 from salesai.modules.agent import AgentService, Models
 from salesai.modules.agent.llm.factory import make_llm
+from salesai.modules.alerting import AlertRouter
+from salesai.modules.alerting.router import WhatsAppSink
+from salesai.modules.alerting.webhook_sink import WebhookSink
 from salesai.modules.auth import AuthService
 from salesai.modules.channels import ChannelRegistry
 from salesai.modules.channels.simulator import SimulatorNetwork
@@ -24,6 +27,15 @@ from salesai.queue.postgres import PostgresQueue
 from salesai.queue.worker import HandlerRegistry, StalenessResolver, WorkerRunner
 
 log = logging.getLogger("salesai.runtime")
+
+
+def build_alert_router(db: Database, channels: ChannelRegistry, settings: Settings) -> AlertRouter:
+    sinks: list[Any] = []
+    if settings.alert_webhook_url:
+        sinks.append(WebhookSink(settings.alert_webhook_url))
+    if settings.alert_numbers:
+        sinks.append(WhatsAppSink(channels, settings.alert_numbers))
+    return AlertRouter(db, sinks, min_severity=settings.alert_min_severity, reminder_minutes=settings.alert_reminder_minutes)
 
 
 class Runtime:
@@ -49,6 +61,7 @@ class Runtime:
         self.owner = OwnerLoop(db, self.channels, self.llm, settings.llm_model_check)
         self.auth = AuthService(db, self.channels, settings)
         self.sim = SimulatorNetwork(db, settings.meta_app_secret)
+        self.alerts = build_alert_router(db, self.channels, settings)
         self.hub: Any = None
         self.extra: dict[str, Any] = {}
         self._wire()

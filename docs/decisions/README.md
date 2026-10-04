@@ -20,3 +20,5 @@ superseded by a new ADR, never rewritten. Status is `accepted` unless stated.
 | [0013](0013-pricing-engine.md) | Pure pricing engine and the concession schedule |
 | [0014](0014-delivery-pacing.md) | Human-like delivery planner and send-time checks |
 | [0015](0015-voice-notes-deferred.md) | Voice-note transcription deferred by the founder; the seam is kept |
+| [0016](0016-per-conversation-ordering-and-flood-guard.md) | Outbound ordering per conversation; per-conversation AI turn budget |
+| [0017](0017-alert-routing.md) | Alert routing to the platform team |

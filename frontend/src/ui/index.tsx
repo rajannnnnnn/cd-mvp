@@ -2,6 +2,7 @@ import { cloneElement, createContext, isValidElement, useCallback, useContext, u
 import { createPortal } from 'react-dom'
 import { Check, CheckCheck, Loader2, X, AlertTriangle, Info, CheckCircle2 } from 'lucide-react'
 import { cx, initials } from '@/lib/format'
+import { tr } from '@/i18n/tr'
 
 /* ---------------------------------------------------------------- brand */
 export function Logo({ size = 32, wordmark = true, light = false }: { size?: number; wordmark?: boolean; light?: boolean }) {
@@ -13,7 +14,7 @@ export function Logo({ size = 32, wordmark = true, light = false }: { size?: num
         <path d="M11 13.5A3.5 3.5 0 0 1 14.5 10h11A3.5 3.5 0 0 1 29 13.5v7a3.5 3.5 0 0 1-3.5 3.5H18l-5 4.2V24a3.5 3.5 0 0 1-2-3.1v-7.4Z" fill="#fff" />
         <path d="m15.2 17.4 2.6 2.6 5.2-5.4" fill="none" stroke="#067647" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      {wordmark && <span className={cx('font-display text-[19px] font-extrabold tracking-tight', light ? 'text-white' : 'text-ink')}>Saathi</span>}
+      {wordmark && <span className={cx('font-display text-[19px] font-extrabold tracking-tight', light ? 'text-white' : 'text-ink')}>{tr('Saathi')}</span>}
     </span>
   )
 }
@@ -28,7 +29,7 @@ export function Avatar({ name, size = 40, tone }: { name?: string | null; size?:
     </span>
   )
 }
-export const Spinner = ({ className }: { className?: string }) => <Loader2 className={cx('animate-spin', className ?? 'h-4 w-4')} aria-label="Loading" />
+export const Spinner = ({ className }: { className?: string }) => <Loader2 className={cx('animate-spin', className ?? 'h-4 w-4')} aria-label={tr('Loading')} />
 export const Skeleton = ({ className }: { className?: string }) => <div className={cx('skeleton', className)} />
 
 export function Badge({ tone = 'gray', children, dot }: { tone?: 'green' | 'amber' | 'red' | 'blue' | 'gray'; children: ReactNode; dot?: boolean }) {
@@ -85,8 +86,8 @@ export function ErrorNote({ error, retry }: { error: unknown; retry?: () => void
   return (
     <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger-soft p-4 text-sm text-danger">
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-      <div className="flex-1"><p className="font-semibold">Something went wrong</p><p className="opacity-90">{(error as Error)?.message}</p></div>
-      {retry && <button className="btn btn-sm btn-outline" onClick={retry}>Retry</button>}
+      <div className="flex-1"><p className="font-semibold">{tr('Something went wrong')}</p><p className="opacity-90">{(error as Error)?.message}</p></div>
+      {retry && <button className="btn btn-sm btn-outline" onClick={retry}>{tr('Retry')}</button>}
     </div>
   )
 }
@@ -129,7 +130,7 @@ export function Modal({ open, onClose, title, children, footer, wide }: { open: 
       <div className={cx('relative z-10 flex max-h-[92dvh] w-full flex-col rounded-t-3xl bg-surface shadow-pop animate-fadeUp sm:rounded-3xl', wide ? 'sm:max-w-3xl' : 'sm:max-w-lg')}>
         <div className="flex items-center justify-between gap-4 border-b border-line/70 px-5 py-4">
           <h2 className="font-display text-lg font-bold">{title}</h2>
-          <button className="btn btn-ghost btn-icon" onClick={onClose} aria-label="Close"><X className="h-5 w-5" /></button>
+          <button className="btn btn-ghost btn-icon" onClick={onClose} aria-label={tr('Close')}><X className="h-5 w-5" /></button>
         </div>
         <div className="overflow-y-auto px-5 py-5">{children}</div>
         {footer && <div className="flex items-center justify-end gap-2 border-t border-line/70 px-5 py-3.5">{footer}</div>}
@@ -140,7 +141,7 @@ export function Modal({ open, onClose, title, children, footer, wide }: { open: 
 export function Confirm({ open, title, body, confirmLabel, danger, onConfirm, onClose, busy }: { open: boolean; title: string; body?: ReactNode; confirmLabel?: string; danger?: boolean; onConfirm: () => void; onClose: () => void; busy?: boolean }) {
   return (
     <Modal open={open} onClose={onClose} title={title}
-      footer={<><button className="btn btn-outline" onClick={onClose}>Cancel</button><button className={cx('btn', danger ? 'btn-danger' : 'btn-primary')} onClick={onConfirm} disabled={busy}>{busy && <Spinner />}{confirmLabel ?? 'Confirm'}</button></>}>
+      footer={<><button className="btn btn-outline" onClick={onClose}>{tr('Cancel')}</button><button className={cx('btn', danger ? 'btn-danger' : 'btn-primary')} onClick={onConfirm} disabled={busy}>{busy && <Spinner />}{confirmLabel ?? tr('Confirm')}</button></>}>
       <div className="text-sm text-muted">{body}</div>
     </Modal>
   )
@@ -192,7 +193,7 @@ export function AreaChart({ series, labels, height = 180, colors = ['rgb(var(--b
   }
   return (
     <div className="relative">
-      <svg ref={ref} viewBox={`0 0 ${W} ${H}`} className="w-full touch-none" style={{ height }} onPointerMove={move} onPointerLeave={() => setHover(null)} role="img" aria-label="Activity chart">
+      <svg ref={ref} viewBox={`0 0 ${W} ${H}`} className="w-full touch-none" style={{ height }} onPointerMove={move} onPointerLeave={() => setHover(null)} role="img" aria-label={tr('Activity chart')}>
         <defs>{series.map((_, k) => <linearGradient key={k} id={`g${id}${k}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={colors[k]} stopOpacity=".28" /><stop offset="1" stopColor={colors[k]} stopOpacity="0" /></linearGradient>)}</defs>
         {[0, 0.5, 1].map((f) => <line key={f} x1={P.l} x2={W - P.r} y1={P.t + f * (H - P.t - P.b)} y2={P.t + f * (H - P.t - P.b)} stroke="rgb(var(--line))" strokeDasharray="3 5" />)}
         {series.map((s, k) => {
@@ -255,7 +256,7 @@ export function Sheet({ open, onClose, title, children, footer }: { open: boolea
     <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-ink/50 backdrop-blur-[2px]" onClick={onClose} />
       <div className="relative z-10 ml-auto flex h-full w-full max-w-[560px] flex-col bg-surface shadow-pop animate-[fadeUp_.2s_ease_both]">
-        <div className="flex items-center justify-between border-b border-line/70 px-5 py-4"><h2 className="font-display text-lg font-bold">{title}</h2><button className="btn btn-ghost btn-icon" onClick={onClose} aria-label="Close"><X className="h-5 w-5" /></button></div>
+        <div className="flex items-center justify-between border-b border-line/70 px-5 py-4"><h2 className="font-display text-lg font-bold">{title}</h2><button className="btn btn-ghost btn-icon" onClick={onClose} aria-label={tr('Close')}><X className="h-5 w-5" /></button></div>
         <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
         {footer && <div className="flex items-center justify-end gap-2 border-t border-line/70 bg-surface px-5 py-3.5">{footer}</div>}
       </div>

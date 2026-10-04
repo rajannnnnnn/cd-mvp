@@ -5,7 +5,8 @@
 ## Decision
 Voice notes are not transcribed in this build. Inbound audio is stored, shown in the chat as a voice message, and the
 assistant answers that it cannot play voice notes yet and asks the customer to type (never silence, INV-12). The
-marketing site and UI mark voice as "coming soon". The conversation flow already handles `kind="audio"` messages, and the
+marketing site and the app no longer mention voice notes at all (follow-up instruction, 2026-10-04: remove it from the
+product surface for now); a customer's voice note still gets the polite "please type" reply. The conversation flow already handles `kind="audio"` messages, and the
 Technical Design's `Transcriber` port is the single place to add a vendor: transcribe before the turn is decided.
 
 ## How to revisit
