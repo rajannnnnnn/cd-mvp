@@ -46,10 +46,12 @@ def cond_text(lang: str, c: str) -> str:
 
 
 def name_part(lang: str, d: dict[str, Any]) -> str:
-    n = d.get("customer_name")
+    n = (d.get("customer_name") or "").strip().split(" ")[0] if d.get("customer_name") else ""
     hon = d.get("honorific") or ""
     if not n or n.lower() in ("customer",):
         return ""
+    if lang == "hi" and hon.lower() == "ji":
+        hon = "जी"
     return f" {n}" + (f" {hon}" if hon and lang != "en" else "")
 
 
@@ -60,10 +62,15 @@ def render(d: dict[str, Any], lang: str, ctx: dict[str, Any]) -> str:
     prod = d.get("product") or ""
     var = d.get("variant")
     pv = f"{prod} ({var})" if var and var != "default" else prod
+    also = d.get("also_in") or []
+    also_txt = (" " + pick(lang, "Also available in " + ", ".join(also) + ".", "Aur colour/option: " + ", ".join(also) + ".", "और विकल्प: " + ", ".join(also) + "।")) if also else ""
 
     if t == "greeting" and d.get("short"):
         nm = name_part(lang, {**ctx, **d})
         return pick(lang, f"Hello{nm}!", f"Namaste{nm}!", f"नमस्ते{nm}!")
+    if t == "clarify":
+        return pick(lang, "Sure — what are you looking for? Tell me the product or ask me anything about our shop.", "Zaroor — aap kya dhoondh rahe hain? Product ka naam ya koi bhi sawaal poochiye.",
+                    "ज़रूर — आप क्या ढूँढ रहे हैं? प्रोडक्ट का नाम या कोई भी सवाल पूछिए।")
     if t == "ack":
         return pick(lang, "Got it! Let me know if there's anything else you'd like to know.", "Theek hai! Aur kuch jaanna ho to bataiye.", "ठीक है! और कुछ जानना हो तो बताइए।")
     if t == "catalog":
@@ -104,14 +111,14 @@ def render(d: dict[str, Any], lang: str, ctx: dict[str, Any]) -> str:
         extra = {"out_of_stock": pick(lang, " It is currently out of stock.", " Abhi stock mein nahi hai.", " यह अभी स्टॉक में नहीं है।"),
                  "made_to_order": pick(lang, " It is made to order.", " Yeh order par banta hai.", " यह ऑर्डर पर बनता है।")}.get(av, "")
         head = f"{pv}: {desc}." if desc else f"Yes, we have {pv}." if lang == "en" else f"{pv}: {desc}." if desc else f"Ji, {pv} available hai."
-        return head + extra
+        return head + extra + also_txt
     if t == "availability":
         av = d.get("availability")
         if av == "out_of_stock":
             return pick(lang, f"Sorry, {pv} is currently out of stock.", f"Maaf kijiye, {pv} abhi stock mein nahi hai.", f"माफ़ कीजिए, {pv} अभी स्टॉक में नहीं है।")
         if av == "made_to_order":
             return pick(lang, f"Yes, {pv} is available on order.", f"Ji, {pv} order par available hai.", f"जी, {pv} ऑर्डर पर उपलब्ध है।")
-        return pick(lang, f"Yes, {pv} is available.", f"Ji haan, {pv} available hai.", f"जी हाँ, {pv} उपलब्ध है।")
+        return pick(lang, f"Yes, {pv} is available.", f"Ji haan, {pv} available hai.", f"जी हाँ, {pv} उपलब्ध है।") + also_txt
     if t == "quote":
         return _quote(d, lang, pv, cur)
     if t == "ask_qualify":
@@ -233,14 +240,25 @@ def _quote(d: dict[str, Any], lang: str, pv: str, cur: str) -> str:
         body = pick(lang, f"The price of {pv} is fixed at {price}{offer}.", f"{pv} ka price {price} fixed hai{offer}.", f"{pv} का दाम {price} तय है{offer}।")
     else:
         body = pick(lang, f"{pv} is {price}{offer}.", f"{pv} {price} ka hai{offer}.", f"{pv} {price} का है{offer}।")
-    return (body + tot + free + (" " + urg if urg else "")).strip()
+    also = d.get("also_in") or []
+    also_txt = (" " + pick(lang, "Also available in " + ", ".join(also) + ".", "Aur colour/option: " + ", ".join(also) + ".", "और विकल्प: " + ", ".join(also) + "।")) if also and kind == "quote" else ""
+    return (body + tot + free + also_txt + (" " + urg if urg else "")).strip()
+
+
+def _style_ok(example: str, lang: str, script: str) -> bool:
+    """Use the owner's own words only when they match the customer's script and language (voice mirroring)."""
+    from salesai.modules.agent.llm.local_nlu import detect_lang
+    ex_lang, ex_script = detect_lang([example])
+    return ex_script == script and (ex_lang == lang or lang == "hinglish" and ex_lang in ("hinglish", "en") or lang == "en" and ex_lang == "en")
 
 
 def write(inp: dict[str, Any]) -> dict[str, Any]:
     lang = inp.get("language", "en")
+    script = inp.get("script", "latin")
     ctx = {"business_name": inp.get("business_name"), "customer_name": inp.get("customer_name"), "honorific": inp.get("honorific")}
     parts: list[str] = []
-    examples = {e["situation"]: e["owner_reply"] for e in inp.get("style_examples", []) if not re.search(r"\d", e.get("owner_reply", ""))}
+    examples = {e["situation"]: e["owner_reply"] for e in inp.get("style_examples", [])
+                if not re.search(r"\d", e.get("owner_reply", "")) and _style_ok(e.get("owner_reply", ""), lang, script)}
     for d in inp.get("directives", []):
         if d["type"] in ("greeting", "thanks", "goodbye") and d["type"] in examples:
             parts.append(examples[d["type"]].strip())

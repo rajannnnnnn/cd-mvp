@@ -251,7 +251,7 @@ def _handoff(reason: str, state: NegState, note: str) -> Decision:
 
 def _with_urgency(req: Request, d: Decision) -> Decision:
     """Attach only REAL urgency facts: an applied offer's end date, genuinely limited stock (FR-SL-6)."""
-    if not d.values:
+    if not d.values or d.kind not in ("quote", "firm"):    # urgency belongs to an initial quote, not to every concession
         return d
     items: list[Urgency] = []
     for o in req.offers:

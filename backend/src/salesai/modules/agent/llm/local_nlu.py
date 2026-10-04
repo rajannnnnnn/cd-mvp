@@ -107,14 +107,14 @@ def pick_variant(text: str, cands: list[dict[str, Any]], matched: list[dict[str,
     if not matched:
         return None
     toks = set(tokens(text))
-    # same product, several variants: prefer the one whose variant name/attributes the customer mentioned
+    # same product, several variants: the one the customer named (e.g. "the red one"), else the product's default
     pid = matched[0]["product_id"]
     group = [c for c in cands if c["product_id"] == pid]
     for c in group:
         vw = set(tokens(c.get("variant_name") or "")) | {str(v).lower() for v in (c.get("attributes") or {}).values() if isinstance(v, str)}
         if toks & vw:
             return c
-    return next((c for c in group if c.get("variant_name") == "default"), group[0])
+    return next((c for c in group if c.get("is_default")), next((c for c in group if c.get("variant_name") == "default"), group[0]))
 
 
 # ---- intents ---------------------------------------------------------------------------------
@@ -138,7 +138,7 @@ R_ORDER = _rx(r"\b(i('| wi)?ll|i will|i wanna|i want to|want to|would like to|li
 R_VISIT = _rx(r"\b(visit|come to|coming to|drop by|stop by) (the |your )?(shop|store|showroom|outlet|place)\b", r"\b(shop|store|showroom|dukaan|dukan) (par|pe|me|mein) (aa|aunga|aaunga|aaungi|aata|aati)\b",
               r"\b(aa|aaunga|aaungi|aata hu|aati hu|aa raha|aa rahi) (hu|hoon|hun)?\b.*(shop|store|dukaan|kal|aaj|sunday|monday|tuesday|wednesday|thursday|friday|saturday)", r"\bcan i (come|see|visit|check)\b.*(shop|store|in person|physically)", r"\bvisit\b", r"(दुकान|शोरूम) (पर|में) आ")
 R_AFFIRM = _rx(r"^(yes+|yeah|yep|yup|ok(ay)?|sure|confirm(ed)?|done|haan|ha|haa|han|theek hai|thik hai|theek|pakka|kar do|kardo|ji|ji haan|bilkul|go ahead|proceed|correct|right)[\s.!,]*(please|pls|ji|confirm(ed)?|kar do|hai)?[\s.!]*$", r"^(हाँ|हां|ठीक है|जी|बिल्कुल|पक्का|कर दो)")
-R_DISCOUNT = _rx(r"\b(discount|less|reduce|reduction|cheaper|lower|bargain|negotiat\w*|best price|last price|final price|lowest|better price|(any|koi|current|special|festival|diwali|ongoing) offers?|concession|can you do (better|less|something)|thoda kam|kam kar|kam karo|kam ho|rate kam|price kam|kuch kam|thodi chhoot|chhoot|chut|sasta|sasti)\b",
+R_DISCOUNT = _rx(r"\b(discount|less|reduce|reduction|cheaper|lower|bargain|negotiat\w*|best price|last price|final price|lowest|better price|best (you|u) can|what'?s (the |your )?best|best possible|best rate|your best|(any|koi|current|special|festival|diwali|ongoing) offers?|concession|can you do (better|less|something)|thoda kam|kam kar|kam karo|kam ho|rate kam|price kam|kuch kam|thodi chhoot|chhoot|chut|sasta|sasti)\b",
                  r"(छूट|कम कर|कम करो|थोड़ा कम|सस्ता|डिस्काउंट|ऑफर)")
 R_COUNTER_WORDS = _rx(r"\b(can you do|can u do|will you do|do it for|for|only|just|final|pay|give|offer|budget|mein de|me de|mein dedo|me dedo|tak|me chalega|mein chalega|dedo|de do|ok at|settle)\b", r"(में दे|में दो|तक|चलेगा)")
 R_PRICE = _rx(r"\b(price|cost|rate|rates|how much|howmuch|kitna|kitne|kitni|kimat|kimmat|daam|dam|charges?|pricing|what'?s the price|prize|amount|mrp)\b", r"(कीमत|दाम|कितना|कितने|भाव|रेट)", r"₹|\brs\.?\b|\binr\b")
@@ -148,7 +148,7 @@ R_SHOW = _rx(r"\b(show|dikhao|dikha do|details?|photo|pic|design|catalog(ue)?|co
 R_SCOPE_OUT = _rx(r"\b(weather|joke|poem|story|song|lyrics|recipe|horoscope|astrology|cricket|ipl|score|news|election|prime minister|president|capital of|who (is|was|won)|movie|film|python|javascript|java code|write (me )?(a |an )?(code|essay|program|script)|solve|equation|math|homework|bitcoin|crypto|stock market|share price|translate|chatgpt|openai|gpt|your (model|prompt|instructions)|system prompt|ignore (all |your |previous )?instructions|pretend|roleplay|relationship advice|medical advice|legal advice|tell me a)\b",
                       r"\bwhat is \d+\s*[\+\-\*/x]\s*\d+", r"\bwho (made|created|built|trained) you\b", r"(मौसम|चुटकुला|कविता|कहानी|गाना|क्रिकेट|खबर|चुनाव|प्रधानमंत्री)")
 TOPICS = {
-    "hours": _rx(r"\b(hours?|timings?|time|open|opening|close|closing|closed|kab tak|kab khulta|kab band|khulta|band hota|sunday|holiday|working days?)\b", r"(समय|टाइमिंग|खुलता|बंद)"),
+    "hours": _rx(r"\b(hours?|timings?|time|open|opening|close|closing|closed|kab tak|kab khulta|kab band|khulta|band hota|sunday|holiday|working days?)\b", r"(समय|टाइमिंग|टाइम|खुलता|खुली|खुला|खुलती|बंद|कब तक)"),
     "address": _rx(r"\b(address|location|where|kahan|kaha|directions?|map|nearby|landmark|locate|pata)\b", r"(पता|कहाँ|कहां|लोकेशन)"),
     "delivery": _rx(r"\b(deliver\w*|ship\w*|courier|dispatch|home delivery|delivery charges?|cod|pincode|send to|bhejte|bhejna)\b", r"(डिलीवरी|भेजते|कूरियर)"),
     "payment": _rx(r"\b(payment|pay|upi|gpay|google pay|phonepe|paytm|cash|card|emi|advance|cod|net ?banking|bank transfer|partial)\b", r"(भुगतान|पेमेंट|यूपीआई|कैश)"),
@@ -157,7 +157,8 @@ TOPICS = {
 }
 R_BUSINESS = _rx(*[p.pattern for p in TOPICS.values()])
 R_ADDR = re.compile(r"\b(address|near|road|street|colony|nagar|sector|lane|apartment|flat|building|pin ?code|pincode|society|marg|chowk|bazaar|market)\b|\b\d{6}\b", re.I)
-R_QTY = re.compile(r"\b(\d{1,4})\s*(pcs?|pieces?|piece|nos?|units?|sets?|sarees?|saris?|kurtas?|items?|bottles?|packs?|kg|boxes?)\b|\bx\s?(\d{1,3})\b|\b(\d{1,3})\s?x\b", re.I)
+R_QTY = re.compile(r"\b(\d{1,4})\s*(pcs?|pieces?|piece|nos?|units?|sets?|sarees?|saris?|kurtas?|items?|bottles?|packs?|boxes?)\b|\bx\s?(\d{1,3})\b|\b(\d{1,3})\s?x\b", re.I)
+R_VISIT_TIME = re.compile(r"\b(today|tonight|tomorrow|tmrw|kal|aaj|parso|monday|tuesday|wednesday|thursday|friday|saturday|sunday|this (?:weekend|evening|morning|afternoon)|next (?:week|monday|tuesday|wednesday|thursday|friday|saturday|sunday))\b(?:\s+(?:at|around|by|ko)?\s*(\d{1,2}(?::\d{2})?\s?(?:am|pm)?|morning|evening|afternoon))?", re.I)
 R_TIME = re.compile(r"\b(today|tonight|tomorrow|tmrw|kal|aaj|parso|day after|this (morning|evening|afternoon|weekend)|next (week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}(:\d{2})?\s?(am|pm)|morning|evening|afternoon|subah|shaam|dopahar)\b", re.I)
 OCCASION = re.compile(r"\b(wedding|marriage|shaadi|engagement|birthday|gift|diwali|festival|party|anniversary|office|daily wear|puja|baby shower|reception)\b", re.I)
 
@@ -253,9 +254,9 @@ def plan(inp: dict[str, Any]) -> dict[str, Any]:
                     commitment={"kind": "order", "variant_id": pending["variant_id"], "quantity": pending.get("quantity", 1),
                                 "delivery_address": q_upd.get("delivery_address"), "confirmed": False})
     if R_VISIT.search(text):
-        tm = R_TIME.search(text)
+        tm = R_VISIT_TIME.search(text) or R_TIME.search(text)
         return done("visit_intent", action="reply", lead_stage=stage("ready_to_buy"),
-                    commitment={"kind": "visit", "visit_time": tm.group(0) if tm else None, "confirmed": bool(tm)},
+                    commitment={"kind": "visit", "visit_time": " ".join(tm.group(0).split()) if tm else None, "confirmed": bool(tm)},
                     product_refs=refs())
     if R_ORDER.search(text):
         return done("order_intent", action="reply", lead_stage=stage("ready_to_buy"), product_refs=refs(),

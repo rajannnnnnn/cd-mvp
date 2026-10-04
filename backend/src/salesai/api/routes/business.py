@@ -38,6 +38,7 @@ class ConversationSettingsIn(BaseModel):
     business_hours_behavior: Literal["reply_normally", "slower", "wait_for_open"] | None = None
     nudge_after_minutes: int | None = Field(default=None, ge=30, le=1380)
     history_messages: int | None = Field(default=None, ge=5, le=50)
+    daily_summary_hour: int | None = Field(default=None, ge=0, le=23)
 
 
 class Dist(BaseModel):

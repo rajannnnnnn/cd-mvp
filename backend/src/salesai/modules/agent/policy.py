@@ -58,7 +58,7 @@ def _issue(plan: Plan, ev: Evaluation) -> None:
         plan.real_urgency.add(u.kind)
 
 
-def quote_directive(ev: Evaluation) -> dict[str, Any]:
+def quote_directive(ev: Evaluation, cand: dict[str, Any] | None = None, others: list[str] | None = None) -> dict[str, Any]:
     d = ev.decision
     names = ev.offer_names or {}
     cur = d.values[0].currency if d.values else "INR"
@@ -68,6 +68,7 @@ def quote_directive(ev: Evaluation) -> dict[str, Any]:
         "applied_offers": [names.get(i, "special") for i in d.applied_offers], "free_items": list(d.free_items),
         "unmet": list(d.requires), "final_offer": not d.can_concede_more,
         "real_urgency": [{"kind": u.kind, "detail": u.detail} for u in d.urgency],
+        **({"variant": ev.variant_name if (cand or {}).get("variant_count", 2) > 1 else None, "also_in": others or []} if cand else {}),
     }
 
 
@@ -92,7 +93,7 @@ async def build_plan(ctx: ctxmod.TurnContext, out: PlannerOutput, pricing: Prici
     async def evaluate(ref: ProductRef, ask: str) -> Evaluation:
         cand = ctx.candidate(ref.variant_id)
         assert cand is not None
-        qualified = bool(qual.get("quantity") or qual.get("occasion") or qual.get("budget") or ref.quantity > 1)
+        qualified = bool(qual.get("quantity") or qual.get("occasion") or qual.get("budget") or ref.quantity > 1 or qual.get("asked_qualification"))
         ev = await pricing.evaluate(bid, conv_id, ref.variant_id, ask=ask, counter=ref.counter_price, quantity=ref.quantity,  # type: ignore[arg-type]
                                     advance_payment=ref.advance_payment, repeat_customer=ctx.is_repeat, qualified=qualified,
                                     may_mention_offers=bool(sales.get("may_mention_offers", True)), now=ctx.now)
@@ -154,10 +155,11 @@ async def build_plan(ctx: ctxmod.TurnContext, out: PlannerOutput, pricing: Prici
                 if d.kind == "handoff":
                     handoff(d.handoff_reason or "other", d.note)
                 elif d.kind == "ask_qualify":
-                    D.append({"type": "ask_qualify", "product": ev.product_name, "variant": ev.variant_name,
+                    qual["asked_qualification"] = True       # ask once; a shopper who doesn't answer still gets a price next turn
+                    D.append({"type": "ask_qualify", "product": ev.product_name, "variant": _vname(ctx, ref, ev),
                               "fields": ["quantity"] if not qual.get("quantity") else ["occasion"]})
                 else:
-                    D.append(quote_directive(ev))
+                    D.append(quote_directive(ev, ctx.candidate(ref.variant_id), _others(ctx, ref)))
                     if ask != "price" or d.state.step:
                         qual["price_quoted"] = True
                     qual["price_quoted"] = True
@@ -165,7 +167,7 @@ async def build_plan(ctx: ctxmod.TurnContext, out: PlannerOutput, pricing: Prici
                         price = _price_of(ev)
                         qual["pending_order"] = {"variant_id": str(ref.variant_id), "quantity": ref.quantity, "price": str(price)}
                         plan.lead_stage = next_stage(plan.lead_stage, "ready_to_buy")
-                        D.append(_order_summary(ev, ref.quantity, not qual.get("delivery_address")))
+                        D.append(_order_summary(ev, ref.quantity, not qual.get("delivery_address"), (ctx.candidate(ref.variant_id) or {}).get("variant_count", 2) > 1))
     elif intent in ("order_intent", "affirmation") and (out.commitment or qual.get("pending_order")):
         await _order_flow(ctx, out, plan, qual, valid_refs, evaluate, handoff, sales)
     elif intent == "visit_intent":
@@ -199,8 +201,8 @@ async def build_plan(ctx: ctxmod.TurnContext, out: PlannerOutput, pricing: Prici
                 assert cand is not None
                 focus(ref)
                 D.append({"type": "availability" if intent == "availability" else "product_info", "product": cand["product_name"],
-                          "variant": cand["variant_name"], "description": cand.get("description"), "availability": cand["availability"],
-                          "attributes": cand.get("attributes") or {}})
+                          "variant": cand["variant_name"] if cand.get("variant_count", 2) > 1 else None, "description": cand.get("description"),
+                          "availability": cand["availability"], "attributes": cand.get("attributes") or {}, "also_in": _others(ctx, ref)})
                 plan.allowed_texts += [str(cand.get("description") or ""), str(cand.get("attributes") or ""), cand["product_name"]]
         else:
             names = list(dict.fromkeys(c["product_name"] for c in ctx.candidates))[:6]
@@ -217,11 +219,11 @@ async def build_plan(ctx: ctxmod.TurnContext, out: PlannerOutput, pricing: Prici
         if facts:
             D.append({"type": "facts", "items": facts})
             plan.allowed_texts += facts
-        elif out.action == "handoff" or out.handoff_reason == "unknown_answer" or q:
+        elif out.action == "handoff" or out.handoff_reason == "unknown_answer":
             plan.gaps.append(q)
             handoff("unknown_answer", f"Customer question: {q[:200]}", notice=True)
-        else:
-            D.append({"type": "ack"})
+        else:                                   # an unfinished or unclear message: ask, don't escalate
+            D.append({"type": "clarify"})
 
     plan.qualification = qual
     plan.allowed_texts.append(str(profile))
@@ -230,10 +232,22 @@ async def build_plan(ctx: ctxmod.TurnContext, out: PlannerOutput, pricing: Prici
     return plan
 
 
-def _order_summary(ev: Evaluation, qty: int, needs_address: bool) -> dict[str, Any]:
+def _vname(ctx: ctxmod.TurnContext, ref: ProductRef, ev: Evaluation) -> str | None:
+    c = ctx.candidate(ref.variant_id)
+    return ev.variant_name if c and c.get("variant_count", 2) > 1 else None
+
+
+def _others(ctx: ctxmod.TurnContext, ref: ProductRef) -> list[str]:
+    c = ctx.candidate(ref.variant_id)
+    if not c or c.get("variant_count", 1) <= 1:
+        return []
+    return [x["variant_name"] for x in ctx.candidates if x["product_id"] == c["product_id"] and x["variant_id"] != c["variant_id"]][:4]
+
+
+def _order_summary(ev: Evaluation, qty: int, needs_address: bool, variant_label: bool = True) -> dict[str, Any]:
     vals = {v.kind: v.amount for v in ev.decision.values}
     price = vals.get("price")
-    return {"type": "order_summary", "product": ev.product_name, "variant": ev.variant_name, "quantity": qty,
+    return {"type": "order_summary", "product": ev.product_name, "variant": ev.variant_name if variant_label else None, "quantity": qty,
             "price": f"{price:f}" if price is not None else None,
             "total": f"{vals['total']:f}" if "total" in vals else (f"{price * qty:f}" if price is not None and qty > 1 else None),
             "needs_address": needs_address, "currency": ev.decision.values[0].currency if ev.decision.values else "INR"}
@@ -282,4 +296,4 @@ async def _order_flow(ctx, out, plan, qual, valid_refs, evaluate, handoff, sales
         qual.pop("pending_order", None)
         D.append({"type": "order_captured"})
     else:
-        D.append(_order_summary(ev, int(qty), not address))
+        D.append(_order_summary(ev, int(qty), not address, cand.get("variant_count", 2) > 1))

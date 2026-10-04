@@ -8,6 +8,9 @@ from datetime import timedelta
 from salesai.db import Conn, jsonb
 from salesai.events.outbox import emit
 
+# Handoffs that need a PERSON in the conversation pause the AI there (INV-10: owner control). A knowledge gap or an
+# on-request price only alerts the owner; the AI keeps helping with everything else.
+PAUSING_REASONS = {"customer_asked_human", "complaint", "below_floor", "high_value", "system_failure"}
 HANDOFF_REASONS = ("unknown_answer", "on_request_price", "below_floor", "customer_asked_human", "complaint",
                    "high_value", "system_failure", "other")
 
@@ -25,7 +28,7 @@ async def create_handoff(c: Conn, business_id: uuid.UUID, conversation_id: uuid.
     row = await (await c.execute(
         "INSERT INTO handoffs (business_id, conversation_id, reason, note) VALUES (%s,%s,%s,%s) RETURNING id",
         (business_id, conversation_id, reason, note))).fetchone()
-    if pause_minutes:
+    if pause_minutes and reason in PAUSING_REASONS:
         await c.execute(
             "UPDATE conversations SET ai_paused_until = now() + %s, ai_paused_reason = 'handoff' WHERE id=%s",
             (timedelta(minutes=pause_minutes), conversation_id))

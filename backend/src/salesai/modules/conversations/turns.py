@@ -80,10 +80,8 @@ class TurnWorker:
         assert bid is not None
         async with self.db.tenant(bid) as c:
             conv = await (await c.execute("SELECT * FROM conversations WHERE id=%s", (cid,))).fetchone()
-            if conv is None or conv["version"] != version or conv["nudge_sent_at"] or conv["selling_stopped"] \
-                    or conv["lead_stage"] in ("won", "lost", "new"):
-                return
-            await c.execute("UPDATE conversations SET nudge_sent_at=now() WHERE id=%s", (cid,))
+            if conv is None or conv["version"] != version or conv["selling_stopped"] or conv["lead_stage"] in ("won", "lost", "new"):
+                return          # the scheduler already marked nudge_sent_at when it requested this (at most one nudge)
         await self.agent.run_turn(bid, cid, version, trigger="nudge", signals={"nudge": True})
 
     async def _release(self, bid: uuid.UUID, cid: uuid.UUID, version: int) -> None:

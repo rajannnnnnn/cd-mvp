@@ -14,7 +14,7 @@ from salesai.db import Database
 from salesai.modules.catalog import repo as catalog
 
 PLANNER_KEYS = ("variant_id", "product_id", "product_name", "variant_name", "description", "category",
-                "attributes", "product_attributes", "availability")
+                "attributes", "product_attributes", "availability", "is_default", "variant_count")
 
 
 _AMOUNT = re.compile(r"(?:₹|rs\.?\s?|inr\s?)\s?\d[\d,]*(?:\.\d+)?(?:\s?/-)?|\b\d[\d,]*(?:\.\d+)?\s?(?:/-|rupees?|rupaye|rs\b)|\b\d{3,}(?:,\d{2,3})*(?:\.\d+)?\b", re.I)
