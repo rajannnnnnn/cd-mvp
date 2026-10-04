@@ -17,7 +17,20 @@ function Gen([int]$n = 32) {
 if ($Down)  { docker compose down; exit 0 }
 if ($Reset) { docker compose --profile demo --profile redis down -v; Remove-Item -Force -ErrorAction SilentlyContinue $envFile; Write-Host 'reset'; exit 0 }
 
+# Windows git often checks files out with CRLF line endings. Files that run inside Linux containers must have LF,
+# or the database's first-start script fails silently and no roles are created. Normalise them (safe to repeat).
+foreach ($f in @('postgres-init\10-roles.sh', '..\db\bootstrap_roles.sql', '..\frontend\deploy\Caddyfile')) {
+  if (Test-Path $f) {
+    $t = [IO.File]::ReadAllText((Resolve-Path $f))
+    if ($t.Contains("`r`n")) { [IO.File]::WriteAllText((Resolve-Path $f), $t.Replace("`r`n", "`n"), (New-Object Text.UTF8Encoding($false))); Write-Host "fixed line endings: $f" }
+  }
+}
+
+function PortFree([int]$p) { try { $l = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Any, $p); $l.Start(); $l.Stop(); $true } catch { $false } }
+
 if (-not (Test-Path $envFile)) {
+  $port = (8080, 8081, 8090, 8181, 8888, 9080 | Where-Object { PortFree $_ } | Select-Object -First 1)
+  if (-not $port) { $port = 8080 }
   $key = New-Object byte[] 32
   [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($key)
   $lines = @(
@@ -27,7 +40,7 @@ if (-not (Test-Path $envFile)) {
     "MASTER_KEY=$([Convert]::ToBase64String($key))",
     "JWT_SECRET=$(Gen 48)", "OTP_SECRET=$(Gen 48)", "META_APP_SECRET=$(Gen)", "META_VERIFY_TOKEN=$(Gen 24)",
     'SIMULATOR_ENABLED=true', 'LLM_PROVIDER=local', 'OTP_ACCEPT_ANY=true', 'PAYMENT_PROVIDER=test',
-    'OTP_MIN_INTERVAL_S=1', 'OTP_PER_PHONE_PER_HOUR=500', 'OTP_PER_IP_PER_HOUR=2000', 'WEB_PORT=8080'
+    'OTP_MIN_INTERVAL_S=1', 'OTP_PER_PHONE_PER_HOUR=500', 'OTP_PER_IP_PER_HOUR=2000', "WEB_PORT=$port"
   )
   # UTF-8 without a byte-order mark, LF line endings (docker compose is strict about both)
   [IO.File]::WriteAllText((Join-Path (Get-Location) $envFile), ($lines -join "`n") + "`n", (New-Object Text.UTF8Encoding($false)))
@@ -37,5 +50,6 @@ if (-not (Test-Path $envFile)) {
 docker compose up -d --build
 if ($Demo) { docker compose --profile demo run --rm seed }
 Write-Host ''
-Write-Host 'Open http://localhost:8080   (app: /app)'
+$webPort = ((Get-Content $envFile | Where-Object { $_ -like 'WEB_PORT=*' }) -replace 'WEB_PORT=', '')
+Write-Host "Open http://localhost:$webPort   (app: http://localhost:$webPort/app)"
 Write-Host 'Demo: any new mobile number signs up with any 6-digit code. Owner +91 99999 00001, operator +91 99999 00000.'
