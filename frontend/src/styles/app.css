@@ -1,0 +1,94 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body { @apply bg-bg text-ink font-sans antialiased; font-feature-settings: 'cv11', 'ss01'; min-height: 100dvh; overscroll-behavior-y: none; }
+  h1, h2, h3, h4 { @apply font-display tracking-tight; }
+  ::selection { background: rgb(var(--brand) / .25); }
+  :focus-visible { outline: 2px solid rgb(var(--brand)); outline-offset: 2px; border-radius: 8px; }
+  .tnum { font-variant-numeric: tabular-nums; }
+  * { scrollbar-width: thin; scrollbar-color: rgb(var(--line)) transparent; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+}
+/* Design tokens. Colors are RGB triples so Tailwind can apply opacity (bg-brand/10). */
+:root {
+  --bg: 247 245 240; --surface: 255 255 255; --surface2: 241 238 230; --ink: 15 31 26; --muted: 94 111 103; --line: 228 223 211;
+  --brand: 11 143 91; --brand-ink: 6 95 58; --brand-soft: 227 245 236; --accent: 245 165 36; --accent-soft: 254 243 214;
+  --danger: 214 69 69; --danger-soft: 253 232 232; --warn: 224 161 0; --info: 45 127 249; --info-soft: 226 238 254;
+  --bubble-in: 255 255 255; --bubble-out: 221 245 227; --chat-bg: 236 229 218;
+  --radius: 14px; color-scheme: light;
+}
+:root[data-theme='dark'] {
+  --bg: 11 21 18; --surface: 18 29 25; --surface2: 24 38 32; --ink: 233 241 236; --muted: 141 160 150; --line: 34 51 44;
+  --brand: 34 197 126; --brand-ink: 120 229 178; --brand-soft: 18 52 40; --accent: 255 184 77; --accent-soft: 58 44 14;
+  --danger: 255 107 107; --danger-soft: 58 24 24; --warn: 255 200 60; --info: 110 168 255; --info-soft: 20 40 70;
+  --bubble-in: 28 44 37; --bubble-out: 20 76 55; --chat-bg: 12 22 18; color-scheme: dark;
+}
+@layer components {
+  /* ---- surfaces */
+  .card { @apply bg-surface rounded-xl2 border border-line/70 shadow-card; }
+  .card-pad { @apply p-4 sm:p-5; }
+  .panel-title { @apply text-[13px] font-semibold uppercase tracking-wide text-muted; }
+  .divider { @apply border-t border-line/70; }
+
+  /* ---- buttons */
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[.98] disabled:opacity-50 disabled:pointer-events-none select-none; min-height: 40px; }
+  .btn-primary { @apply bg-brand text-white shadow-[0_6px_16px_-6px_rgb(var(--brand)/.7)] hover:brightness-110; }
+  :root[data-theme='dark'] .btn-primary { color: #04130c; }
+  .btn-soft { @apply bg-brand-soft text-brand-ink hover:brightness-95; }
+  .btn-ghost { @apply bg-transparent text-ink hover:bg-surface2; }
+  .btn-outline { @apply border border-line bg-surface text-ink hover:bg-surface2; }
+  .btn-danger { @apply bg-danger text-white hover:brightness-110; }
+  .btn-sm { @apply px-3 py-1.5 text-[13px] rounded-lg; min-height: 32px; }
+  .btn-lg { @apply px-6 py-3.5 text-base rounded-2xl; min-height: 52px; }
+  .btn-icon { @apply p-2 rounded-lg; min-height: 36px; min-width: 36px; }
+
+  /* ---- fields */
+  .field-label { @apply mb-1.5 block text-[13px] font-medium text-ink/80; }
+  .field-hint { @apply mt-1 text-xs text-muted; }
+  .input, .select, .textarea { @apply w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/70 transition focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/15; min-height: 44px; }
+  .textarea { min-height: 88px; resize: vertical; }
+  .input-error { @apply border-danger focus:border-danger focus:ring-danger/15; }
+
+  /* ---- badges */
+  .badge { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold whitespace-nowrap; }
+  .badge-green { @apply bg-brand-soft text-brand-ink; }
+  .badge-amber { @apply bg-accent-soft text-[rgb(150_92_0)]; }
+  :root[data-theme='dark'] .badge-amber { color: rgb(var(--accent)); }
+  .badge-red { @apply bg-danger-soft text-danger; }
+  .badge-blue { @apply bg-info-soft text-info; }
+  .badge-gray { @apply bg-surface2 text-muted; }
+
+  /* ---- tabs / chips */
+  .chip { @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-[13px] font-medium text-muted transition hover:text-ink whitespace-nowrap; }
+  .chip-active { @apply border-brand bg-brand-soft text-brand-ink; }
+
+  /* ---- nav */
+  .nav-item { @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted transition hover:bg-surface2 hover:text-ink; }
+  .nav-item-active { @apply bg-brand-soft text-brand-ink; }
+
+  /* ---- misc */
+  .skeleton { @apply animate-pulse rounded-lg bg-surface2; }
+  .kbd { @apply rounded-md border border-line bg-surface2 px-1.5 py-0.5 text-[11px] font-semibold text-muted; }
+  .table { @apply w-full text-sm; }
+  .table th { @apply px-4 py-2.5 text-left text-[12px] font-semibold uppercase tracking-wide text-muted; }
+  .table td { @apply border-t border-line/60 px-4 py-3 align-middle; }
+  .glow { background: radial-gradient(60% 60% at 50% 0%, rgb(var(--brand) / .14), transparent 70%); }
+}
+
+/* ---- chat (WhatsApp-style, own design) */
+.chat-bg { background-color: rgb(var(--chat-bg)); background-image: radial-gradient(rgb(var(--ink) / .045) 1px, transparent 1px); background-size: 18px 18px; }
+.bubble { position: relative; max-width: min(78%, 520px); border-radius: 14px; padding: 7px 10px 6px; font-size: 14px; line-height: 1.4; box-shadow: 0 1px 1px rgb(0 0 0 / .07); white-space: pre-wrap; word-wrap: break-word; }
+.bubble-in { background: rgb(var(--bubble-in)); border-top-left-radius: 4px; align-self: flex-start; }
+.bubble-out { background: rgb(var(--bubble-out)); border-top-right-radius: 4px; align-self: flex-end; }
+.bubble-meta { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 2px; font-size: 10.5px; color: rgb(var(--muted)); }
+.typing-dots span { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: rgb(var(--muted)); margin: 0 1.5px; animation: pulseDot 1.2s infinite; }
+.typing-dots span:nth-child(2) { animation-delay: .2s; } .typing-dots span:nth-child(3) { animation-delay: .4s; }
+
+/* ---- phone frame for the playground */
+.phone { position: relative; width: 304px; height: 620px; border-radius: 42px; padding: 11px; background: linear-gradient(145deg, #1b2622, #0b110e); box-shadow: 0 30px 60px -20px rgb(0 0 0 / .45), inset 0 0 0 2px #2a3a34; flex-shrink: 0; }
+.phone-screen { position: relative; height: 100%; border-radius: 32px; overflow: hidden; background: rgb(var(--surface)); display: flex; flex-direction: column; }
+.phone-notch { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); width: 88px; height: 22px; background: #0b110e; border-radius: 14px; z-index: 5; }

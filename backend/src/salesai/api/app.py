@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from salesai import __version__
 from salesai.api import errors
 from salesai.api.hub import ChangeHub
-from salesai.api.routes import auth, business, catalog, contacts, conversations, events, metrics, operator, simulator, system, workflow
+from salesai.api.routes import auth, business, catalog, contacts, conversations, events, metrics, operator, pricing, simulator, system, workflow
 from salesai.obs import bind
 from salesai.runtime import Runtime
 
@@ -64,6 +64,6 @@ def create_app(rt: Runtime | None = None, role: str = "web", *, owns_runtime: bo
     if role in ("api", "web", "all"):
         v1 = "/api/v1"
         app.include_router(system.public, prefix=v1)
-        for r in (auth.router, business.router, catalog.router, contacts.router, conversations.router, workflow.router, metrics.router, events.router, simulator.router, operator.router):
+        for r in (auth.router, business.router, catalog.router, contacts.router, conversations.router, workflow.router, metrics.router, events.router, pricing.router, simulator.router, operator.router):
             app.include_router(r, prefix=v1)
     return app
