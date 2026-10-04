@@ -18,6 +18,13 @@
 		-Server
 	}
 
+	# --- optional demo lock: when ALLOW_IPS is set (space-separated addresses or ranges) everyone else gets 403.
+	# The default allows everyone. Use it while the app runs in demo mode (any login code works).
+	@blocked not remote_ip {$ALLOW_IPS:0.0.0.0/0 ::/0}
+	handle @blocked {
+		respond "This demo is private." 403
+	}
+
 	# --- backend: the API (incl. the live SSE stream) and the WhatsApp webhook ingress scale and fail independently (NFR-1)
 	handle /api/* {
 		reverse_proxy {$API_UPSTREAM} {
