@@ -16,3 +16,8 @@ test-results/
 playwright-report/
 *.egg-info/
 backend/loadtest/results/
+
+# Terraform
+deploy/terraform/**/.terraform/
+deploy/terraform/**/*.tfstate*
+deploy/terraform/**/*.tfvars
