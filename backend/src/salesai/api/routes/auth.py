@@ -24,7 +24,8 @@ class OtpSent(BaseModel):
 
 class OtpVerify(BaseModel):
     phone: str = Field(min_length=7, max_length=20)
-    code: str = Field(min_length=4, max_length=8)
+    code: str = Field(min_length=1, max_length=8)
+    source: str | None = Field(default=None, max_length=80, description="Where the visitor came from (campaign tag); kept on first sign-up only")
 
 
 class Tokens(BaseModel):
@@ -33,13 +34,14 @@ class Tokens(BaseModel):
     token_type: Literal["bearer"] = "bearer"  # noqa: S105
     expires_in: int
     business_id: uuid.UUID | None
-    role: Literal["owner", "staff", "operator"]
+    role: Literal["owner", "staff", "operator", "setup"]
 
 
 class BusinessChoice(BaseModel):
     id: uuid.UUID
     name: str
     role: str
+    slug: str | None = None
 
 
 class ChooseBusiness(BaseModel):
@@ -65,7 +67,7 @@ class MeOut(BaseModel):
     account_id: uuid.UUID
     phone: str
     name: str | None
-    role: Literal["owner", "staff", "operator"]
+    role: Literal["owner", "staff", "operator", "setup"]
     language: Literal["en", "hi"]
     business: BusinessChoice | None
     businesses: list[BusinessChoice]
@@ -92,7 +94,7 @@ async def otp_request(body: OtpRequest, request: Request, rt: RT) -> Any:
 
 @router.post("/otp/verify", response_model=Tokens | ChooseBusiness, summary="Exchange the code for tokens")
 async def otp_verify(body: OtpVerify, request: Request, rt: RT) -> Any:
-    res = await rt.auth.verify_otp(body.phone, body.code, client_ip(request), (request.headers.get("user-agent") or "")[:120])
+    res = await rt.auth.verify_otp(body.phone, body.code, client_ip(request), (request.headers.get("user-agent") or "")[:120], body.source)
     return res if isinstance(res, dict) else _tokens(res)
 
 
@@ -121,14 +123,14 @@ async def me(rt: RT, p: Any_) -> MeOut:
     async with rt.db.system_tx() as c:
         a = await (await c.execute("SELECT name, language FROM accounts WHERE id=%s", (p.account_id,))).fetchone()
         ms = await (await c.execute(
-            "SELECT bu.business_id, bu.role, b.name FROM business_users bu JOIN businesses b ON b.id=bu.business_id WHERE bu.account_id=%s AND b.status<>'churned' ORDER BY b.name",
+            "SELECT bu.business_id, bu.role, b.name, b.slug FROM business_users bu JOIN businesses b ON b.id=bu.business_id WHERE bu.account_id=%s AND b.status<>'churned' ORDER BY b.name",
             (p.account_id,))).fetchall()
-    choices = [BusinessChoice(id=m["business_id"], name=m["name"], role=m["role"]) for m in ms]
+    choices = [BusinessChoice(id=m["business_id"], name=m["name"], role=m["role"], slug=m["slug"]) for m in ms]
     cur = next((m for m in choices if m.id == p.business_id), None)
     if p.business_id and cur is None:      # operator impersonating
         async with rt.db.system_tx() as c:
-            b = await (await c.execute("SELECT id, name FROM businesses WHERE id=%s", (p.business_id,))).fetchone()
-        cur = BusinessChoice(id=b["id"], name=b["name"], role="owner") if b else None
+            b = await (await c.execute("SELECT id, name, slug FROM businesses WHERE id=%s", (p.business_id,))).fetchone()
+        cur = BusinessChoice(id=b["id"], name=b["name"], role="owner", slug=b["slug"]) if b else None
     return MeOut(account_id=p.account_id, phone=p.phone, name=a["name"], role=p.role, language=a["language"], business=cur,
                  businesses=choices, impersonated=p.impersonated_by is not None)
 

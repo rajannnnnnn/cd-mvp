@@ -7,4 +7,10 @@ from salesai.modules.tenants.service import (  # noqa: F401
     create_business,
     upsert_account,
 )
+from salesai.modules.tenants.slugs import (  # noqa: E402,F401
+    RESERVED,
+    slugify,
+    unique_slug,
+    valid_slug,
+)
 from salesai.modules.tenants.vault import TokenVault  # noqa: F401

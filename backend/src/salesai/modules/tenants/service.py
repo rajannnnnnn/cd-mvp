@@ -7,6 +7,7 @@ from typing import Any
 
 from salesai.db import Conn, Database, jsonb
 from salesai.modules.tenants import defaults
+from salesai.modules.tenants.slugs import unique_slug
 from salesai.modules.tenants.vault import TokenVault
 from salesai.phone import normalize_phone, wa_id
 
@@ -28,11 +29,14 @@ async def upsert_account(conn: Conn, phone: str, name: str | None = None, langua
 
 async def create_business(db: Database, master_key: bytes, *, name: str, owner_phone: str, owner_name: str,
                           timezone: str = "Asia/Kolkata", plan: str = "pilot", language: str = "en",
-                          profile: dict[str, Any] | None = None, ai_enabled: bool = False) -> CreatedBusiness:
+                          profile: dict[str, Any] | None = None, ai_enabled: bool = False, signup_source: str | None = None,
+                          actor: str = "operator", slug_hint: str | None = None) -> CreatedBusiness:
     phone = normalize_phone(owner_phone)
     bid = uuid.uuid4()
     async with db.system_tx() as s:
-        await s.execute("INSERT INTO businesses (id, name, timezone, plan) VALUES (%s,%s,%s,%s)", (bid, name, timezone, plan))
+        slug = await unique_slug(s, slug_hint or name)
+        await s.execute("INSERT INTO businesses (id, name, slug, timezone, plan, signup_source) VALUES (%s,%s,%s,%s,%s,%s)",
+                        (bid, name, slug, timezone, plan, signup_source))
         await TokenVault.create_key(s, master_key, bid)
         account_id = await upsert_account(s, phone, owner_name, language)
     async with db.tenant(bid) as c:
@@ -45,8 +49,8 @@ async def create_business(db: Database, master_key: bytes, *, name: str, owner_p
             "INSERT INTO business_users (business_id, account_id, name, role) VALUES (%s,%s,%s,'owner') RETURNING id",
             (bid, account_id, owner_name))).fetchone()
         await c.execute(
-            "INSERT INTO audit_log (business_id, actor_label, action, entity, entity_id) VALUES (%s,'operator','business.created','business',%s)",
-            (bid, str(bid)))
+            "INSERT INTO audit_log (business_id, actor_label, action, entity, entity_id) VALUES (%s,%s,'business.created','business',%s)",
+            (bid, actor, str(bid)))
     return CreatedBusiness(bid, account_id, bu["id"])
 
 

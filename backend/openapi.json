@@ -107,6 +107,35 @@
         "title": "AnswerIn",
         "type": "object"
       },
+      "BusinessBrief": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "status"
+        ],
+        "title": "BusinessBrief",
+        "type": "object"
+      },
       "BusinessChoice": {
         "properties": {
           "id": {
@@ -121,6 +150,17 @@
           "role": {
             "title": "Role",
             "type": "string"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slug"
           }
         },
         "required": [
@@ -129,6 +169,77 @@
           "role"
         ],
         "title": "BusinessChoice",
+        "type": "object"
+      },
+      "BusinessCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "language": {
+            "default": "hinglish",
+            "enum": [
+              "en",
+              "hi",
+              "hinglish"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "name": {
+            "description": "The shop or business name customers know",
+            "maxLength": 80,
+            "minLength": 2,
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Owner Name",
+            "type": "string"
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Preferred web address; adjusted if taken",
+            "title": "Slug"
+          }
+        },
+        "required": [
+          "name",
+          "owner_name"
+        ],
+        "title": "BusinessCreate",
         "type": "object"
       },
       "BusinessOut": {
@@ -177,6 +288,10 @@
             "title": "Sales Settings",
             "type": "object"
           },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -194,6 +309,7 @@
         "required": [
           "id",
           "name",
+          "slug",
           "timezone",
           "status",
           "ai_enabled",
@@ -253,6 +369,19 @@
                 "type": "null"
               }
             ]
+          },
+          "slug": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The shop's web address: /app/<slug>",
+            "title": "Slug"
           },
           "timezone": {
             "anyOf": [
@@ -1874,7 +2003,8 @@
             "enum": [
               "owner",
               "staff",
-              "operator"
+              "operator",
+              "setup"
             ],
             "title": "Role",
             "type": "string"
@@ -2511,6 +2641,48 @@
         "title": "OfferOut",
         "type": "object"
       },
+      "OnboardingOut": {
+        "properties": {
+          "business": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BusinessBrief"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "has_business": {
+            "title": "Has Business",
+            "type": "boolean"
+          },
+          "ready_to_go_live": {
+            "title": "Ready To Go Live",
+            "type": "boolean"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/Step"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "has_business",
+          "business",
+          "steps",
+          "ready_to_go_live",
+          "complete"
+        ],
+        "title": "OnboardingOut",
+        "type": "object"
+      },
       "OtpRequest": {
         "properties": {
           "phone": {
@@ -2552,7 +2724,7 @@
         "properties": {
           "code": {
             "maxLength": 8,
-            "minLength": 4,
+            "minLength": 1,
             "title": "Code",
             "type": "string"
           },
@@ -2561,6 +2733,19 @@
             "minLength": 7,
             "title": "Phone",
             "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where the visitor came from (campaign tag); kept on first sign-up only",
+            "title": "Source"
           }
         },
         "required": [
@@ -3099,6 +3284,18 @@
       "ProfileIn": {
         "additionalProperties": false,
         "properties": {
+          "about": {
+            "anyOf": [
+              {
+                "maxLength": 600,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "About"
+          },
           "address": {
             "anyOf": [
               {
@@ -3110,6 +3307,30 @@
               }
             ],
             "title": "Address"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
           },
           "delivery": {
             "anyOf": [
@@ -3665,6 +3886,115 @@
         "title": "SimSend",
         "type": "object"
       },
+      "SlugCheck": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "suggestion": {
+            "title": "Suggestion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "available",
+          "suggestion"
+        ],
+        "title": "SlugCheck",
+        "type": "object"
+      },
+      "Step": {
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "hint": {
+            "title": "Hint",
+            "type": "string"
+          },
+          "key": {
+            "enum": [
+              "business",
+              "details",
+              "products",
+              "whatsapp",
+              "assistant",
+              "live"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "skipped": {
+            "title": "Skipped",
+            "type": "boolean"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "hint",
+          "done",
+          "skipped",
+          "required"
+        ],
+        "title": "Step",
+        "type": "object"
+      },
+      "StepAction": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "skip",
+              "done",
+              "undo"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "step": {
+            "enum": [
+              "details",
+              "whatsapp",
+              "assistant"
+            ],
+            "title": "Step",
+            "type": "string"
+          }
+        },
+        "required": [
+          "step",
+          "action"
+        ],
+        "title": "StepAction",
+        "type": "object"
+      },
       "StyleIn": {
         "properties": {
           "customer_text": {
@@ -4109,7 +4439,8 @@
             "enum": [
               "owner",
               "staff",
-              "operator"
+              "operator",
+              "setup"
             ],
             "title": "Role",
             "type": "string"
@@ -6804,6 +7135,55 @@
         ]
       }
     },
+    "/api/v1/numbers/test": {
+      "post": {
+        "operationId": "add_test_number_api_v1_numbers_test_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NumberOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add a simulated WhatsApp test number (demo and development only; owner)",
+        "tags": [
+          "business"
+        ]
+      }
+    },
     "/api/v1/offers": {
       "get": {
         "operationId": "list_offers_api_v1_offers_get",
@@ -7030,6 +7410,307 @@
         "summary": "Update Offer",
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/api/v1/onboarding": {
+      "get": {
+        "operationId": "state_api_v1_onboarding_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Where this account is in onboarding",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
+    "/api/v1/onboarding/business": {
+      "post": {
+        "operationId": "create_api_v1_onboarding_business_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BusinessCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Tokens"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create the business for a newly signed-up number",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
+    "/api/v1/onboarding/categories": {
+      "get": {
+        "operationId": "categories_api_v1_onboarding_categories_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Categories Api V1 Onboarding Categories Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Categories",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
+    "/api/v1/onboarding/go-live": {
+      "post": {
+        "operationId": "go_live_api_v1_onboarding_go_live_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Finish onboarding and switch the assistant on",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
+    "/api/v1/onboarding/slug": {
+      "get": {
+        "operationId": "slug_check_api_v1_onboarding_slug_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "maxLength": 60,
+              "minLength": 1,
+              "title": "Slug",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlugCheck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Is this web address free? (works before a business exists)",
+        "tags": [
+          "onboarding"
+        ]
+      }
+    },
+    "/api/v1/onboarding/steps": {
+      "post": {
+        "operationId": "step_api_v1_onboarding_steps_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StepAction"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mark an optional step skipped or reviewed",
+        "tags": [
+          "onboarding"
         ]
       }
     },

@@ -97,24 +97,39 @@ async def test_request_rate_limits_per_number_and_per_ip(world, auth):
     assert e.value.code == "rate_limited"
 
 
-async def test_unknown_numbers_get_the_same_response_and_no_message(world, auth):
-    ghost = f"+9196{uuid.uuid4().int % 10**8:08d}"
-    res = await auth.request_otp(ghost, "10.0.0.5")
-    assert res["status"] == "sent"                                    # no account enumeration
-    assert await world.sim_thread(ghost, "platform") == []
+async def test_new_number_signs_up_with_a_code_and_lands_in_setup(world, auth):
+    fresh = f"+9196{uuid.uuid4().int % 10**8:08d}"
+    res = await auth.request_otp(fresh, "10.0.0.5")
+    assert res["status"] == "sent" and await world.sim_thread(fresh, "platform")           # sign-up is open: a code is sent to any number
     with pytest.raises(AuthError) as e:
-        await auth.verify_otp(ghost, "123456", None, None)
-    assert e.value.code == "invalid_code"
+        await auth.verify_otp(fresh, "000000", None, None)
+    assert e.value.code == "invalid_code"                                                    # a wrong code never creates anything useful
+    pair = await auth.verify_otp(fresh, await otp_for(world, fresh), None, None, "ad-test")
+    assert pair.role == "setup" and pair.business_id is None
+    async with world.rt.db.system_tx() as c:
+        a = await (await c.execute("SELECT signup_source FROM accounts WHERE phone=%s", (fresh,))).fetchone()
+    assert a["signup_source"] == "ad-test"
 
 
-async def test_number_without_a_business_cannot_sign_in(world, auth):
+async def test_account_without_a_business_gets_a_setup_session(world, auth):
     async with world.rt.db.system_tx() as c:
         phone = f"+9195{uuid.uuid4().int % 10**8:08d}"
         await c.execute("INSERT INTO accounts (phone) VALUES (%s)", (phone,))
     await auth.request_otp(phone, "10.0.0.6")
-    with pytest.raises(AuthError) as e:
-        await auth.verify_otp(phone, await otp_for(world, phone), None, None)
-    assert e.value.code == "no_business"
+    pair = await auth.verify_otp(phone, await otp_for(world, phone), None, None)
+    assert pair.role == "setup"
+
+
+async def test_accept_any_code_mode_is_only_for_demos(world, auth):
+    world.rt.settings.otp_accept_any = True
+    try:
+        phone = f"+9194{uuid.uuid4().int % 10**8:08d}"
+        pair = await auth.verify_otp(phone, "1", None, None)                              # no code was ever requested
+        assert pair.role == "setup"
+    finally:
+        world.rt.settings.otp_accept_any = False
+    with pytest.raises(AuthError):
+        await auth.verify_otp(f"+9193{uuid.uuid4().int % 10**8:08d}", "123456", None, None)
 
 
 async def test_blocked_account_cannot_sign_in(world, auth):

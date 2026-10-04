@@ -73,3 +73,11 @@ def test_no_credentials_are_committed_to_the_repository():
             continue
         hits += [f"{f}: {pt.pattern}" for pt in patterns if pt.search(text) and not f.startswith("backend/tests/")]
     assert hits == []
+
+
+def test_accept_any_code_is_refused_in_production_and_allowed_elsewhere():
+    prod = dict(ENV="production", SIMULATOR_ENABLED="false", OTP_CHANNEL="whatsapp_cloud", LLM_PROVIDER="anthropic", ANTHROPIC_API_KEY="k")
+    with pytest.raises(ValueError, match="OTP_ACCEPT_ANY"):
+        settings(OTP_ACCEPT_ANY="true", **prod)
+    settings(ENV="staging", OTP_ACCEPT_ANY="true")                      # demo environments may use it
+    settings(**prod)                                                    # and production without it is fine

@@ -13,7 +13,14 @@ from salesai.db import jsonb, required
 from salesai.modules.auth import Principal
 from salesai.modules.catalog import repo
 from salesai.modules.channels import SignupError, complete_signup
-from salesai.modules.tenants import add_cloud_number, delete_tenant, export_tenant, upsert_account
+from salesai.modules.tenants import (
+    add_cloud_number,
+    add_simulated_number,
+    delete_tenant,
+    export_tenant,
+    upsert_account,
+    valid_slug,
+)
 from salesai.phone import normalize_phone
 from salesai.runtime import Runtime
 
@@ -63,6 +70,9 @@ class TimingIn(BaseModel):
 
 class ProfileIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    category: str | None = Field(default=None, max_length=60)
+    city: str | None = Field(default=None, max_length=80)
+    about: str | None = Field(default=None, max_length=600)
     address: str | None = Field(default=None, max_length=500)
     hours: str | dict[str, Any] | None = None
     delivery: str | None = Field(default=None, max_length=1000)
@@ -76,6 +86,7 @@ class ProfileIn(BaseModel):
 class BusinessPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str | None = Field(default=None, min_length=1, max_length=120)
+    slug: str | None = Field(default=None, max_length=40, description="The shop's web address: /app/<slug>")
     timezone: str | None = Field(default=None, max_length=60)
     profile: ProfileIn | None = None
     sales_settings: SalesSettingsIn | None = None
@@ -97,6 +108,7 @@ class NumberOut(BaseModel):
 class BusinessOut(BaseModel):
     id: uuid.UUID
     name: str
+    slug: str
     timezone: str
     status: str
     ai_enabled: bool
@@ -136,7 +148,7 @@ async def _load(rt: Runtime, p: Principal) -> BusinessOut:
     async with tx(rt, p) as c:
         b = await (await c.execute("SELECT * FROM businesses WHERE id=%s", (p.bid,))).fetchone()
         ns = await (await c.execute("SELECT * FROM whatsapp_numbers ORDER BY created_at")).fetchall()
-    return BusinessOut(**{k: b[k] for k in ("id", "name", "timezone", "status", "ai_enabled", "plan", "profile", "sales_settings", "conversation_settings", "timing_params", "limits")},
+    return BusinessOut(**{k: b[k] for k in ("id", "name", "slug", "timezone", "status", "ai_enabled", "plan", "profile", "sales_settings", "conversation_settings", "timing_params", "limits")},
                        numbers=[NumberOut(**{k: n[k] for k in ("id", "channel", "display_phone", "verified_name", "status", "quality_rating", "status_reason", "coexistence")}) for n in ns])
 
 
@@ -151,6 +163,16 @@ async def patch_business(body: BusinessPatch, rt: RT, p: Owner) -> BusinessOut:
         d = body.model_dump(exclude_unset=True, mode="json", exclude_none=False)
         if "name" in d and d["name"]:
             await c.execute("UPDATE businesses SET name=%s WHERE id=%s", (d["name"], p.bid))
+        if d.get("slug"):
+            reason = valid_slug(d["slug"])
+            if reason:
+                raise ApiError(422, "invalid_slug", reason)
+            async with rt.db.system_tx() as sc:
+                taken = await (await sc.execute("SELECT 1 FROM businesses WHERE slug=%s AND id<>%s", (d["slug"], p.bid))).fetchone()
+            if taken:
+                raise ApiError(409, "slug_taken", "That web address is already used. Try another.")
+            await c.execute("UPDATE businesses SET slug=%s WHERE id=%s", (d["slug"], p.bid))
+            await repo.audit(c, p.bid, p.account_id, "owner", "slug.changed", "business", str(p.bid), {"slug": d["slug"]})
         if "timezone" in d and d["timezone"]:
             from zoneinfo import ZoneInfo
             try:
@@ -210,7 +232,30 @@ async def connect_number(body: ConnectIn, rt: RT, p: Owner) -> Any:
         if res.quality_rating:
             await c.execute("UPDATE whatsapp_numbers SET quality_rating=%s WHERE id=%s", (res.quality_rating, nid))
         await repo.audit(c, p.bid, p.account_id, p.role, "number.connected", "whatsapp_number", str(nid), {"coexistence": res.coexistence})
+    await _activate_after_number(rt, p)
     return next(n for n in (await _load(rt, p)).numbers if str(n.id) == str(nid))
+
+
+@router.post("/numbers/test", response_model=NumberOut, status_code=201,
+             summary="Add a simulated WhatsApp test number (demo and development only; owner)")
+async def add_test_number(rt: RT, p: Owner) -> Any:
+    if not rt.settings.simulator_enabled:
+        raise ApiError(404, "not_found", "Test numbers are not available in this environment.")
+    import secrets
+    phone = f"+9190{secrets.randbelow(10**8):08d}"
+    nid = await add_simulated_number(rt.db, p.bid, phone, verified_name=None)
+    async with tx(rt, p) as c:
+        await repo.audit(c, p.bid, p.account_id, p.role, "number.test_added", "whatsapp_number", str(nid))
+    await _activate_after_number(rt, p)
+    return next(n for n in (await _load(rt, p)).numbers if str(n.id) == str(nid))
+
+
+async def _activate_after_number(rt: Runtime, p: Principal) -> None:
+    """A shop that finished onboarding without a number starts answering as soon as one is connected."""
+    async with tx(rt, p) as c:
+        row = await (await c.execute("SELECT status, onboarding FROM businesses WHERE id=%s", (p.bid,))).fetchone()
+        if row and row["status"] == "active" and (row["onboarding"] or {}).get("completed_at"):
+            await c.execute("UPDATE businesses SET ai_enabled=true WHERE id=%s", (p.bid,))
 
 
 # ---- team (numbers are identities: adding a person means adding their WhatsApp number)

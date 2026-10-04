@@ -91,36 +91,51 @@ class AuthService:
             await c.execute(
                 "INSERT INTO otp_challenges (phone, code_hash, expires_at, ip) VALUES (%s,%s, now() + make_interval(secs => %s), %s)",
                 (phone, self._hash(phone, code), self.s.otp_ttl_s, ip))
-        # Unknown / blocked numbers get the identical response and no message: no account enumeration.
-        if acct and acct["status"] == "active":
+        # Sign-up is open: any valid mobile number gets a code (a number's existence is not a secret). Blocked accounts get none.
+        if acct is None or acct["status"] == "active":
             ref, channel = self.channels.platform_sender()
-            res = await channel.send_template(ref, wa_id(phone), "otp_login", acct["language"], [code])
+            res = await channel.send_template(ref, wa_id(phone), "otp_login", acct["language"] if acct else "en", [code])
             if not res.ok:
                 log.error("otp delivery failed: %s", res.error)
-                raise AuthError("delivery_failed", "We couldn't send the code to WhatsApp. Please try again.", 502)
+                if not self.s.otp_accept_any:
+                    raise AuthError("delivery_failed", "We couldn't send the code to WhatsApp. Please try again.", 502)
         return {"status": "sent", "expires_in": self.s.otp_ttl_s}
 
-    async def verify_otp(self, raw_phone: str, code: str, ip: str | None, device: str | None) -> TokenPair | dict[str, Any]:
+    async def verify_otp(self, raw_phone: str, code: str, ip: str | None, device: str | None, source: str | None = None) -> TokenPair | dict[str, Any]:
+        """Exchange a code for a session. A number that has no account yet is signed up on the spot; one with no business gets a
+        `setup` session that can only run onboarding. OTP_ACCEPT_ANY (never in production) skips the code check for demos."""
         try:
             phone = normalize_phone(raw_phone)
         except ValueError as e:
             raise AuthError("invalid_phone", "Enter a valid mobile number with country code.", 422) from e
+        if not code.strip():
+            raise AuthError("invalid_code", "Enter the code.")
+        wrong = False
+        acct: dict[str, Any] | None = None
+        memberships: list[dict[str, Any]] = []
         async with self.db.system_tx() as c:
-            ch = await (await c.execute(
-                """SELECT id, code_hash, attempts FROM otp_challenges
-                   WHERE phone=%s AND consumed_at IS NULL AND expires_at > now() ORDER BY created_at DESC LIMIT 1 FOR UPDATE""", (phone,))).fetchone()
-            if ch is None:
-                raise AuthError("invalid_code", "That code is wrong or has expired.")
-            if ch["attempts"] >= self.s.otp_max_attempts:
-                raise AuthError("locked", "Too many wrong attempts. Request a new code.", 429)
-            wrong = not crypto.constant_time_equal(ch["code_hash"], self._hash(phone, code.strip()))
-            acct = None
-            memberships: list[dict[str, Any]] = []
+            ch = None
+            if not self.s.otp_accept_any:
+                ch = await (await c.execute(
+                    """SELECT id, code_hash, attempts FROM otp_challenges
+                       WHERE phone=%s AND consumed_at IS NULL AND expires_at > now() ORDER BY created_at DESC LIMIT 1 FOR UPDATE""", (phone,))).fetchone()
+                if ch is None:
+                    raise AuthError("invalid_code", "That code is wrong or has expired.")
+                if ch["attempts"] >= self.s.otp_max_attempts:
+                    raise AuthError("locked", "Too many wrong attempts. Request a new code.", 429)
+                wrong = not crypto.constant_time_equal(ch["code_hash"], self._hash(phone, code.strip()))
             if wrong:        # count the failure and COMMIT it before raising (a raise inside the tx would roll it back)
+                assert ch is not None
                 await c.execute("UPDATE otp_challenges SET attempts = attempts + 1 WHERE id=%s", (ch["id"],))
             else:
-                await c.execute("UPDATE otp_challenges SET consumed_at = now() WHERE id=%s", (ch["id"],))
-                acct = await (await c.execute("SELECT * FROM accounts WHERE phone=%s AND status='active'", (phone,))).fetchone()
+                if ch is not None:
+                    await c.execute("UPDATE otp_challenges SET consumed_at = now() WHERE id=%s", (ch["id"],))
+                acct = await (await c.execute("SELECT * FROM accounts WHERE phone=%s", (phone,))).fetchone()
+                if acct is None:
+                    acct = await (await c.execute(
+                        "INSERT INTO accounts (phone, signup_source) VALUES (%s,%s) RETURNING *", (phone, (source or "")[:80] or None))).fetchone()
+                if acct is not None and acct["status"] != "active":
+                    acct = None
                 if acct is not None:
                     await c.execute("UPDATE accounts SET last_login_at = now() WHERE id=%s", (acct["id"],))
                     memberships = await (await c.execute(
@@ -131,7 +146,7 @@ class AuthService:
         if acct["platform_role"] == "operator":
             return await self._issue(acct, None, "operator", device, ip)
         if not memberships:
-            raise AuthError("no_business", "This number isn't linked to a business yet. Ask your operator to add it.", 403)
+            return await self._issue(acct, None, "setup", device, ip)       # new here: the only thing they can do is set up a business
         if len(memberships) == 1:
             return await self._issue(acct, memberships[0]["business_id"], memberships[0]["role"], device, ip)
         # several businesses on one number: a short-lived, business-less ticket lets the user choose
@@ -190,7 +205,7 @@ class AuthService:
 
     async def _role(self, c: Conn, acct: dict[str, Any], bid: uuid.UUID | None) -> str | None:
         if bid is None:
-            return "operator" if acct["platform_role"] == "operator" else None
+            return "operator" if acct["platform_role"] == "operator" else "setup"
         r = await (await c.execute("SELECT role FROM business_users WHERE account_id=%s AND business_id=%s", (acct["id"], bid))).fetchone()
         return r["role"] if r else None
 

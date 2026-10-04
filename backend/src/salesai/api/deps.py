@@ -51,7 +51,14 @@ async def operator_principal(p: Annotated[Principal, Depends(principal)]) -> Pri
     return p
 
 
+async def setup_principal(p: Annotated[Principal, Depends(principal)]) -> Principal:
+    if p.role != "setup":
+        raise ApiError(403, "forbidden", "This is only for accounts that have not created a business yet.")
+    return p
+
+
 Any_ = Annotated[Principal, Depends(principal)]
+Setup = Annotated[Principal, Depends(setup_principal)]          # signed in, no business yet (onboarding)
 Tenant = Annotated[Principal, Depends(tenant_principal)]       # owner or staff
 Owner = Annotated[Principal, Depends(owner_principal)]         # owner only (floors, team, settings)
 Operator = Annotated[Principal, Depends(operator_principal)]

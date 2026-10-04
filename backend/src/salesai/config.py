@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     refresh_token_ttl_s: int = 60 * 60 * 24 * 30
     otp_ttl_s: int = 300
     otp_max_attempts: int = 5
+    otp_accept_any: bool = False          # DEMO ONLY: any code signs a number in (refused in production, see _production_rules)
     otp_min_interval_s: int = 20          # spacing between code requests for one number
     otp_per_phone_per_hour: int = 5
     otp_per_ip_per_hour: int = 30
@@ -111,6 +112,8 @@ class Settings(BaseSettings):
         if self.llm_provider == "anthropic" and not self.anthropic_api_key:
             raise ValueError("LLM_PROVIDER=anthropic requires ANTHROPIC_API_KEY")
         if self.env == "production":
+            if self.otp_accept_any:
+                raise ValueError("OTP_ACCEPT_ANY must be false in production: it would let anyone sign in as any number")
             if self.simulator_enabled or self.otp_channel == "simulator":
                 raise ValueError("SIMULATOR_ENABLED must be false and OTP_CHANNEL=whatsapp_cloud in production")
             if self.llm_provider == "local":
