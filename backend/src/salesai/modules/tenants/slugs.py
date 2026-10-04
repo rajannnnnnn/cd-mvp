@@ -11,7 +11,7 @@ SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$")
 RESERVED = frozenset({
     "app", "api", "webhooks", "webhook", "pricing", "login", "signup", "register", "onboarding", "billing", "settings", "privacy", "terms",
     "data-deletion", "contact", "about", "admin", "operator", "static", "assets", "public", "health", "healthz", "readyz", "metrics", "docs",
-    "status", "blog", "help", "support", "www", "mail", "config", "index", "home", "start", "demo", "offer", "careers", "security", "legal",
+    "status", "blog", "chats", "pipeline", "inbox", "catalog", "offers", "voice", "customers", "playground", "analytics", "reports", "choose", "plans", "pay", "invoices", "help", "support", "www", "mail", "config", "index", "home", "start", "demo", "offer", "careers", "security", "legal",
 })
 
 

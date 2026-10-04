@@ -147,6 +147,7 @@ async def _range(c: Conn, p_bid: Any, start: date | None, end: date | None, days
 
 @router.get("/analytics", response_model=AnalyticsOut, summary="Business analytics for the last N days, with the previous period for comparison")
 async def analytics(rt: RT, p: Tenant, days: Annotated[int, Query(ge=1, le=90)] = 30) -> Any:
+    await rt.billing.assert_feature(p.bid, "analytics_reports")
     async with tx(rt, p) as c:
         tz, a, b = await _range(c, p.bid, None, None, days)
         return await compute(c, tz, a, b)
@@ -154,6 +155,7 @@ async def analytics(rt: RT, p: Tenant, days: Annotated[int, Query(ge=1, le=90)] 
 
 @router.get("/reports/summary", response_model=AnalyticsOut, summary="The same figures for an explicit date range (a report)")
 async def report(rt: RT, p: Tenant, start: date, end: date) -> Any:
+    await rt.billing.assert_feature(p.bid, "analytics_reports")
     async with tx(rt, p) as c:
         tz, a, b = await _range(c, p.bid, start, end, 30)
         return await compute(c, tz, a, b)
@@ -182,6 +184,7 @@ def _safe(v: Any) -> Any:
 
 @router.get("/reports/export/{kind}.csv", summary="Download conversations, orders and visits, or customers as CSV")
 async def export_csv(kind: Literal["conversations", "deals", "customers"], rt: RT, p: Tenant, start: date, end: date) -> Response:
+    await rt.billing.assert_feature(p.bid, "analytics_reports")
     async with tx(rt, p) as c:
         tz, a, b = await _range(c, p.bid, start, end, 30)
         s = (await (await c.execute("SELECT (%s::date::timestamp AT TIME ZONE %s) AS t", (a, tz))).fetchone())["t"]

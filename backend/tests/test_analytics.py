@@ -78,3 +78,17 @@ async def test_analytics_are_per_shop(world, client):
     assert (await client.get(f"{V1}/analytics", headers=hdr(ta))).json()["kpis"]["conversations"] == 6
     assert (await client.get(f"{V1}/analytics", headers=hdr(tb))).json()["kpis"]["conversations"] == 0
     assert (await client.get(f"{V1}/analytics")).status_code == 401
+
+
+async def test_analytics_and_reports_are_a_growth_plan_feature(world, client):
+    from tests.test_onboarding import signup
+    _, t = await signup(world, client)
+    owner = (await client.post(f"{V1}/onboarding/business", headers=hdr(t), json={"name": "Starter Analytics", "owner_name": "O"})).json()
+    assert (await client.get(f"{V1}/analytics", headers=hdr(owner))).status_code == 200                       # the trial has Growth features
+    inv = (await client.post(f"{V1}/billing/subscribe", headers=hdr(owner), json={"plan": "starter", "interval": "month"})).json()["invoice"]
+    await client.post(f"{V1}/billing/invoices/{inv['id']}/pay", headers=hdr(owner))
+    r = await client.get(f"{V1}/analytics", headers=hdr(owner))
+    assert r.status_code == 402 and r.json()["error"]["code"] == "plan_feature"
+    q = {"start": "2026-01-01", "end": "2026-01-31"}
+    assert (await client.get(f"{V1}/reports/summary", headers=hdr(owner), params=q)).status_code == 402
+    assert (await client.get(f"{V1}/reports/export/deals.csv", headers=hdr(owner), params=q)).status_code == 402

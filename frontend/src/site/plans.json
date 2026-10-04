@@ -23,6 +23,7 @@
         "Dashboard and daily summary",
         "Pricing you control, with a private lowest price"
       ],
+      "analytics_reports": false,
       "popular": false,
       "public": true
     },
@@ -46,6 +47,7 @@
         "Offers and festive discounts",
         "Priority support"
       ],
+      "analytics_reports": true,
       "popular": true,
       "public": true
     },
@@ -69,6 +71,7 @@
         "Onboarding help from our team",
         "Priority support"
       ],
+      "analytics_reports": true,
       "popular": false,
       "public": true
     }

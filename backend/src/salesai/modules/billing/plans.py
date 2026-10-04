@@ -25,13 +25,14 @@ class Plan:
     max_products: int | None
     max_team: int | None
     features: list[str] = field(default_factory=list)
+    analytics_reports: bool = True        # the Analytics and Reports screens and CSV exports
     popular: bool = False
     public: bool = True
 
 
 PLANS: dict[str, Plan] = {p.code: p for p in [
     Plan("starter", "Starter", "For a single counter getting started", 99_900, 999_000, 500, 300, 1, 200, 2,
-         ["1 WhatsApp number", "500 AI conversations a month", "Up to 200 products", "2 team members", "Dashboard and daily summary", "Pricing you control, with a private lowest price"]),
+         ["1 WhatsApp number", "500 AI conversations a month", "Up to 200 products", "2 team members", "Dashboard and daily summary", "Pricing you control, with a private lowest price"], analytics_reports=False),
     Plan("growth", "Growth", "For a busy shop that lives on WhatsApp", 249_900, 2_499_000, 2_000, 200, 2, 1_000, 5,
          ["Up to 2 WhatsApp numbers", "2,000 AI conversations a month", "Up to 1,000 products", "5 team members", "Analytics and downloadable reports", "Offers and festive discounts", "Priority support"], popular=True),
     Plan("scale", "Scale", "For several counters or branches", 599_900, 5_999_000, 6_000, 150, 3, None, 15,

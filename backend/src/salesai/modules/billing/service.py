@@ -262,6 +262,13 @@ class BillingService:
         if sub["status"] == "canceled" or (sub["status"] == "past_due" and sub["current_period_end"] and self.now() > sub["current_period_end"] + timedelta(days=GRACE_DAYS)):
             raise BillingError("subscription_inactive", "Your subscription has ended. Choose a plan in Billing to switch the assistant back on.", 402)
 
+    async def assert_feature(self, business_id: uuid.UUID, feature: str) -> None:
+        async with self.db.system_tx() as c:
+            sub = await self._sub(c, business_id)
+        plan = PLANS[sub["plan"]]
+        if not getattr(plan, feature):
+            raise BillingError("plan_feature", f"This is part of the Growth plan and above. You are on {plan.name}.", 402)
+
     async def check_limit(self, business_id: uuid.UUID, kind: str) -> None:
         async with self.db.system_tx() as c:
             sub = await self._sub(c, business_id)
