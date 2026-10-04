@@ -141,7 +141,7 @@ def classify_error(code: str | None, status: int, message: str) -> SendResult:
     if code in RATE_LIMITED or status == 429:
         return SendResult(False, error_code=code, error=message, retryable=True, retry_after_s=5.0)
     if status >= 500:
-        return SendResult(False, error_code=code or str(status), error=message, retryable=True, retry_after_s=2.0)
+        return SendResult(False, error_code=code or str(status), error=message, retryable=True)
     return SendResult(False, error_code=code or str(status), error=message, permanent="other")
 
 
@@ -165,7 +165,7 @@ class CloudApiChannel:
             r = await self._client.post(self._url(number), json={"messaging_product": "whatsapp", **body},
                                         headers={"Authorization": f"Bearer {number.access_token}"})
         except httpx.HTTPError as e:
-            return SendResult(False, error=f"network: {e}", retryable=True, retry_after_s=2.0)
+            return SendResult(False, error=f"network: {e}", retryable=True)
         data = r.json() if r.content else {}
         if r.status_code < 300:
             msgs = data.get("messages") or [{}]

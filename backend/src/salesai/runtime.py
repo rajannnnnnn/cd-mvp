@@ -9,7 +9,11 @@ from salesai.config import Settings, get_settings
 from salesai.db import Database
 from salesai.events.relay import OutboxRelay
 from salesai.modules.channels import ChannelRegistry
-from salesai.modules.conversations.inbound import InboundRouter
+from salesai.modules.agent import AgentService, Models
+from salesai.modules.agent.llm.factory import make_llm
+from salesai.modules.conversations import HeuristicEOT, InboundRouter, TurnWorker
+from salesai.modules.delivery.sender import OutboundSender
+from salesai.modules.pricing import PricingService
 from salesai.modules.tenants import TokenVault
 from salesai.queue.base import Queue
 from salesai.queue.postgres import PostgresQueue
@@ -29,6 +33,13 @@ class Runtime:
         self.router = InboundRouter(db, queue)
         self.registry = HandlerRegistry()
         self.staleness = StalenessResolver()
+        self.pricing = PricingService(db)
+        self.llm = make_llm(settings)
+        self.agent = AgentService(db, self.llm, self.pricing,
+                                  Models(settings.llm_model_planner, settings.llm_model_writer, settings.llm_model_check),
+                                  llm_checks=settings.llm_provider != "local")
+        self.turns = TurnWorker(db, self.agent, HeuristicEOT())
+        self.sender = OutboundSender(db, self.channels)
         self.extra: dict[str, Any] = {}
         self._wire()
 
@@ -46,6 +57,9 @@ class Runtime:
 
     def _wire(self) -> None:
         self.registry.add("inbound.events", "route_webhook", self.router.route_webhook)
+        self.registry.add("conversation.turns", "eot_check", self.turns.eot_check)
+        self.registry.add("conversation.turns", "nudge", self.turns.nudge)
+        self.registry.add("outbound.actions", "execute", self.sender.execute)
 
         async def conv_version(key: str) -> int | None:
             async with self.db.system_tx() as c:

@@ -86,6 +86,7 @@ class NegState:
     customer_best: Decimal | None = None            # highest the customer has offered
     held_below_floor: bool = False                  # held once already
     status: Literal["open", "agreed", "handed_off"] = "open"
+    agreed_price: Decimal | None = None             # price the customer accepted (restated on request)
 
 
 @dataclass(frozen=True)
@@ -234,6 +235,12 @@ def decide(req: Request) -> Decision:
     """Entry point. Pure function of its input."""
     if req.policy.disclosure == "on_request":              # INV-4: never a number
         return _handoff("on_request_price", req.state, "price is on request")
+    if req.ask == "price" and req.state.status == "agreed" and req.state.agreed_price is not None \
+            and (req.floor is None or req.state.agreed_price >= req.floor) and req.policy.list_price is not None:
+        # restate the price the customer already accepted, issued afresh by the engine this turn
+        p = q2(req.state.agreed_price)
+        d: Decision = Decision(kind="quote", semantics="exact", state=req.state, values=_vals(req, p, list_price=req.policy.list_price))
+        return _with_urgency(req, d)
     d = _quote(req) if req.ask == "price" else _negotiate(req)
     return _with_urgency(req, d)
 
@@ -359,7 +366,7 @@ def _negotiate(req: Request) -> Decision:
     # 1. the customer offers at or above what we already ask: that is a deal at OUR price
     if counter is not None and counter >= price:
         return Decision(kind="accept", semantics="exact", values=_vals(req, q2(price)),
-                        state=replace(st, status="agreed"), applied_offers=applied,
+                        state=replace(st, status="agreed", agreed_price=q2(price)), applied_offers=applied,
                         via_floor_crossing_offer=crossed, note="customer accepted our price")
 
     # 2. is there a concession left to give? (an offer already below the next level means no)
@@ -374,7 +381,7 @@ def _negotiate(req: Request) -> Decision:
                             values=_vals(req, price), applied_offers=applied, can_concede_more=True)
         if counter is not None and counter >= nxt:          # within reach: take the customer's number
             return Decision(kind="accept", semantics="exact", values=_vals(req, q2(counter)),
-                            state=replace(st, status="agreed"), applied_offers=applied,
+                            state=replace(st, status="agreed", agreed_price=q2(counter)), applied_offers=applied,
                             note="accepted customer's offer")
         new_price = nxt
         if best is not None and new_price < best:           # never offer less than the customer offered

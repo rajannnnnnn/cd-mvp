@@ -32,6 +32,8 @@ class World:
     def __init__(self, rt: Runtime):
         self.rt = rt
         self.s = rt.settings
+        from salesai.modules.channels.simulator import SimulatorNetwork
+        self.net = SimulatorNetwork(rt.db, rt.settings.meta_app_secret)
 
     async def make_shop(self, name: str = "Sharma Sarees", *, ai_enabled: bool = True, profile: dict | None = None,
                         owner_phone: str | None = None, business_phone: str | None = None) -> Shop:
@@ -51,10 +53,12 @@ class World:
 
     async def customer_says(self, shop: Shop, phone: str, text: str | None, *, kind: str = "text",
                             wamid: str | None = None, name: str | None = "Priya") -> str:
-        payload = build_message_payload(shop.phone_number_id, shop.business_phone, phone, text, kind=kind, wamid=wamid, name=name)
-        status, _ = await self.post(payload)
-        assert status == 200
-        return payload["entry"][0]["changes"][0]["value"]["messages"][0]["id"]
+        if wamid is not None:     # explicit redelivery of a known message id (idempotency tests)
+            payload = build_message_payload(shop.phone_number_id, shop.business_phone, phone, text, kind=kind, wamid=wamid, name=name)
+            status, _ = await self.post(payload)
+            assert status == 200
+            return wamid
+        return await self.net.user_sends(shop.business_phone, phone, text, kind=kind, name=name)
 
     async def owner_replies_from_app(self, shop: Shop, customer_phone: str, text: str) -> None:
         status, _ = await self.post(build_echo_payload(shop.phone_number_id, shop.business_phone, customer_phone, text))
@@ -102,8 +106,93 @@ class World:
     async def sim_thread(self, phone: str, business_phone: str) -> list[dict[str, Any]]:
         async with self.rt.db.system_tx() as c:
             return await (await c.execute(
-                "SELECT * FROM sim_messages WHERE phone=%s AND business_phone=%s ORDER BY id", (phone, business_phone))).fetchall()
+                "SELECT * FROM sim_messages WHERE phone=%s AND business_phone=%s ORDER BY id", (wa_id(phone), business_phone))).fetchall()
 
 
 def pg_queue_factory(db, s):  # noqa: ANN001, ARG001
     return PostgresQueue(db, backoff_base=0.05)
+
+
+# ------------------------------------------------------------------ conversation-flow helpers
+import json as _json  # noqa: E402
+from decimal import Decimal  # noqa: E402
+
+from salesai.db import jsonb  # noqa: E402
+from salesai.modules.agent.llm.base import LLMRequest, LLMResult  # noqa: E402
+from salesai.modules.agent.llm.chain import ResilientLLM  # noqa: E402
+from salesai.modules.agent.llm.local import LocalRulesProvider  # noqa: E402
+from salesai.modules.catalog import PolicyIn, ProductIn, VariantIn, repo  # noqa: E402
+
+FAST_CONV = {"first_check_ms": 20, "max_wait_ms": 1500, "min_quiet_complete_ms": 60, "min_quiet_incomplete_ms": 250,
+             "default_gap_ms": 100, "owner_pause_minutes": 120, "business_hours_behavior": "reply_normally",
+             "nudge_after_minutes": 240, "history_messages": 20}
+FAST_TIMING = {"read_delay": {"mu": 3.0, "sigma": 0.2, "min_ms": 10, "max_ms": 40},
+               "typing_ms_per_char": {"mu": 0.5, "sigma": 0.1, "min_ms": 0, "max_ms": 2},
+               "part_gap": {"mu": 3.0, "sigma": 0.2, "min_ms": 10, "max_ms": 40}, "max_total_delay_ms": 900, "slower_multiplier": 2.5}
+
+
+async def configure_fast(world: World, shop: Shop, *, conv: dict | None = None, timing: dict | None = None) -> None:
+    async with world.rt.db.tenant(shop.business_id) as c:
+        await c.execute("UPDATE businesses SET conversation_settings=%s, timing_params=%s WHERE id=%s",
+                        (jsonb({**FAST_CONV, **(conv or {})}), jsonb({**FAST_TIMING, **(timing or {})}), shop.business_id))
+
+
+async def add_product(world: World, shop: Shop, name: str, price: str | None, *, floor: str | None = None, steps: int = 3,
+                      negotiable: bool = True, disclosure: str = "fixed", variant: str = "default", description: str | None = None,
+                      category: str | None = None, availability: str = "in_stock", stock: int | None = None, rng: tuple[str, str] | None = None,
+                      requires: list | None = None, round_to: str = "10", aliases: list[str] | None = None) -> Any:
+    pol = PolicyIn(disclosure=disclosure, list_price=Decimal(price) if price else None,
+                   range_min=Decimal(rng[0]) if rng else None, range_max=Decimal(rng[1]) if rng else None,
+                   negotiable=negotiable and floor is not None, ai_may_negotiate=floor is not None and negotiable,
+                   concession_steps=steps if floor is not None else 0, floor_price=Decimal(floor) if floor else None,
+                   concession_requires=requires or [], round_to=Decimal(round_to))
+    async with world.rt.db.tenant(shop.business_id) as c:
+        pid = await repo.create_product(c, shop.business_id, ProductIn(
+            name=name, description=description, category=category, attributes={"aliases": aliases or []},
+            variants=[VariantIn(name=variant, availability=availability, stock_qty=stock, policy=pol)]))
+        return (await repo.get_product(c, pid)).variants[0].id
+
+
+class Recorder:
+    """Wraps a provider and records every request it receives (for INV-1 inspection)."""
+    name = "recorder"
+
+    def __init__(self, inner, script=None):
+        self.inner, self.requests, self.script = inner, [], script
+
+    async def generate(self, req: LLMRequest, schema):
+        self.requests.append(req)
+        if self.script is not None:
+            out = self.script(req)
+            if out is not None:
+                return LLMResult(output=schema.model_validate(out), provider="scripted", model="scripted", input_tokens=0, output_tokens=0, latency_ms=0)
+        return await self.inner.generate(req, schema)
+
+
+def install_llm(world: World, provider) -> Any:
+    old = world.rt.agent.llm
+    world.rt.agent.llm = ResilientLLM(provider)
+    return old
+
+
+async def sim_texts(world: World, shop: Shop, phone: str) -> list[str]:
+    rows = await world.sim_thread(phone, shop.business_phone)
+    return [r["body"] for r in rows if r["direction"] == "to_user" and r["kind"] in ("text",)]
+
+
+async def settle(world: World, shop: Shop, phone: str, *, want: int = 1, timeout: float = 8.0) -> list[str]:
+    """Drain until at least `want` outbound texts exist (or timeout)."""
+    loop = asyncio.get_running_loop()
+    end = loop.time() + timeout
+    texts: list[str] = []
+    while loop.time() < end:
+        await world.drain_for(0.25)
+        texts = await sim_texts(world, shop, phone)
+        if len(texts) >= want:
+            await world.drain_for(0.3)         # let any remaining parts through
+            return await sim_texts(world, shop, phone)
+    return texts
+
+
+def llm_json(rec: Recorder) -> str:
+    return _json.dumps([r.input for r in rec.requests], default=str)

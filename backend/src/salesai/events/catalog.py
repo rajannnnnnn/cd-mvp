@@ -25,6 +25,7 @@ class MessageReceived(_P):
     conversation_id: uuid.UUID
     message_id: uuid.UUID
     version: int
+    rechecks: int = 0                      # end-of-turn re-checks so far for this version
 
 
 class NudgeDue(_P):
@@ -42,6 +43,7 @@ class OutboundActionRequested(_P):
     inbound_wa_id: str | None = None      # for mark_read / reaction target
     emoji: str | None = None
     allow_while_paused: bool = False
+    last_part: bool = False
 
 
 class TurnDecided(_P):
@@ -110,6 +112,7 @@ def _e(name: str, model: type[BaseModel], *subs: tuple[str, str], version: int =
 CATALOG: dict[str, EventSpec] = {s.name: s for s in [
     _e("webhook.received", WebhookReceived, ("inbound.events", "route_webhook")),
     _e("message.received", MessageReceived, ("conversation.turns", "eot_check")),
+    _e("conversation.eot_recheck", MessageReceived, ("conversation.turns", "eot_check")),
     _e("conversation.nudge_due", NudgeDue, ("conversation.turns", "nudge")),
     _e("outbound.action_requested", OutboundActionRequested, ("outbound.actions", "execute")),
     _e("turn.decided", TurnDecided),                        # seam: learning / reporting subscribe here

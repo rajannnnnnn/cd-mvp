@@ -77,7 +77,7 @@ class Settings(BaseSettings):
     anthropic_base_url: str = "https://api.anthropic.com"
     llm_model_planner: str = "claude-sonnet-5-5"
     llm_model_writer: str = "claude-sonnet-5-5"
-    llm_model_check: str = "claude-haiku-4-5-20251001"
+    llm_model_check: str = "claude-haiku-4-5"
     llm_timeout_s: float = 30.0
 
     # --- safety bounds

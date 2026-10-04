@@ -1,4 +1,5 @@
-"""Conversation state helpers shared by inbound routing, turns and delivery."""
+"""Cross-cutting conversation rules shared by inbound routing, turns and delivery: the 24-hour window (INV-8),
+opt-out keywords (CR-3) and the single answer to "may the AI speak here?" (INV-10)."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -43,7 +44,7 @@ class Block:
 
 
 def ai_block_reason(*, business: dict[str, Any], conv: dict[str, Any], customer: dict[str, Any],
-                    number: dict[str, Any] | None, now: datetime | None = None) -> str | None:
+                    number: dict[str, Any] | None, now: datetime | None = None, ignore_pause: bool = False) -> str | None:
     """INV-10 (+ owner controls): the single place that says whether the AI may speak in a conversation."""
     now = now or datetime.now(UTC)
     if customer["is_personal"]:
@@ -56,6 +57,6 @@ def ai_block_reason(*, business: dict[str, Any], conv: dict[str, Any], customer:
         return "business_inactive"
     if number is not None and number["status"] != "connected":
         return "number_disconnected"
-    if conv["ai_paused_until"] is not None and conv["ai_paused_until"] > now:
+    if not ignore_pause and conv["ai_paused_until"] is not None and conv["ai_paused_until"] > now:
         return f"paused:{conv['ai_paused_reason'] or 'owner'}"
     return None

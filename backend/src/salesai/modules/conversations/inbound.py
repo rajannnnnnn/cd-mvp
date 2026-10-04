@@ -14,7 +14,7 @@ from salesai.modules.channels import (
     AccountEvent, ChannelEvent, EchoMessage, InboundMessage, StatusUpdate,
 )
 from salesai.modules.channels.whatsapp import parse_webhook
-from salesai.modules.conversations.state import is_opt_in, is_opt_out
+from salesai.rules import is_opt_in, is_opt_out
 from salesai.obs import bind
 from salesai.queue.base import Job, Queue
 
@@ -144,6 +144,7 @@ class InboundRouter:
                               last_inbound_at = GREATEST(COALESCE(last_inbound_at, %s), %s)
                        WHERE id=%s RETURNING version""", (ts, ts, conv_id))).fetchone()
                 version = upd["version"]
+                await c.execute("UPDATE messages SET status='cancelled', error='superseded' WHERE conversation_id=%s AND direction='out' AND status='queued'", (conv_id,))
                 await emit(c, "message.received", {"conversation_id": conv_id, "message_id": ins["id"], "version": version},
                            business_id=bid, ordering_key=f"conv:{conv_id}", entity_key=f"conversation:{conv_id}",
                            entity_version=version)
@@ -196,6 +197,7 @@ class InboundRouter:
                           ai_paused_reason = 'owner_reply', last_owner_reply_at = now(), last_outbound_at = now()
                    WHERE id=%s RETURNING version""", (pause, conv_id))).fetchone()
             version = upd["version"]
+            await c.execute("UPDATE messages SET status='cancelled', error='superseded' WHERE conversation_id=%s AND direction='out' AND status='queued' AND sender='ai'", (conv_id,))
             await c.execute("UPDATE messages SET answered=true WHERE conversation_id=%s AND direction='in' AND NOT answered", (conv_id,))
         await self.queue.cancel_superseded(f"conversation:{conv_id}", version)
 
@@ -204,7 +206,7 @@ class InboundRouter:
         bid = number["business_id"]
         async with self.db.tenant(bid) as c:
             msg = await (await c.execute(
-                "SELECT id, status, conversation_id, sender FROM messages WHERE wa_message_id=%s", (ev.channel_message_id,))).fetchone()
+                "SELECT id, status, conversation_id, sender FROM messages WHERE wa_message_id=%s FOR UPDATE", (ev.channel_message_id,))).fetchone()
             if msg is None:
                 omsg = await (await c.execute("SELECT id, status FROM owner_messages WHERE wa_message_id=%s", (ev.channel_message_id,))).fetchone()
                 if omsg and (ev.status == "failed" or _RANK.get(ev.status, -1) > _RANK.get(omsg["status"], -1)):

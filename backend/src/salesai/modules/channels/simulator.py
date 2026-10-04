@@ -101,3 +101,58 @@ def build_account_payload(phone_number_id: str, display_phone: str, field: str, 
 def signed(app_secret: str, payload: dict[str, Any]) -> tuple[bytes, str]:
     raw = json.dumps(payload).encode()
     return raw, sign(app_secret, raw)
+
+
+class SimulatorNetwork:
+    """The simulated WhatsApp network as seen by a human with a phone: they send messages, read replies and
+    acknowledge deliveries. Every action becomes a signed Meta-format webhook into the REAL ingress."""
+
+    def __init__(self, db: Database, app_secret: str):
+        self.db, self.app_secret = db, app_secret
+
+    async def _post(self, payload: dict[str, Any]) -> None:
+        from salesai.modules.channels.ingress import accept_webhook   # local: ingress depends on events/outbox
+        raw, sig = signed(self.app_secret, payload)
+        status, body = await accept_webhook(self.db, self.app_secret, raw, sig)
+        if status != 200:
+            raise RuntimeError(f"ingress rejected simulated webhook: {status} {body}")
+
+    async def _number(self, business_phone: str) -> dict[str, Any]:
+        async with self.db.system_tx() as c:
+            r = await (await c.execute(
+                "SELECT phone_number_id, display_phone FROM whatsapp_numbers WHERE display_phone=%s AND channel='simulator'", (business_phone,))).fetchone()
+        if r is None:
+            raise LookupError("no simulated number with that phone")
+        return r
+
+    async def user_sends(self, business_phone: str, from_phone: str, text: str | None, *, kind: str = "text", name: str | None = None) -> str:
+        n = await self._number(business_phone)
+        payload = build_message_payload(n["phone_number_id"], n["display_phone"], from_phone, text, kind=kind, name=name)
+        wamid = payload["entry"][0]["changes"][0]["value"]["messages"][0]["id"]
+        async with self.db.system_tx() as c:
+            await c.execute(
+                "INSERT INTO sim_messages (phone, business_phone, direction, kind, body, wa_message_id) VALUES (%s,%s,'from_user',%s,%s,%s)",
+                (wa_id(from_phone), n["display_phone"], kind, text, wamid))
+        await self._post(payload)
+        return wamid
+
+    async def owner_replies_from_app(self, business_phone: str, to_phone: str, text: str) -> None:
+        n = await self._number(business_phone)
+        await self._post(build_echo_payload(n["phone_number_id"], n["display_phone"], to_phone, text))
+
+    async def acknowledge(self, business_phone: str, phone: str, wamid: str, status: str) -> None:
+        """The phone confirms delivery/read of an outbound message (becomes a Meta status webhook)."""
+        n = await self._number(business_phone)
+        async with self.db.system_tx() as c:
+            await c.execute("UPDATE sim_messages SET status=%s WHERE wa_message_id=%s AND direction='to_user'", (status, wamid))
+        await self._post(build_status_payload(n["phone_number_id"], n["display_phone"], phone, wamid, status))
+
+    async def account_event(self, business_phone: str, field: str, event: str) -> None:
+        n = await self._number(business_phone)
+        await self._post(build_account_payload(n["phone_number_id"], n["display_phone"], field, event))
+
+    async def thread(self, phone: str, business_phone: str, after_id: int = 0, limit: int = 200) -> list[dict[str, Any]]:
+        async with self.db.system_tx() as c:
+            return await (await c.execute(
+                "SELECT * FROM sim_messages WHERE phone=%s AND business_phone=%s AND id > %s ORDER BY id LIMIT %s",
+                (wa_id(phone), business_phone, after_id, limit))).fetchall()

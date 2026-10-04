@@ -312,6 +312,7 @@ CREATE TABLE turns (
   FOREIGN KEY (business_id, conversation_id) REFERENCES conversations(business_id, id) ON DELETE CASCADE
 );
 CREATE INDEX turns_conv_idx ON turns (business_id, conversation_id, created_at DESC);
+CREATE INDEX turns_biz_time_idx ON turns (business_id, created_at);
 
 CREATE TABLE messages (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -327,7 +328,7 @@ CREATE TABLE messages (
   payload          jsonb NOT NULL DEFAULT '{}',
   reply_to_wa_id   text,
   status           text NOT NULL DEFAULT 'received'
-                   CHECK (status IN ('received','queued','sent','delivered','read','failed')),
+                   CHECK (status IN ('received','queued','sent','delivered','read','failed','cancelled')),
   error            text,
   gap_ms           integer,           -- gap since this customer's previous message: learning signal
   answered         boolean NOT NULL DEFAULT false,   -- inbound customer message already covered by a turn
@@ -340,6 +341,7 @@ CREATE TABLE messages (
   FOREIGN KEY (business_id, turn_id) REFERENCES turns(business_id, id) ON DELETE SET NULL (turn_id)
 );
 CREATE INDEX messages_conv_time_idx ON messages (business_id, conversation_id, created_at);
+CREATE INDEX messages_out_time_idx ON messages (business_id, created_at) WHERE direction = 'out';
 CREATE INDEX messages_unanswered_idx ON messages (business_id, conversation_id) WHERE direction = 'in' AND NOT answered;
 
 -- =====================================================================
