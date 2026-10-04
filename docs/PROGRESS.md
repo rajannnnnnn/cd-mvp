@@ -81,7 +81,10 @@ at the 5 msgs/s per-number limit (Meta's coexistence throughput). The other two 
 conversation (`conv:<id>`); the per-number token bucket stays shared. A per-conversation flood guard (`MAX_AI_TURNS_PER_CONVERSATION_10MIN`, default 30) records
 but no longer answers messages beyond the budget. Both have tests. **Still to do:** re-run the conversation load test on a clean database with nothing else
 running and record the new p50/p95 here.
-- Browser suite: 29/29 passing against the dev stack (desktop and mobile projects). Backend: 209+ tests passing; evaluations 32/32.
+- Browser suite: **36/36** passing against the dev stack on a freshly seeded database (desktop and mobile projects), including the whole path
+  marketing → sign-up → onboarding → live → billing → analytics, shop-address links, and paying in test mode. Backend: **273 tests passing** (including
+  billing, onboarding, analytics, alert routing, migrations-with-data) and evaluations 32/32 (run with `env -u OTP_PER_PHONE_PER_HOUR -u OTP_PER_IP_PER_HOUR`
+  if your shell has the dev `.env` loaded, because one test checks the default rate limits). Not re-run this session: the Redis-backend pipeline run.
 
 **Not verified:** anything against real Meta infrastructure; any real language model; Docker image builds and the compose
 stack (CI will); latency with a real model (NFR-2 adds the model's time); behaviour on real low-end Android devices.

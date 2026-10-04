@@ -123,6 +123,6 @@ test.describe('paying for a plan', () => {
     await expect(page.getByText('Starter').first()).toBeVisible()
     await expect(page.getByText('paid', { exact: true }).first()).toBeVisible()
     await page.goto(`/app/pay-test-${tag}/analytics`)                                // Starter has no analytics: an upgrade note, not an error
-    await expect(page.getByText('This is part of the Growth plan')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'This is part of the Growth plan' })).toBeVisible()
   })
 })

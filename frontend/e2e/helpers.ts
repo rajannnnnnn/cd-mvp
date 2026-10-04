@@ -11,7 +11,8 @@ export async function login(page: Page, phone: string) {
   const local = phone.replace('+91', '')
   await page.getByPlaceholder('98765 43210').fill(local)
   await page.getByRole('button', { name: /continue with whatsapp/i }).click()
-  await expect(page).not.toHaveURL(/login/, { timeout: 30_000 })
+  // signed in: a shop's home, the setup wizard, or the operator console (the bare /app first hops to the shop address)
+  await expect(page).toHaveURL(/\/app\/(?:[a-z0-9-]+\/(?:home|onboarding)|onboarding|operator)/, { timeout: 30_000 })
 }
 
 /** A phone number nobody has used before, so signing in with it starts the sign-up flow. */

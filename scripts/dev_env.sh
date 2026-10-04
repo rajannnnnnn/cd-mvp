@@ -22,7 +22,9 @@ JWT_SECRET=dev-jwt-$(head -c 24 /dev/urandom | base64 | tr -d '/+=')
 OTP_SECRET=dev-otp-$(head -c 24 /dev/urandom | base64 | tr -d '/+=')
 META_APP_SECRET=dev-meta-secret
 META_VERIFY_TOKEN=dev-verify-token
-OTP_MIN_INTERVAL_S=3
+OTP_MIN_INTERVAL_S=1
+OTP_PER_PHONE_PER_HOUR=500
+OTP_PER_IP_PER_HOUR=2000
 SIMULATOR_ENABLED=true
 LLM_PROVIDER=local
 ENVEOF
