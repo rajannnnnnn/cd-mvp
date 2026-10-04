@@ -3,16 +3,17 @@ scheduler) and every test builds the same graph; roles differ only in which loop
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from salesai.config import Settings, get_settings
 from salesai.db import Database
 from salesai.events.relay import OutboxRelay
+from salesai.modules.agent import AgentService, Models
+from salesai.modules.agent.llm.factory import make_llm
 from salesai.modules.auth import AuthService
 from salesai.modules.channels import ChannelRegistry
 from salesai.modules.channels.simulator import SimulatorNetwork
-from salesai.modules.agent import AgentService, Models
-from salesai.modules.agent.llm.factory import make_llm
 from salesai.modules.conversations import HeuristicEOT, InboundRouter, TurnWorker
 from salesai.modules.delivery.sender import OutboundSender
 from salesai.modules.notifications import OwnerLoop
@@ -53,7 +54,7 @@ class Runtime:
         self._wire()
 
     @classmethod
-    async def create(cls, settings: Settings | None = None, queue_factory=None) -> Runtime:  # noqa: ANN001
+    async def create(cls, settings: Settings | None = None, queue_factory: Callable[[Database, Settings], Queue] | None = None) -> Runtime:
         s = settings or get_settings()
         db = Database(s.database_url, s.pricing_database_url, s.system_database_url, s.db_pool_max)
         await db.open()

@@ -3,10 +3,12 @@ Handlers must be idempotent (retries and at-least-once delivery are normal)."""
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import random
 import time
 from collections.abc import Awaitable, Callable
+from typing import Any
 
 from salesai.obs import JOB_SECONDS, JOBS_TOTAL, bind
 from salesai.queue.base import Defer, Job, NonRetryable, Queue
@@ -65,7 +67,7 @@ class WorkerRunner:
         self.staleness = staleness or StalenessResolver()
         self.worker_id, self.concurrency, self.tenant_cap = worker_id, concurrency, tenant_cap
         self.poll_s, self.handler_timeout_s, self.lease_s = poll_s, handler_timeout_s, lease_s
-        self._inflight: set[asyncio.Task[None]] = set()
+        self._inflight: set[asyncio.Task[Any]] = set()
 
     async def handle(self, job: Job) -> str:
         """Process one claimed job; returns the outcome label."""
@@ -122,9 +124,7 @@ class WorkerRunner:
                 self._inflight.add(t)
                 t.add_done_callback(self._inflight.discard)
             if not claimed:
-                try:
+                with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(stop.wait(), self.poll_s * random.uniform(1, 2))  # noqa: S311
-                except TimeoutError:
-                    pass
         if self._inflight:
             await asyncio.gather(*self._inflight, return_exceptions=True)

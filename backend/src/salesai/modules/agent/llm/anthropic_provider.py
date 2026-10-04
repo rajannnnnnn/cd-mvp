@@ -3,7 +3,10 @@ no forced tool_choice and no sampling parameters (rejected by current models). C
 input: it only ever appears inside the JSON `input`, never as instructions."""
 from __future__ import annotations
 
+from typing import Literal
+
 import anthropic
+from anthropic.types import MessageParam
 
 from salesai.modules.agent.llm.base import LLMError, LLMRequest, LLMResult, T, now_ms
 
@@ -12,14 +15,14 @@ class AnthropicProvider:
     name = "anthropic"
 
     def __init__(self, api_key: str, *, base_url: str | None = None, timeout_s: float = 30.0, max_retries: int = 1,
-                 effort: str = "low"):
+                 effort: Literal["low", "medium", "high", "xhigh", "max"] = "low"):
         self.client = anthropic.AsyncAnthropic(api_key=api_key, base_url=base_url, timeout=timeout_s, max_retries=max_retries)
         self.effort = effort
 
     async def generate(self, req: LLMRequest, schema: type[T]) -> LLMResult[T]:
         t0 = now_ms()
         user = req.render_user_content()
-        messages = [*req.messages, {"role": "user", "content": user}] if req.messages else [{"role": "user", "content": user}]
+        messages: list[MessageParam] = [*req.messages, {"role": "user", "content": user}] if req.messages else [{"role": "user", "content": user}]  # type: ignore[list-item]
         try:
             resp = await self.client.messages.parse(
                 model=req.model,

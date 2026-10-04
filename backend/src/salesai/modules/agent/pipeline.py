@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from salesai.db import Database, jsonb
+from salesai.db import Database, jsonb, required
 from salesai.events.outbox import emit
 from salesai.modules.agent import checks as chk
 from salesai.modules.agent import context as ctxmod
@@ -144,7 +144,7 @@ class AgentService:
         checkctx = self._checkctx(ctx, plan)
         log: dict[str, Any] = {"attempts": []}
         feedback: list[str] = []
-        for attempt in range(2):
+        for _ in range(2):
             try:
                 res = await self.llm.generate(
                     LLMRequest("writer", wp.text, {**base_input, **({"feedback": feedback} if feedback else {})}, self.models.writer, wp.ref, max_tokens=900),
@@ -236,7 +236,7 @@ class AgentService:
         last_inbound_wa = next((m["wa_message_id"] for m in reversed(ctx.unanswered) if m["wa_message_id"]), None)
 
         async with self.db.tenant(bid) as c:
-            conv = await (await c.execute("SELECT * FROM conversations WHERE id=%s FOR UPDATE", (cid,))).fetchone()
+            conv = required(await (await c.execute("SELECT * FROM conversations WHERE id=%s FOR UPDATE", (cid,))).fetchone(), "conv")
             if conv["version"] != version:
                 return TurnOutcome("superseded", reason="conversation moved on before commit (INV-7)")
             if ai_block_reason(business=ctx.business, conv=conv, customer=ctx.customer, number=ctx.number, now=now) and not plan.handoffs:
@@ -289,7 +289,7 @@ class AgentService:
                                            "allow_while_paused": bool(plan.handoffs)}   # the handoff notice precedes the pause it sets
                 if a.action == "send_text":
                     payload.update(message_id=msg_ids[a.part_index or 0])
-                    payload["last_part"] = a.last_part  # type: ignore[assignment]
+                    payload["last_part"] = a.last_part
                 elif a.action == "send_reaction":
                     if reaction_msg is None:
                         continue

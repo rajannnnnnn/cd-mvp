@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Request
 from sse_starlette.sse import EventSourceResponse
@@ -14,9 +15,9 @@ router = APIRouter(tags=["live"])
 @router.get("/events", summary="Server-sent events: tenant change notifications (messages, conversations, handoffs, deals, gaps)")
 async def events(request: Request, rt: RT, p: Tenant) -> EventSourceResponse:
     hub = rt.hub
-    q = hub.subscribe(p.business_id)  # type: ignore[arg-type]
+    q = hub.subscribe(p.bid)
 
-    async def gen():  # noqa: ANN202
+    async def gen() -> AsyncIterator[dict[str, str]]:
         try:
             yield {"event": "ready", "data": "{}"}
             while True:
@@ -34,6 +35,6 @@ async def events(request: Request, rt: RT, p: Tenant) -> EventSourceResponse:
                     batch.add((e["table"], e["conversation_id"]))
                 yield {"event": "change", "data": json.dumps([{"table": t, "conversation_id": c} for t, c in sorted(batch, key=str)])}
         finally:
-            hub.unsubscribe(p.business_id, q)  # type: ignore[arg-type]
+            hub.unsubscribe(p.bid, q)
 
     return EventSourceResponse(gen())

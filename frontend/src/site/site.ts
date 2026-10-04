@@ -2,6 +2,7 @@ import '@/styles/fonts'
 import '@/styles/app.css'
 import './site.css'
 import { HI } from './hi'
+import { ladderLevels, stepFor } from './ladder'
 
 type Lang = 'en' | 'hi'
 const LANG_KEY = 'saathi.lang'
@@ -10,12 +11,13 @@ const $$ = <T extends HTMLElement>(s: string, r: ParentNode = document) => Array
 const safe = <T>(f: () => T, d: T): T => { try { return f() } catch { return d } }
 
 /* ------------------------------------------------------------------ language */
+const brand = document.querySelector<HTMLMetaElement>('meta[name="brand"]')?.content ?? 'Saathi'
 function applyLang(lang: Lang) {
   document.documentElement.lang = lang
   for (const el of $$('[data-i18n],[data-i18n-html]')) {
     const key = el.dataset.i18n ?? el.dataset.i18nHtml!
     if (el.dataset.en === undefined) el.dataset.en = el.innerHTML
-    el.innerHTML = lang === 'hi' && HI[key] ? HI[key] : el.dataset.en
+    el.innerHTML = lang === 'hi' && HI[key] ? HI[key].replaceAll('%BRAND%', brand) : el.dataset.en
   }
   const lbl = $('#lang-label'); if (lbl) lbl.textContent = lang === 'hi' ? 'EN' : 'हिं'
   safe(() => localStorage.setItem(LANG_KEY, lang), undefined)
@@ -82,23 +84,13 @@ function ladderDemo() {
   const list = $<HTMLInputElement>('#ld-list')!, floor = $<HTMLInputElement>('#ld-floor')!, steps = $<HTMLInputElement>('#ld-steps')!, ask = $<HTMLInputElement>('#ld-ask')!
   const out = $('#ld-path')!, note = $('#ld-note')!, reply = $('#ld-reply')!
   const inr = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`
-  const ceilTo = (x: number, r: number) => Math.ceil(x / r - 1e-9) * r
-  const levels = (l: number, f: number, n: number, r: number) => {
-    const res: number[] = []; let prev = l
-    if (f >= l) return res
-    for (let k = 1; k <= n; k++) {
-      const lvl = k === n ? f : Math.max(f, Math.min(prev, ceilTo(l - ((l - f) * k) / n, r)))
-      if (lvl < prev) { res.push(lvl); prev = lvl }
-    }
-    return res
-  }
   const render = () => {
     const t = (en: string, hi: string) => (lang === 'hi' ? hi : en)
     let l = +list.value, f = +floor.value
     if (f > l) { f = l; floor.value = String(f) }
     floor.max = String(l)
     const n = +steps.value, a = +ask.value
-    const lv = levels(l, f, n, 10)
+    const lv = ladderLevels(l, f, n, 10)
     $('#ld-list-v')!.textContent = inr(l); $('#ld-floor-v')!.textContent = inr(f); $('#ld-steps-v')!.textContent = String(n); $('#ld-ask-v')!.textContent = inr(a)
     const pills = [`<span class="step-pill rounded-full bg-surface px-3.5 py-1.5 text-[14px] font-bold tnum shadow-card">${inr(l)}</span>`]
     lv.forEach((p, i) => pills.push(`<span class="text-muted">→</span><span class="step-pill rounded-full ${i === lv.length - 1 ? 'bg-brand text-white' : 'bg-surface'} px-3.5 py-1.5 text-[14px] font-bold tnum shadow-card">${inr(p)}</span>`))
@@ -111,9 +103,9 @@ function ladderDemo() {
     if (a >= l) msg = t(`Great, ${inr(l)} it is. Shall I confirm your order?`, `बढ़िया, ${inr(l)} में पक्का। ऑर्डर कन्फ़र्म करूँ?`)
     else if (!lv.length) msg = t(`The price is ${inr(l)}, I’m afraid that’s fixed.`, `कीमत ${inr(l)} है जी, यह तय है।`)
     else {
-      const ok = [...lv].reverse().find((p) => p >= a) ?? lv.at(-1)!
+      const ok = stepFor(lv, a)!
       const isFinal = ok === lv.at(-1)
-      msg = a < f
+      msg = ok === a ? t(`${inr(a)} works for me. Shall I confirm your order?`, `${inr(a)} में हो जाएगा। ऑर्डर कन्फ़र्म करूँ?`) : a < f
         ? t(`${inr(ok)} is the lowest I can do ji. If you need less, let me check with the owner.`, `${inr(ok)} सबसे कम हो पाएगा जी। इससे कम चाहिए तो मैं मालिक से पूछ लेता हूँ।`)
         : t(`I can do ${inr(ok)} for you${isFinal ? ', that’s my final price' : ''}. Shall I confirm?`, `आपके लिए ${inr(ok)} कर देता हूँ${isFinal ? ', यह मेरा फ़ाइनल है' : ''}। कन्फ़र्म करूँ?`)
     }

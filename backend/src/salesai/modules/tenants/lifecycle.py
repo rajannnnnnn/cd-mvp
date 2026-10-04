@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from salesai.db import Database
+from salesai.queue.base import Queue
 
 EXPORT_TABLES = [
     ("business", "SELECT id, name, timezone, status, ai_enabled, plan, profile, sales_settings, conversation_settings, timing_params, limits, created_at FROM businesses"),
@@ -33,13 +34,15 @@ async def export_tenant(db: Database, business_id: uuid.UUID) -> dict[str, Any]:
     out: dict[str, Any] = {"exported_at": datetime.now(UTC).isoformat(), "note": "Floor prices, access tokens and secrets are never exported."}
     async with db.tenant(business_id) as c:
         for name, sql in EXPORT_TABLES:
-            out[name] = await (await c.execute(sql)).fetchall()      # type: ignore[arg-type]
+            out[name] = await (await c.execute(sql)).fetchall()
     return json.loads(json.dumps(out, default=str))
 
 
-async def delete_tenant(db: Database, business_id: uuid.UUID) -> dict[str, int]:
+async def delete_tenant(db: Database, business_id: uuid.UUID, queue: Queue | None = None) -> dict[str, int]:
     """Hard delete: the tenant's rows cascade; platform-side traces (raw webhooks, simulator ledger, outbox, orphaned accounts) are purged too."""
     counts: dict[str, int] = {}
+    if queue is not None:
+        counts["jobs"] = await queue.purge_business(business_id)       # whatever backend holds them
     async with db.system_tx() as s:
         nums = await (await s.execute("SELECT id, phone_number_id, display_phone FROM whatsapp_numbers WHERE business_id=%s", (business_id,))).fetchall()
         members = await (await s.execute("SELECT account_id FROM business_users WHERE business_id=%s", (business_id,))).fetchall()
@@ -49,7 +52,6 @@ async def delete_tenant(db: Database, business_id: uuid.UUID) -> dict[str, int]:
             r = await s.execute("DELETE FROM sim_messages WHERE business_phone=%s", (n["display_phone"],))
             counts["sim_messages"] = counts.get("sim_messages", 0) + r.rowcount
         counts["outbox"] = (await s.execute("DELETE FROM outbox WHERE business_id=%s", (business_id,))).rowcount
-        counts["jobs"] = (await s.execute("DELETE FROM jobs WHERE business_id=%s", (business_id,))).rowcount
         if nums:
             await s.execute("DELETE FROM rate_buckets WHERE key = ANY(%s)", ([f"num:{n['id']}" for n in nums],))
         counts["businesses"] = (await s.execute("DELETE FROM businesses WHERE id=%s", (business_id,))).rowcount

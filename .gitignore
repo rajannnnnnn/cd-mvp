@@ -12,3 +12,6 @@ __pycache__/
 node_modules/
 dist/
 *.log
+test-results/
+playwright-report/
+*.egg-info/

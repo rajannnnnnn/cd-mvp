@@ -5,15 +5,28 @@ from __future__ import annotations
 import contextlib
 import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from salesai import __version__
 from salesai.api import errors
 from salesai.api.hub import ChangeHub
-from salesai.api.routes import auth, business, catalog, contacts, conversations, events, metrics, operator, pricing, simulator, system, workflow
+from salesai.api.routes import (
+    auth,
+    business,
+    catalog,
+    contacts,
+    conversations,
+    events,
+    metrics,
+    operator,
+    pricing,
+    simulator,
+    system,
+    workflow,
+)
 from salesai.obs import bind
 from salesai.runtime import Runtime
 
@@ -48,7 +61,7 @@ def create_app(rt: Runtime | None = None, role: str = "web", *, owns_runtime: bo
                        expose_headers=["X-Request-Id"], max_age=600)
 
     @app.middleware("http")
-    async def request_context(request: Request, call_next):  # noqa: ANN001, ANN202
+    async def request_context(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         rid = request.headers.get("x-request-id") or uuid.uuid4().hex[:16]
         t0 = time.perf_counter()
         with bind(request_id=rid):

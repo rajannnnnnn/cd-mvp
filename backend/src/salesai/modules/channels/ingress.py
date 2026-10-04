@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from typing import Any
 
 from salesai.db import Database, jsonb
 from salesai.events.outbox import emit
@@ -15,7 +16,7 @@ log = logging.getLogger("salesai.ingress")
 MAX_BODY = 1_000_000
 
 
-async def accept_webhook(db: Database, app_secret: str, raw_body: bytes, signature: str | None) -> tuple[int, dict]:
+async def accept_webhook(db: Database, app_secret: str, raw_body: bytes, signature: str | None) -> tuple[int, dict[str, Any]]:
     t0 = time.perf_counter()
     try:
         if len(raw_body) > MAX_BODY:

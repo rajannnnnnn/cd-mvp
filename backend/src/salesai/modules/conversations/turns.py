@@ -2,11 +2,12 @@
 conversation by the queue's ordering key. Every wait is a DELAYED JOB, never a sleep inside a worker."""
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from salesai.db import Database
+from salesai.db import Database, required
 from salesai.events.outbox import emit
 from salesai.modules.agent import AgentService
 from salesai.modules.conversations.eot import EndOfTurnPredictor, EotInput
@@ -47,9 +48,9 @@ class TurnWorker:
                 if not msgs:
                     await c.execute("UPDATE conversations SET state='idle' WHERE id=%s AND state='listening'", (cid,))
                     return
-                biz = await (await c.execute("SELECT * FROM businesses WHERE id=%s", (bid,))).fetchone()
-                cust = await (await c.execute("SELECT * FROM customers WHERE id=%s", (conv["customer_id"],))).fetchone()
-                num = await (await c.execute("SELECT * FROM whatsapp_numbers WHERE id=%s", (conv["whatsapp_number_id"],))).fetchone()
+                biz = required(await (await c.execute("SELECT * FROM businesses WHERE id=%s", (bid,))).fetchone(), "biz")
+                cust = required(await (await c.execute("SELECT * FROM customers WHERE id=%s", (conv["customer_id"],))).fetchone(), "cust")
+                num = required(await (await c.execute("SELECT * FROM whatsapp_numbers WHERE id=%s", (conv["whatsapp_number_id"],))).fetchone(), "num")
                 gaps = [r["gap_ms"] for r in await (await c.execute(
                     "SELECT gap_ms FROM messages WHERE conversation_id=%s AND direction='in' AND gap_ms IS NOT NULL ORDER BY created_at DESC LIMIT 20", (cid,))).fetchall()]
             block = ai_block_reason(business=biz, conv=conv, customer=cust, number=num, now=now)
@@ -96,4 +97,4 @@ class TurnWorker:
             await c.execute("UPDATE conversations SET state='idle' WHERE id=%s", (cid,))
         async with self.db.system_tx() as s:
             await s.execute("INSERT INTO operator_alerts (business_id, severity, kind, message, detail) VALUES (%s,'critical','turn_failed',%s,%s::jsonb)",
-                            (bid, "AI turn failed repeatedly; conversation handed off", '{"conversation_id": "%s"}' % cid))
+                            (bid, "AI turn failed repeatedly; conversation handed off", json.dumps({"conversation_id": str(cid)})))

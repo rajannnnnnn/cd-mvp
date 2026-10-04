@@ -117,7 +117,8 @@ async def build_plan(ctx: ctxmod.TurnContext, out: PlannerOutput, pricing: Prici
 
     intent = out.intent
     if trigger == "nudge":
-        cand = ctx.candidate(qual.get("focus_variant_id")) if qual.get("focus_variant_id") else None
+        focus_id = qual.get("focus_variant_id")
+        cand = ctx.candidate(focus_id) if focus_id else None
         D.append({"type": "nudge", "product": cand["product_name"] if cand else None})
     elif intent == "greeting":
         D.append({"type": "greeting"})
@@ -227,8 +228,8 @@ async def build_plan(ctx: ctxmod.TurnContext, out: PlannerOutput, pricing: Prici
 
     plan.qualification = qual
     plan.allowed_texts.append(str(profile))
-    for c in ctx.candidates:
-        plan.allowed_texts += [c["product_name"], str(c.get("description") or ""), str(c.get("attributes") or ""), c["variant_name"], str(c.get("category") or "")]
+    for cand_row in ctx.candidates:
+        plan.allowed_texts += [cand_row["product_name"], str(cand_row.get("description") or ""), str(cand_row.get("attributes") or ""), cand_row["variant_name"], str(cand_row.get("category") or "")]
     return plan
 
 
@@ -253,7 +254,7 @@ def _order_summary(ev: Evaluation, qty: int, needs_address: bool, variant_label:
             "needs_address": needs_address, "currency": ev.decision.values[0].currency if ev.decision.values else "INR"}
 
 
-async def _order_flow(ctx, out, plan, qual, valid_refs, evaluate, handoff, sales) -> None:  # noqa: ANN001
+async def _order_flow(ctx: ctxmod.TurnContext, out: PlannerOutput, plan: Plan, qual: dict[str, Any], valid_refs: Any, evaluate: Any, handoff: Any, sales: Any) -> None:
     D = plan.directives
     c = out.commitment
     pending = qual.get("pending_order")

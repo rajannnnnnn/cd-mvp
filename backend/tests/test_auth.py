@@ -9,7 +9,6 @@ import jwt
 import pytest
 
 from salesai.modules.auth import AuthError, AuthService
-from salesai.phone import wa_id
 
 
 @pytest.fixture
@@ -147,7 +146,7 @@ async def test_logout_and_device_revocation_end_access_immediately(world, auth):
     shop = await world.make_shop()
     a = await login(world, auth, shop.owner_phone)
     b = await login(world, auth, shop.owner_phone)
-    pa, pb = await auth.authenticate(a.access_token), await auth.authenticate(b.access_token)
+    pa, _pb = await auth.authenticate(a.access_token), await auth.authenticate(b.access_token)
     devices = await auth.sessions(pa)
     assert len(devices) == 2 and sum(d["current"] for d in devices) == 1
     other = next(d for d in devices if not d["current"])

@@ -2,17 +2,20 @@ from __future__ import annotations
 
 import uuid
 from decimal import Decimal
-from typing import Annotated, Any, Literal
+from typing import Any, Literal
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field
 
 from salesai.api.deps import RT, Owner, Tenant, tx
 from salesai.api.errors import ApiError
-from salesai.db import jsonb
+from salesai.db import jsonb, required
+from salesai.modules.auth import Principal
 from salesai.modules.catalog import repo
-from salesai.modules.tenants import upsert_account
+from salesai.modules.channels import SignupError, complete_signup
+from salesai.modules.tenants import add_cloud_number, upsert_account
 from salesai.phone import normalize_phone
+from salesai.runtime import Runtime
 
 router = APIRouter(tags=["business"])
 
@@ -129,9 +132,9 @@ class TeamPatch(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
 
 
-async def _load(rt, p) -> BusinessOut:  # noqa: ANN001
+async def _load(rt: Runtime, p: Principal) -> BusinessOut:
     async with tx(rt, p) as c:
-        b = await (await c.execute("SELECT * FROM businesses WHERE id=%s", (p.business_id,))).fetchone()
+        b = await (await c.execute("SELECT * FROM businesses WHERE id=%s", (p.bid,))).fetchone()
         ns = await (await c.execute("SELECT * FROM whatsapp_numbers ORDER BY created_at")).fetchall()
     return BusinessOut(**{k: b[k] for k in ("id", "name", "timezone", "status", "ai_enabled", "plan", "profile", "sales_settings", "conversation_settings", "timing_params", "limits")},
                        numbers=[NumberOut(**{k: n[k] for k in ("id", "channel", "display_phone", "verified_name", "status", "quality_rating", "status_reason", "coexistence")}) for n in ns])
@@ -147,14 +150,14 @@ async def patch_business(body: BusinessPatch, rt: RT, p: Owner) -> BusinessOut:
     async with tx(rt, p) as c:
         d = body.model_dump(exclude_unset=True, mode="json", exclude_none=False)
         if "name" in d and d["name"]:
-            await c.execute("UPDATE businesses SET name=%s WHERE id=%s", (d["name"], p.business_id))
+            await c.execute("UPDATE businesses SET name=%s WHERE id=%s", (d["name"], p.bid))
         if "timezone" in d and d["timezone"]:
             from zoneinfo import ZoneInfo
             try:
                 ZoneInfo(d["timezone"])
             except Exception as e:  # noqa: BLE001
                 raise ApiError(422, "invalid_timezone", "Unknown timezone.") from e
-            await c.execute("UPDATE businesses SET timezone=%s WHERE id=%s", (d["timezone"], p.business_id))
+            await c.execute("UPDATE businesses SET timezone=%s WHERE id=%s", (d["timezone"], p.bid))
         for col in ("profile", "sales_settings", "conversation_settings", "timing_params"):
             if col in d and d[col] is not None:
                 patch = {k: v for k, v in d[col].items() if v is not None or col == "profile"}
@@ -162,22 +165,52 @@ async def patch_business(body: BusinessPatch, rt: RT, p: Owner) -> BusinessOut:
                     for k in ("read_delay", "typing_ms_per_char", "part_gap"):
                         if k in patch and patch[k]["min_ms"] > patch[k]["max_ms"]:
                             raise ApiError(422, "invalid_timing", f"{k}: min must not exceed max.")
-                await c.execute(f"UPDATE businesses SET {col} = {col} || %s::jsonb WHERE id=%s", (jsonb(patch), p.business_id))  # noqa: S608
-                await repo.audit(c, p.business_id, p.account_id, "owner", f"{col}.updated", "business", str(p.business_id), {"fields": sorted(patch)})
+                await c.execute(f"UPDATE businesses SET {col} = {col} || %s::jsonb WHERE id=%s", (jsonb(patch), p.bid))  # noqa: S608
+                await repo.audit(c, p.bid, p.account_id, "owner", f"{col}.updated", "business", str(p.bid), {"fields": sorted(patch)})
     return await _load(rt, p)
 
 
 @router.post("/business/ai", response_model=BusinessOut, summary="Pause or resume the AI for the whole business")
 async def toggle_ai(body: AiToggle, rt: RT, p: Tenant) -> BusinessOut:
     async with tx(rt, p) as c:
-        await c.execute("UPDATE businesses SET ai_enabled=%s WHERE id=%s", (body.enabled, p.business_id))
-        await repo.audit(c, p.business_id, p.account_id, p.role, "ai.resumed" if body.enabled else "ai.paused", "business", str(p.business_id))
+        await c.execute("UPDATE businesses SET ai_enabled=%s WHERE id=%s", (body.enabled, p.bid))
+        await repo.audit(c, p.bid, p.account_id, p.role, "ai.resumed" if body.enabled else "ai.paused", "business", str(p.bid))
     return await _load(rt, p)
 
 
 @router.get("/numbers", response_model=list[NumberOut])
 async def numbers(rt: RT, p: Tenant) -> Any:
     return (await _load(rt, p)).numbers
+
+
+class ConnectIn(BaseModel):
+    """What the browser hands back after Meta's Embedded Signup popup finishes."""
+    code: str = Field(min_length=10, max_length=2000, description="Short-lived authorization code from the Embedded Signup flow.")
+    waba_id: str = Field(min_length=3, max_length=40)
+    phone_number_id: str = Field(min_length=3, max_length=40)
+    coexistence: bool = Field(default=False, description="True when the number stays on the WhatsApp Business app.")
+
+
+@router.post("/numbers/connect", response_model=NumberOut, status_code=201,
+             summary="Finish Meta Embedded Signup for the owner's WhatsApp number (owner)")
+async def connect_number(body: ConnectIn, rt: RT, p: Owner) -> Any:
+    s = rt.settings
+    if not (s.meta_app_id and s.meta_config_id):
+        raise ApiError(503, "signup_unavailable", "Connecting a WhatsApp number is not switched on yet. Your Saathi contact can connect it for you.")
+    try:
+        res = await complete_signup(graph_base=s.meta_graph_base, version=s.meta_graph_version, app_id=s.meta_app_id,
+                                    app_secret=s.meta_app_secret, code=body.code, waba_id=body.waba_id,
+                                    phone_number_id=body.phone_number_id, coexistence=body.coexistence)
+    except SignupError as e:
+        raise ApiError(502 if e.retryable else 422, e.code, e.message) from e
+    nid = await add_cloud_number(rt.db, rt.vault, p.bid, phone_number_id=res.phone_number_id, waba_id=res.waba_id,
+                                 display_phone=res.display_phone, access_token=res.access_token,
+                                 coexistence=res.coexistence, verified_name=res.verified_name)
+    async with tx(rt, p) as c:
+        if res.quality_rating:
+            await c.execute("UPDATE whatsapp_numbers SET quality_rating=%s WHERE id=%s", (res.quality_rating, nid))
+        await repo.audit(c, p.bid, p.account_id, p.role, "number.connected", "whatsapp_number", str(nid), {"coexistence": res.coexistence})
+    return next(n for n in (await _load(rt, p)).numbers if str(n.id) == str(nid))
 
 
 # ---- team (numbers are identities: adding a person means adding their WhatsApp number)
@@ -198,10 +231,10 @@ async def add_member(body: TeamIn, rt: RT, p: Owner) -> Any:
     async with rt.db.system_tx() as s:
         acct_id = await upsert_account(s, phone, body.name)
     async with tx(rt, p) as c:
-        r = await (await c.execute(
+        r = required(await (await c.execute(
             "INSERT INTO business_users (business_id, account_id, name, role) VALUES (%s,%s,%s,%s) RETURNING id, name, role, notify",
-            (p.business_id, acct_id, body.name, body.role))).fetchone()
-        await repo.audit(c, p.business_id, p.account_id, "owner", "team.added", "business_user", str(r["id"]), {"role": body.role})
+            (p.bid, acct_id, body.name, body.role))).fetchone(), "team member")
+        await repo.audit(c, p.bid, p.account_id, "owner", "team.added", "business_user", str(r["id"]), {"role": body.role})
     return {**r, "phone": phone}
 
 
@@ -230,4 +263,4 @@ async def remove_member(member_id: uuid.UUID, rt: RT, p: Owner) -> None:
         if row["role"] == "owner" and owners <= 1:
             raise ApiError(409, "last_owner", "A business needs at least one owner.")
         await c.execute("DELETE FROM business_users WHERE id=%s", (member_id,))
-        await repo.audit(c, p.business_id, p.account_id, "owner", "team.removed", "business_user", str(member_id))
+        await repo.audit(c, p.bid, p.account_id, "owner", "team.removed", "business_user", str(member_id))

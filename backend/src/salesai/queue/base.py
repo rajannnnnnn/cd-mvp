@@ -9,7 +9,7 @@ from __future__ import annotations
 import random
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Protocol
 
 
@@ -86,8 +86,14 @@ class Queue(Protocol):
 
     async def replay_dead(self, queue: str, job_id: str) -> bool: ...
 
+    async def purge_business(self, business_id: uuid.UUID) -> int:
+        """Hard delete every job of a tenant, in any state (DPDP erasure)."""
+
+    async def purge_finished(self, older_than: timedelta) -> int:
+        """Retention: drop finished (done / cancelled) jobs older than the cutoff. Backends that expire them by TTL return 0."""
+
 
 def backoff_s(attempts: int, base: float = 2.0, cap: float = 300.0) -> float:
     """Exponential backoff with jitter. attempts is 1 for the first failure."""
     raw = min(cap, base * (2 ** max(0, attempts - 1)))
-    return raw * random.uniform(0.5, 1.0)  # noqa: S311
+    return float(raw * random.uniform(0.5, 1.0))  # noqa: S311

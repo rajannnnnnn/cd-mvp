@@ -19,7 +19,6 @@ from salesai.db import jsonb
 from salesai.modules.catalog import OfferIn, PolicyIn, ProductIn, VariantIn, repo
 from salesai.modules.tenants import add_simulated_number, create_business, defaults
 from salesai.obs import setup_logging
-from salesai.phone import wa_id
 from salesai.runtime import Runtime
 
 log = logging.getLogger("salesai.seed")

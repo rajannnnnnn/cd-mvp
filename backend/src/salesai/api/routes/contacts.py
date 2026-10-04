@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from salesai.api.deps import RT, Tenant, decode_cursor, encode_cursor, tx
 from salesai.api.errors import ApiError
+from salesai.db import required
 from salesai.phone import normalize_phone, wa_id
 
 router = APIRouter(tags=["contacts"])
@@ -49,7 +50,8 @@ def _out(r: dict[str, Any]) -> CustomerOut:
 @router.get("/customers", response_model=CustomerList)
 async def customers(rt: RT, p: Tenant, search: str | None = None, personal: bool | None = None, opted_out: bool | None = None,
                     limit: Annotated[int, Query(ge=1, le=100)] = 30, cursor: str | None = None) -> Any:
-    where, args = ["TRUE"], []
+    where: list[str] = ["TRUE"]
+    args: list[Any] = []
     if search:
         where.append("(c.name ILIKE %s OR c.wa_id LIKE %s)")
         args += [f"%{search}%", f"%{search.lstrip('+')}%"]
@@ -96,8 +98,8 @@ async def add_personal(body: PersonalIn, rt: RT, p: Tenant) -> Any:
     except ValueError as e:
         raise ApiError(422, "invalid_phone", "Enter a valid mobile number with country code.") from e
     async with tx(rt, p) as c:
-        r = await (await c.execute(
+        r = required(await (await c.execute(
             """INSERT INTO customers (business_id, wa_id, name, is_personal) VALUES (%s,%s,%s,true)
                ON CONFLICT (business_id, wa_id) DO UPDATE SET is_personal=true, name=COALESCE(customers.name, EXCLUDED.name) RETURNING *""",
-            (p.business_id, wa_id(phone), body.name))).fetchone()
+            (p.bid, wa_id(phone), body.name))).fetchone(), "customer")
     return _out(r)

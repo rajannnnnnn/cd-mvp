@@ -5,10 +5,15 @@ from __future__ import annotations
 
 import base64
 import os
+import shutil
+import socket
 import subprocess
+import tempfile
+import time
 import uuid
 from pathlib import Path
 
+import httpx
 import psycopg
 import pytest
 import pytest_asyncio
@@ -33,7 +38,7 @@ def pg_urls() -> dict[str, str]:
     with psycopg.connect(SUPER, autocommit=True) as c:
         c.execute(f'CREATE DATABASE "{name}"')
     subprocess.run(  # noqa: S603
-        ["psql", _with_db(SUPER, name), "-v", "ON_ERROR_STOP=1", "-q",
+        ["psql", _with_db(SUPER, name), "-v", "ON_ERROR_STOP=1", "-q",  # noqa: S607
          "-v", f"owner_pw={PW['owner']}", "-v", f"user_pw={PW['user']}",
          "-v", f"pricing_pw={PW['pricing']}", "-v", f"system_pw={PW['system']}",
          "-f", str(ROOT / "db" / "bootstrap_roles.sql")],
@@ -90,12 +95,18 @@ async def db(env: dict[str, str]):  # noqa: ARG001
 
 
 @pytest_asyncio.fixture(scope="session")
-async def rt(env: dict[str, str]):  # noqa: ARG001
+async def rt(env: dict[str, str], request: pytest.FixtureRequest):  # noqa: ARG001
     from salesai.config import get_settings
     from salesai.runtime import Runtime
     from tests.world import pg_queue_factory
 
-    runtime = await Runtime.create(get_settings(), queue_factory=pg_queue_factory)
+    factory = pg_queue_factory
+    if os.environ.get("TEST_QUEUE_BACKEND") == "redis":      # run the whole async pipeline on the Redis backend
+        from salesai.queue.redis_backend import RedisQueue
+        url = request.getfixturevalue("redis_url")
+        prefix = f"{{salesai:e2e{uuid.uuid4().hex[:6]}}}:"
+        factory = lambda _db, _s: RedisQueue(url, prefix=prefix, backoff_base=0.05)  # noqa: E731
+    runtime = await Runtime.create(get_settings(), queue_factory=factory)
     yield runtime
     await runtime.close()
 
@@ -104,3 +115,53 @@ async def rt(env: dict[str, str]):  # noqa: ARG001
 async def world(rt):
     from tests.world import World
     return World(rt)
+
+
+# ------------------------------------------------------------------ redis (queue backend under test)
+def _free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return int(s.getsockname()[1])
+
+
+@pytest.fixture(scope="session")
+def redis_url():
+    url = os.environ.get("TEST_REDIS_URL")
+    if url:
+        yield url
+        return
+    exe = shutil.which("redis-server")
+    if exe is None:
+        pytest.skip("no redis-server available (set TEST_REDIS_URL)")
+    port, tmp = _free_port(), tempfile.mkdtemp(prefix="salesai-redis-")
+    proc = subprocess.Popen([exe, "--port", str(port), "--save", "", "--appendonly", "no", "--dir", tmp,  # noqa: S603
+                             "--bind", "127.0.0.1"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    for _ in range(100):
+        try:
+            socket.create_connection(("127.0.0.1", port), timeout=0.1).close()
+            break
+        except OSError:
+            time.sleep(0.05)
+    yield f"redis://127.0.0.1:{port}/0"
+    proc.terminate()
+    proc.wait(timeout=5)
+    shutil.rmtree(tmp, ignore_errors=True)
+
+
+
+
+# ------------------------------------------------------------------ HTTP client against the real app
+@pytest_asyncio.fixture
+async def app(rt):
+    from salesai.api.app import create_app
+
+    return create_app(rt, "web")
+
+
+@pytest_asyncio.fixture
+async def client(app):
+    ip = ".".join(str(uuid.uuid4().int >> (8 * i) & 255) for i in range(4))      # each test client is its own "IP" for rate limits
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers={"X-Forwarded-For": ip}) as c:
+        yield c
+
+

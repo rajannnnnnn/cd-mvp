@@ -8,13 +8,14 @@ import logging
 import re
 import sys
 import time
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
+from types import MappingProxyType
 from typing import Any
 
 from prometheus_client import Counter, Gauge, Histogram
 
-_ctx: contextvars.ContextVar[dict[str, Any]] = contextvars.ContextVar("log_ctx", default={})
+_ctx: contextvars.ContextVar[Mapping[str, Any]] = contextvars.ContextVar("log_ctx", default=MappingProxyType({}))
 
 PHONE_RE = re.compile(r"\+?\d{10,15}")
 SECRET_RE = re.compile(r"(?i)(bearer\s+[a-z0-9._\-]+|eyJ[a-zA-Z0-9_\-]{10,}\.[a-zA-Z0-9_\-.]+|sk-[a-z0-9\-_]{10,})")

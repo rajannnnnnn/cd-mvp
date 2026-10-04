@@ -4,10 +4,9 @@ from __future__ import annotations
 import json
 import uuid
 
-import pytest
-
 from salesai.modules.channels.simulator import build_message_payload
 from salesai.modules.channels.whatsapp import sign
+from tests.world import BACKEND
 
 
 async def test_message_is_stored_routed_and_versioned(world):
@@ -79,11 +78,12 @@ async def test_new_message_cancels_pending_work_for_the_old_version(world):
     await world.drain(["inbound.events"])
     conv = await world.conv(shop, "+919800000005")
     assert conv["version"] == 2
-    async with world.rt.db.system_tx() as c:
-        rows = await (await c.execute(
-            "SELECT entity_version, status FROM jobs WHERE entity_key=%s AND queue='conversation.turns' ORDER BY entity_version",
-            (f"conversation:{conv['id']}",))).fetchall()
-    assert [(r["entity_version"], r["status"]) for r in rows] == [(1, "cancelled"), (2, "pending")]
+    if BACKEND == "postgres":        # the shared queue suite proves supersession on every backend; this checks the rows
+        async with world.rt.db.system_tx() as c:
+            rows = await (await c.execute(
+                "SELECT entity_version, status FROM jobs WHERE entity_key=%s AND queue='conversation.turns' ORDER BY entity_version",
+                (f"conversation:{conv['id']}",))).fetchall()
+        assert [(r["entity_version"], r["status"]) for r in rows] == [(1, "cancelled"), (2, "pending")]
 
 
 async def test_owner_reply_from_business_app_pauses_ai_and_supersedes_plans(world):
@@ -97,9 +97,10 @@ async def test_owner_reply_from_business_app_pauses_ai_and_supersedes_plans(worl
     assert conv["version"] == 2 and conv["state"] == "idle"
     msgs = await world.q(shop, "SELECT sender, answered FROM messages WHERE conversation_id=%s ORDER BY created_at", conv["id"])
     assert [m["sender"] for m in msgs] == ["customer", "owner"] and all(m["answered"] for m in msgs)
-    async with world.rt.db.system_tx() as c:
-        pend = await (await c.execute("SELECT status FROM jobs WHERE entity_key=%s AND entity_version=1", (f"conversation:{conv['id']}",))).fetchall()
-    assert all(r["status"] == "cancelled" for r in pend)
+    if BACKEND == "postgres":
+        async with world.rt.db.system_tx() as c:
+            pend = await (await c.execute("SELECT status FROM jobs WHERE entity_key=%s AND entity_version=1", (f"conversation:{conv['id']}",))).fetchall()
+        assert all(r["status"] == "cancelled" for r in pend)
 
 
 async def test_echo_for_unknown_chat_is_never_ingested(world):

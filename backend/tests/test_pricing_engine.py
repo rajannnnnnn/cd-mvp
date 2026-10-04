@@ -10,7 +10,15 @@ from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
 from salesai.modules.pricing.engine import (
-    Facts, NegState, Offer, Policy, Request, Requirement, concession_levels, decide, q2,
+    Facts,
+    NegState,
+    Offer,
+    Policy,
+    Request,
+    Requirement,
+    concession_levels,
+    decide,
+    q2,
 )
 
 NOW = datetime(2026, 10, 4, 12, 0, tzinfo=UTC)

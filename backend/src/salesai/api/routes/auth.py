@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import uuid
-from typing import Annotated, Any, Literal
+from typing import Any, Literal
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
 from salesai.api.deps import RT, Any_, client_ip
 from salesai.api.errors import ApiError
+from salesai.modules.auth import TokenPair
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -29,7 +30,7 @@ class OtpVerify(BaseModel):
 class Tokens(BaseModel):
     access_token: str
     refresh_token: str
-    token_type: Literal["bearer"] = "bearer"
+    token_type: Literal["bearer"] = "bearer"  # noqa: S105
     expires_in: int
     business_id: uuid.UUID | None
     role: Literal["owner", "staff", "operator"]
@@ -79,7 +80,7 @@ class DeviceOut(BaseModel):
     current: bool
 
 
-def _tokens(pair) -> Tokens:  # noqa: ANN001
+def _tokens(pair: TokenPair) -> Tokens:
     return Tokens(access_token=pair.access_token, refresh_token=pair.refresh_token, expires_in=pair.expires_in,
                   business_id=pair.business_id, role=pair.role)
 
@@ -128,7 +129,7 @@ async def me(rt: RT, p: Any_) -> MeOut:
         async with rt.db.system_tx() as c:
             b = await (await c.execute("SELECT id, name FROM businesses WHERE id=%s", (p.business_id,))).fetchone()
         cur = BusinessChoice(id=b["id"], name=b["name"], role="owner") if b else None
-    return MeOut(account_id=p.account_id, phone=p.phone, name=a["name"], role=p.role, language=a["language"], business=cur,  # type: ignore[arg-type]
+    return MeOut(account_id=p.account_id, phone=p.phone, name=a["name"], role=p.role, language=a["language"], business=cur,
                  businesses=choices, impersonated=p.impersonated_by is not None)
 
 

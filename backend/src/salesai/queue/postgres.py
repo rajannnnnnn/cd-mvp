@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from salesai.db import Database, jsonb
@@ -176,6 +176,16 @@ class PostgresQueue:
                 """UPDATE jobs SET status='pending', attempts=0, run_at=now(), finished_at=NULL, last_error=NULL
                    WHERE id=%s AND queue=%s AND status='dead'""", (int(job_id), queue))
             return r.rowcount > 0
+
+    async def purge_business(self, business_id: uuid.UUID) -> int:
+        async with self.db.system_tx() as c:
+            return (await c.execute("DELETE FROM jobs WHERE business_id=%s", (business_id,))).rowcount
+
+    async def purge_finished(self, older_than: timedelta) -> int:
+        async with self.db.system_tx() as c:
+            return (await c.execute(
+                "DELETE FROM jobs WHERE status IN ('done','cancelled') AND finished_at < now() - make_interval(secs => %s)",
+                (older_than.total_seconds(),))).rowcount
 
 
 def utcnow() -> datetime:

@@ -2,10 +2,7 @@
 from __future__ import annotations
 
 import re
-import uuid
-from datetime import UTC, datetime, timedelta
 
-from salesai.db import jsonb
 from salesai.scheduler import LeaderLock, Scheduler
 from tests.test_conversation_flow import shop_with_catalog
 from tests.world import configure_fast, settle, sim_texts
@@ -79,12 +76,10 @@ async def test_retention_purges_old_data_only(world):
 
 async def test_dead_letters_raise_an_operator_alert(world):
     from salesai.queue.base import JobSpec
-    q = f"inbound.events"
+    q = "inbound.events"
     await world.rt.queue.publish(JobSpec(q, "no_such_kind", {}, max_attempts=1))
     await world.drain([q])
-    async with world.rt.db.system_tx() as c:
-        n = (await (await c.execute("SELECT count(*) AS n FROM jobs WHERE queue=%s AND status='dead'", (q,))).fetchone())["n"]
-    assert n >= 1
+    assert len(await world.rt.queue.dead_letters(q)) >= 1
     await Scheduler(world.rt).tick_gauges()
     async with world.rt.db.system_tx() as c:
         assert await (await c.execute("SELECT 1 FROM operator_alerts WHERE kind='dead_letter' AND resolved_at IS NULL")).fetchone()

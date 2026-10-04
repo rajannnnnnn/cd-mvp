@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from typing import Any
 
-from salesai.db import Database, jsonb
+from salesai.db import Conn, Database, jsonb
 from salesai.modules.tenants import defaults
 from salesai.modules.tenants.vault import TokenVault
 from salesai.phone import normalize_phone, wa_id
@@ -17,7 +18,7 @@ class CreatedBusiness:
     business_user_id: uuid.UUID
 
 
-async def upsert_account(conn, phone: str, name: str | None = None, language: str = "en") -> uuid.UUID:  # noqa: ANN001
+async def upsert_account(conn: Conn, phone: str, name: str | None = None, language: str = "en") -> uuid.UUID:
     row = await (await conn.execute(
         """INSERT INTO accounts (phone, name, language) VALUES (%s,%s,%s)
            ON CONFLICT (phone) DO UPDATE SET name = COALESCE(accounts.name, EXCLUDED.name)
@@ -27,7 +28,7 @@ async def upsert_account(conn, phone: str, name: str | None = None, language: st
 
 async def create_business(db: Database, master_key: bytes, *, name: str, owner_phone: str, owner_name: str,
                           timezone: str = "Asia/Kolkata", plan: str = "pilot", language: str = "en",
-                          profile: dict | None = None, ai_enabled: bool = False) -> CreatedBusiness:
+                          profile: dict[str, Any] | None = None, ai_enabled: bool = False) -> CreatedBusiness:
     phone = normalize_phone(owner_phone)
     bid = uuid.uuid4()
     async with db.system_tx() as s:

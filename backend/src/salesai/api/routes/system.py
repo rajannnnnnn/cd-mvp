@@ -57,4 +57,6 @@ async def metrics(rt: RT) -> Response:
 @public.get("/public/config", summary="What the frontend needs to know before sign-in")
 async def public_config(rt: RT) -> dict[str, Any]:
     return {"environment": rt.settings.env, "simulator_enabled": rt.settings.simulator_enabled, "otp_channel": rt.settings.otp_channel,
-            "languages": ["en", "hi"], "version": __version__}
+            "languages": ["en", "hi"], "version": __version__,
+            "embedded_signup": ({"app_id": rt.settings.meta_app_id, "config_id": rt.settings.meta_config_id, "graph_version": rt.settings.meta_graph_version}
+                                if rt.settings.meta_app_id and rt.settings.meta_config_id else None)}

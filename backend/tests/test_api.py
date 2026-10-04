@@ -3,30 +3,15 @@ from __future__ import annotations
 
 import re
 import uuid
-from decimal import Decimal as D
 
-import httpx
 import psycopg
 import psycopg.rows
-import pytest
 
-from salesai.api.app import create_app
 from salesai.modules.channels.whatsapp import sign
 from tests.test_conversation_flow import PROFILE
 from tests.world import configure_fast, settle
 
 V1 = "/api/v1"
-
-
-@pytest.fixture
-async def app(rt):
-    return create_app(rt, "web")
-
-
-@pytest.fixture
-async def client(app):
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
-        yield c
 
 
 async def login(client, phone: str) -> dict:
@@ -93,7 +78,7 @@ async def test_otp_wrong_code_and_validation(client, world):
 async def test_owner_cannot_see_or_touch_another_businesses_data(world, client):
     a_shop, a = await owner(world, client, "A")
     b_shop, b = await owner(world, client, "B")
-    pa = (await client.post(f"{V1}/products", headers=hdr(a), json=PRODUCT)).json()
+    await client.post(f"{V1}/products", headers=hdr(a), json=PRODUCT)
     pb = (await client.post(f"{V1}/products", headers=hdr(b), json={**PRODUCT, "name": "B only"})).json()
     assert [p["name"] for p in (await client.get(f"{V1}/products", headers=hdr(a))).json()["items"]] == ["Banarasi Silk Saree"]
     assert (await client.get(f"{V1}/products/{pb['id']}", headers=hdr(a))).status_code == 404
@@ -134,11 +119,13 @@ async def test_floor_price_is_write_only_everywhere(world, client):
 async def test_openapi_contract_exposes_floor_only_on_input_models(client):
     spec = (await client.get("/api/openapi.json")).json()
     schemas = spec["components"]["schemas"]
+    write_only_inputs = {"PolicyIn", "LadderIn"}      # request bodies: the owner types a floor, nothing ever echoes it
     for name, sch in schemas.items():
         props = set(sch.get("properties", {}))
         if "floor_price" in props:
-            assert name == "PolicyIn", f"{name} must not carry a floor price"
+            assert name in write_only_inputs, f"{name} must not carry a floor price"
     assert "floor_set" in schemas["PolicyOut"]["properties"]
+    assert not {p for p in schemas["LadderOut"]["properties"] if "floor" in p}
 
 
 async def test_staff_can_work_conversations_but_not_pricing_or_team(world, client):

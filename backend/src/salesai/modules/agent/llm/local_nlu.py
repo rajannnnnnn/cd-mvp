@@ -18,9 +18,8 @@ HINGLISH = {
     "thi", "raha", "rahi", "wapas", "paisa", "malik", "dukaan", "dukan", "kharidna",
 }
 STOP = {"the", "and", "for", "you", "any", "can", "have", "has", "with", "this", "that", "what", "which", "show", "your", "price", "cost", "rate",
-        "available", "stock", "want", "need", "please", "pls", "hello", "hii", "hey", "how", "much", "much?", "are", "there", "any",
-        "kya", "hai", "ka", "ki", "ke", "me", "mein", "se", "ko", "aur", "yeh", "ye", "wo", "hain", "kitna", "aap", "mujhe", "chahiye",
-        "dikhao", "batao", "bata", "karo", "want", "buy", "order", "take", "get", "give", "send", "details", "detail", "about"}
+        "available", "stock", "want", "need", "please", "pls", "hello", "hii", "hey", "how", "much", "much?", "are", "there", "kya", "hai", "ka", "ki", "ke", "me", "mein", "se", "ko", "aur", "yeh", "ye", "wo", "hain", "kitna", "aap", "mujhe", "chahiye",
+        "dikhao", "batao", "bata", "karo", "buy", "order", "take", "get", "give", "send", "details", "detail", "about"}
 
 
 def norm(t: str | None) -> str:

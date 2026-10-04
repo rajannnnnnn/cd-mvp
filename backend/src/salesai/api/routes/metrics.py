@@ -28,7 +28,7 @@ class Overview(BaseModel):
 @router.get("/metrics/overview", response_model=Overview, summary="Dashboard numbers (FR-RP-2)")
 async def overview(rt: RT, p: Tenant, days: Annotated[int, Query(ge=1, le=60)] = 14) -> Any:
     async with tx(rt, p) as c:
-        biz = await (await c.execute("SELECT timezone FROM businesses WHERE id=%s", (p.business_id,))).fetchone()
+        biz = await (await c.execute("SELECT timezone FROM businesses WHERE id=%s", (p.bid,))).fetchone()
         tz = biz["timezone"]
         today = await (await c.execute(
             """SELECT

@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 
 from salesai import crypto
-from salesai.db import Database
+from salesai.db import Conn, Database
 
 
 class TokenVault:
@@ -25,7 +25,7 @@ class TokenVault:
         return dek
 
     @staticmethod
-    async def create_key(conn, master_key: bytes, business_id: uuid.UUID) -> None:  # noqa: ANN001
+    async def create_key(conn: Conn, master_key: bytes, business_id: uuid.UUID) -> None:
         await conn.execute("INSERT INTO business_keys (business_id, dek_wrapped) VALUES (%s,%s) ON CONFLICT DO NOTHING",
                            (business_id, crypto.wrap_key(master_key, crypto.new_data_key())))
 

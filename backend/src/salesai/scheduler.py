@@ -4,8 +4,9 @@ Every action is idempotent (dedupe keys / state flags), so a brief double-run du
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import psycopg
@@ -61,10 +62,10 @@ class Scheduler:
             rows = await (await c.execute("SELECT id, timezone, conversation_settings FROM businesses WHERE status IN ('active','onboarding') AND ai_enabled")).fetchall()
         for b in rows:
             local = now.astimezone(ZoneInfo(b["timezone"]))
-            if local.hour >= int((b["conversation_settings"] or {}).get("daily_summary_hour", 21)):
-                if await self.rt.queue.publish(JobSpec("owner.notifications", "daily_summary", {}, business_id=b["id"], ordering_key=f"biz:{b['id']}",
-                                                       dedupe_key=f"summary:{b['id']}:{local.date().isoformat()}")):
-                    n += 1
+            due = local.hour >= int((b["conversation_settings"] or {}).get("daily_summary_hour", 21))
+            if due and await self.rt.queue.publish(JobSpec("owner.notifications", "daily_summary", {}, business_id=b["id"], ordering_key=f"biz:{b['id']}",
+                                                           dedupe_key=f"summary:{b['id']}:{local.date().isoformat()}")):
+                n += 1
         return n
 
     async def tick_nudges(self) -> int:
@@ -94,10 +95,10 @@ class Scheduler:
         out: dict[str, int] = {}
         async with self.rt.db.system_tx() as c:
             out["webhook_events"] = (await c.execute("DELETE FROM webhook_events WHERE received_at < now() - interval '30 days'")).rowcount
-            out["jobs"] = (await c.execute("DELETE FROM jobs WHERE status IN ('done','cancelled') AND finished_at < now() - interval '7 days'")).rowcount
             out["outbox"] = (await c.execute("DELETE FROM outbox WHERE published_at < now() - interval '7 days'")).rowcount
             out["otp_challenges"] = (await c.execute("DELETE FROM otp_challenges WHERE created_at < now() - interval '2 days'")).rowcount
             out["auth_sessions"] = (await c.execute("DELETE FROM auth_sessions WHERE (revoked_at IS NOT NULL AND revoked_at < now() - interval '30 days') OR expires_at < now() - interval '30 days'")).rowcount
+        out["jobs"] = await self.rt.queue.purge_finished(timedelta(days=7))
         return out
 
     async def tick_gauges(self) -> None:
@@ -147,7 +148,5 @@ class Scheduler:
 
     @staticmethod
     async def _sleep(stop: asyncio.Event, s: float) -> None:
-        try:
+        with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(stop.wait(), s)
-        except TimeoutError:
-            pass

@@ -46,13 +46,13 @@ def run_migrations(url: str, directory: Path | None = None) -> list[str]:
                     continue
                 log.info("applying %s", f.name)
                 with conn.transaction():
-                    conn.execute(sql)  # type: ignore[arg-type]
+                    conn.execute(sql)
                     conn.execute("INSERT INTO schema_migrations (version, checksum) VALUES (%s, %s)", (f.stem, checksum))
                 applied_now.append(f.stem)
             grants = d / "_grants.sql"
             if grants.exists():
                 with conn.transaction():
-                    conn.execute(grants.read_text())  # type: ignore[arg-type]
+                    conn.execute(grants.read_text())
         finally:
             conn.execute("SELECT pg_advisory_unlock(%s)", (LOCK_ID,))
     return applied_now

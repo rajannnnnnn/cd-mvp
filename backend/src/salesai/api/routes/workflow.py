@@ -83,7 +83,7 @@ async def deals(rt: RT, p: Tenant, status: Literal["pending", "won", "lost"] | N
 @router.post("/deals/{deal_id}/close", status_code=204, summary="The owner marks a captured commitment won or lost")
 async def close(deal_id: uuid.UUID, body: CloseIn, rt: RT, p: Tenant) -> None:
     async with tx(rt, p) as c:
-        if not await close_deal(c, p.business_id, deal_id, body.status, p.account_id, body.lost_reason):
+        if not await close_deal(c, p.bid, deal_id, body.status, p.account_id, body.lost_reason):
             raise ApiError(404, "not_found", "No pending deal with that id.")
 
 
@@ -102,7 +102,7 @@ async def handoffs(rt: RT, p: Tenant, status: Literal["open", "resolved"] | None
 @router.post("/handoffs/{handoff_id}/resolve", status_code=204)
 async def resolve(handoff_id: uuid.UUID, rt: RT, p: Tenant) -> None:
     async with tx(rt, p) as c:
-        if not await resolve_handoff(c, p.business_id, handoff_id, p.account_id):
+        if not await resolve_handoff(c, p.bid, handoff_id, p.account_id):
             raise ApiError(404, "not_found", "No open handoff with that id.")
 
 
@@ -117,7 +117,7 @@ async def answer(gap_id: uuid.UUID, body: AnswerIn, rt: RT, p: Tenant) -> None:
     if not body.confirm:
         raise ApiError(422, "confirmation_required", "Confirm that this answer should become a business fact.")
     async with tx(rt, p) as c:
-        if not await answer_gap(c, p.business_id, gap_id, body.answer, p.account_id, confirmed=True):
+        if not await answer_gap(c, p.bid, gap_id, body.answer, p.account_id, confirmed=True):
             raise ApiError(404, "not_found", "No open question with that id.")
 
 

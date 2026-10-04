@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from salesai.db import Database, jsonb
+from salesai.db import Conn, Database, jsonb, required
 from salesai.events.outbox import emit
 from salesai.modules.agent import LLMProvider, LLMRequest, LLMUnavailable, prompts
 from salesai.modules.catalog import PolicyIn, ProductIn, VariantIn, repo
@@ -35,7 +35,7 @@ class OwnerLoop:
         self.db, self.channels, self.llm, self.config_model = db, channels, llm, config_model
 
     # ------------------------------------------------------------------ sending to owners
-    async def _targets(self, c, bid: uuid.UUID, business_user_id: uuid.UUID | None) -> list[dict[str, Any]]:  # noqa: ANN001
+    async def _targets(self, c: Conn, bid: uuid.UUID, business_user_id: uuid.UUID | None) -> list[dict[str, Any]]:
         q = """SELECT bu.id, bu.name, bu.last_inbound_at, a.phone, a.language FROM business_users bu JOIN accounts a ON a.id=bu.account_id
                WHERE bu.notify AND (%s::uuid IS NULL OR bu.id=%s)"""
         return await (await c.execute(q, (business_user_id, business_user_id))).fetchall()
@@ -56,7 +56,7 @@ class OwnerLoop:
         if not in_window and template is None:
             log.info("owner outside window and no template for %s; message not sent", purpose)
             return
-        res = await (channel.send_template(ref, to, template, user["language"], params or []) if use_template else channel.send_text(ref, to, body))
+        res = await (channel.send_template(ref, to, template or "", user["language"], params or []) if use_template else channel.send_text(ref, to, body))
         async with self.db.tenant(bid) as c:
             await c.execute(
                 """INSERT INTO owner_messages (business_id, business_user_id, direction, kind, purpose, template_name, body, wa_message_id, status, error, sent_at)
@@ -130,9 +130,9 @@ class OwnerLoop:
         p, bid = job.spec.payload, job.spec.business_id
         assert bid is not None
         async with self.db.tenant(bid) as c:
-            m = await (await c.execute("SELECT * FROM owner_messages WHERE id=%s", (p["owner_message_id"],))).fetchone()
-            u = await (await c.execute("""SELECT bu.id, bu.name, bu.last_inbound_at, bu.role, a.phone, a.language, a.id AS account_id
-                                          FROM business_users bu JOIN accounts a ON a.id=bu.account_id WHERE bu.id=%s""", (m["business_user_id"],))).fetchone()
+            m = required(await (await c.execute("SELECT * FROM owner_messages WHERE id=%s", (p["owner_message_id"],))).fetchone(), "m")
+            u = required(await (await c.execute("""SELECT bu.id, bu.name, bu.last_inbound_at, bu.role, a.phone, a.language, a.id AS account_id
+                                          FROM business_users bu JOIN accounts a ON a.id=bu.account_id WHERE bu.id=%s""", (m["business_user_id"],))).fetchone(), "owner")
         reply = await self.handle_owner_text(bid, u, m["body"] or "", m["kind"])
         if reply:
             await self.send_to_owner(bid, u, "chat", reply)
@@ -215,7 +215,7 @@ class OwnerLoop:
                       f"क्या यह जवाब सेव करूँ ताकि मैं ग्राहकों को बता सकूँ?\n“{answer[:200]}”\nपुष्टि के लिए *yes*, रद्द के लिए *no* भेजें।")
 
     # ---- configuration by chat (FR-CF-8)
-    async def _store_proposal(self, c, bid: uuid.UUID, user_id: uuid.UUID, summary: str, changes: dict[str, Any]) -> None:  # noqa: ANN001
+    async def _store_proposal(self, c: Conn, bid: uuid.UUID, user_id: uuid.UUID, summary: str, changes: dict[str, Any]) -> None:
         await c.execute("UPDATE config_proposals SET status='cancelled', decided_at=now() WHERE business_user_id=%s AND status='pending'", (user_id,))
         await c.execute("INSERT INTO config_proposals (business_id, business_user_id, summary, changes) VALUES (%s,%s,%s,%s)", (bid, user_id, summary, jsonb(changes)))
 
@@ -263,7 +263,7 @@ class OwnerLoop:
             await c.execute("UPDATE config_proposals SET status='applied', decided_at=now() WHERE id=%s", (prop["id"],))
         return M.pick(lang, f"Done ✅ {applied}", f"हो गया ✅ {applied}")
 
-    async def apply_ops(self, c, bid: uuid.UUID, actor: uuid.UUID, ops: list[dict[str, Any]]) -> str:  # noqa: ANN001
+    async def apply_ops(self, c: Conn, bid: uuid.UUID, actor: uuid.UUID, ops: list[dict[str, Any]]) -> str:
         done: list[str] = []
         for o in ops:
             kind = o["op"]

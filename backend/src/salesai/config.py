@@ -50,6 +50,8 @@ class Settings(BaseSettings):
     otp_secret: str = Field(..., min_length=32)
     meta_app_secret: str = Field(..., min_length=8)
     meta_verify_token: str = Field(..., min_length=8)
+    meta_app_id: str = ""                  # Embedded Signup: the Meta app id (public) and its configuration id
+    meta_config_id: str = ""
     meta_graph_version: str = "v21.0"
     meta_graph_base: str = "https://graph.facebook.com"
 
@@ -130,4 +132,4 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()  # type: ignore[call-arg]
+    return Settings()

@@ -16,7 +16,7 @@ def money(amount: str | Decimal, currency: str = "INR") -> str:
     whole, _, frac = f"{d:.2f}".partition(".")
     if len(whole) > 3:
         head, tail = whole[:-3], whole[-3:]
-        parts = []
+        parts: list[str] = []
         while len(head) > 2:
             parts.insert(0, head[-2:])
             head = head[:-2]
@@ -107,13 +107,13 @@ def render(d: dict[str, Any], lang: str, ctx: dict[str, Any]) -> str:
         return pick(lang, "Sure! Which product are you asking about?", "Zaroor! Aap kis product ke baare mein pooch rahe hain?", "ज़रूर! आप किस प्रोडक्ट के बारे में पूछ रहे हैं?")
     if t == "product_info":
         desc = (d.get("description") or "").strip().rstrip(".")
-        av = d.get("availability")
+        av = str(d.get("availability") or "")
         extra = {"out_of_stock": pick(lang, " It is currently out of stock.", " Abhi stock mein nahi hai.", " यह अभी स्टॉक में नहीं है।"),
                  "made_to_order": pick(lang, " It is made to order.", " Yeh order par banta hai.", " यह ऑर्डर पर बनता है।")}.get(av, "")
         head = f"{pv}: {desc}." if desc else f"Yes, we have {pv}." if lang == "en" else f"{pv}: {desc}." if desc else f"Ji, {pv} available hai."
         return head + extra + also_txt
     if t == "availability":
-        av = d.get("availability")
+        av = str(d.get("availability") or "")
         if av == "out_of_stock":
             return pick(lang, f"Sorry, {pv} is currently out of stock.", f"Maaf kijiye, {pv} abhi stock mein nahi hai.", f"माफ़ कीजिए, {pv} अभी स्टॉक में नहीं है।")
         if av == "made_to_order":
@@ -153,7 +153,7 @@ def render(d: dict[str, Any], lang: str, ctx: dict[str, Any]) -> str:
         return pick(lang, "I've shared your request with the owner, who will confirm shortly.", "Maine aapki request owner ko bhej di hai, woh jaldi confirm karenge.", "मैंने आपकी रिक्वेस्ट मालिक को भेज दी है, वे जल्दी पुष्टि करेंगे।")
     if t == "info":
         txt = str(d.get("text") or "").strip().rstrip(".")
-        topic = d.get("topic")
+        topic = str(d.get("topic") or "")
         lead = {"hours": pick(lang, "Our timings: ", "Hamari timing: ", "हमारा समय: "), "address": pick(lang, "You can find us at ", "Hamara address: ", "हमारा पता: "),
                 "payment": pick(lang, "We accept ", "Hum accept karte hain: ", "हम स्वीकार करते हैं: "), "delivery": pick(lang, "Delivery: ", "Delivery: ", "डिलीवरी: "),
                 "returns": pick(lang, "Our policy: ", "Hamari policy: ", "हमारी पॉलिसी: "), "contact": pick(lang, "You can reach us at ", "Aap hume yahan contact kar sakte hain: ", "आप हमसे यहाँ संपर्क कर सकते हैं: ")}.get(topic, "")

@@ -5,13 +5,14 @@ from __future__ import annotations
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from psycopg import AsyncConnection
-from psycopg.rows import dict_row
+from psycopg.rows import DictRow, dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import AsyncConnectionPool
 
-Conn = AsyncConnection
+Conn = AsyncConnection[DictRow]
 
 
 def jsonb(value: object) -> Jsonb:
@@ -22,7 +23,7 @@ class Database:
     """Pools: `user` (RLS), `pricing` (floor reader), `system` (BYPASSRLS, platform only)."""
 
     def __init__(self, user_url: str, pricing_url: str, system_url: str, pool_max: int = 10):
-        def mk(url: str, name: str, maxsize: int) -> AsyncConnectionPool:
+        def mk(url: str, name: str, maxsize: int) -> AsyncConnectionPool[Conn]:
             return AsyncConnectionPool(
                 url, min_size=1, max_size=maxsize, open=False, name=name,
                 kwargs={"row_factory": dict_row, "autocommit": True},
@@ -68,3 +69,11 @@ class Database:
             return True
         except Exception:  # noqa: BLE001
             return False
+
+
+def required(row: dict[str, Any] | None, what: str = "row") -> dict[str, Any]:
+    """A row that must exist (a foreign key or an earlier step guarantees it). A missing row raises LookupError,
+    which the worker turns into a retry / dead letter / alert (INV-12) instead of a TypeError on None."""
+    if row is None:
+        raise LookupError(f"{what} not found")
+    return row

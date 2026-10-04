@@ -3,6 +3,7 @@ rows are claimed with SKIP LOCKED and job dedupe keys make republishing idempote
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 
 from salesai.db import Database
@@ -46,7 +47,5 @@ class OutboxRelay:
                 log.exception("relay batch failed")
                 n = 0
             if n < self.batch:
-                try:
+                with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(stop.wait(), poll_ms / 1000)
-                except TimeoutError:
-                    pass

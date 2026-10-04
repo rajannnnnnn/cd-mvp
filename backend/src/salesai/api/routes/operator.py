@@ -7,12 +7,18 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
-from salesai.api.deps import RT, Operator, client_ip
+from salesai.api.deps import RT, Operator
 from salesai.api.errors import ApiError
 from salesai.config import ALL_QUEUES
 from salesai.db import jsonb
 from salesai.events.outbox import emit
-from salesai.modules.tenants import add_cloud_number, add_simulated_number, create_business, delete_tenant, export_tenant
+from salesai.modules.tenants import (
+    add_cloud_number,
+    add_simulated_number,
+    create_business,
+    delete_tenant,
+    export_tenant,
+)
 from salesai.phone import normalize_phone
 
 router = APIRouter(prefix="/operator", tags=["operator"])
@@ -109,7 +115,7 @@ async def create(body: NewBusiness, rt: RT, p: Operator) -> Any:
         if not rt.settings.simulator_enabled:
             raise ApiError(409, "simulator_disabled", "The simulator is disabled in this environment.")
         await add_simulated_number(rt.db, cb.business_id, body.simulated_number, verified_name=body.name)
-    rows = [r for r in await businesses(rt, p) if r.id == cb.business_id]   # type: ignore[misc]
+    rows = [r for r in await businesses(rt, p) if r.id == cb.business_id]
     return rows[0]
 
 
@@ -151,7 +157,7 @@ async def delete(business_id: uuid.UUID, rt: RT, p: Operator, confirm_name: Anno
         raise ApiError(404, "not_found", "Business not found.")
     if b["name"] != confirm_name:
         raise ApiError(422, "confirmation_mismatch", "Type the business name exactly to confirm deletion.")
-    return {"deleted": await delete_tenant(rt.db, business_id)}
+    return {"deleted": await delete_tenant(rt.db, business_id, rt.queue)}
 
 
 @router.get("/alerts", response_model=list[AlertOut])

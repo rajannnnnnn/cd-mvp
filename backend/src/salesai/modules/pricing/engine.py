@@ -11,7 +11,7 @@ customer already offered; below-floor insistence is held once with no new number
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import ROUND_CEILING, Decimal
 from typing import Any, Literal
@@ -354,7 +354,6 @@ def _negotiate(req: Request) -> Decision:
 
     levels = _levels(req)
     price, offer, crossed = _current_price(req, levels)
-    floor = req.floor
     counter = req.counter if req.ask == "counter" else None
     applied = (offer.id,) if offer else ()
 

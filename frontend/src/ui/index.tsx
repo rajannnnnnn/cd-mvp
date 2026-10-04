@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Check, CheckCheck, Loader2, X, AlertTriangle, Info, CheckCircle2 } from 'lucide-react'
 import { cx, initials } from '@/lib/format'
@@ -47,11 +47,14 @@ export function Switch({ checked, onChange, label, disabled, size = 'md' }: { ch
 
 export function Field({ label, hint, error, children, className }: { label?: string; hint?: string; error?: string | null; children: ReactNode; className?: string }) {
   const id = useId()
+  // A single form control gets the label as its accessible name; composite content is a labelled group.
+  const control = isValidElement(children) && typeof children.type === 'string' && ['input', 'select', 'textarea'].includes(children.type)
+  const described = error ? `${id}-err` : hint ? `${id}-hint` : undefined
   return (
     <div className={className}>
-      {label && <label className="field-label" htmlFor={id}>{label}</label>}
-      <div id={id}>{children}</div>
-      {error ? <p className="mt-1 text-xs font-medium text-danger">{error}</p> : hint ? <p className="field-hint">{hint}</p> : null}
+      {label && <label className="field-label" id={`${id}-label`} htmlFor={control ? id : undefined}>{label}</label>}
+      {control ? cloneElement(children as ReactElement<any>, { id, 'aria-describedby': described, 'aria-invalid': error ? true : undefined }) : <div role="group" aria-labelledby={label ? `${id}-label` : undefined}>{children}</div>}
+      {error ? <p id={`${id}-err`} className="mt-1 text-xs font-medium text-danger">{error}</p> : hint ? <p id={`${id}-hint`} className="field-hint">{hint}</p> : null}
     </div>
   )
 }

@@ -89,9 +89,9 @@ def _value(m: re.Match[str]) -> Decimal | None:
 def check_prices(text: str, ctx: CheckContext) -> list[Failure]:
     fails: list[Failure] = []
     for m in PERCENT.finditer(text):
-        v = Decimal(m.group(1))
-        if v not in ctx.issued_percents:
-            fails.append(Failure("price", f"percentage {v}% was not issued by the pricing engine"))
+        pct = Decimal(m.group(1))
+        if pct not in ctx.issued_percents:
+            fails.append(Failure("price", f"percentage {pct}% was not issued by the pricing engine"))
     for m in NUM.finditer(text):
         v = _value(m)
         if v is None:

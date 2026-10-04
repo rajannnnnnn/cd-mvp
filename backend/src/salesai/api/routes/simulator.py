@@ -9,7 +9,9 @@ from pydantic import BaseModel, Field
 
 from salesai.api.deps import RT, Tenant, tx
 from salesai.api.errors import ApiError
-from salesai.phone import normalize_phone, wa_id
+from salesai.modules.auth import Principal
+from salesai.phone import normalize_phone
+from salesai.runtime import Runtime
 
 router = APIRouter(prefix="/sim", tags=["simulator"])
 
@@ -61,12 +63,12 @@ class SimMessage(BaseModel):
     created_at: Any
 
 
-def _enabled(rt) -> None:  # noqa: ANN001
+def _enabled(rt: Runtime) -> None:
     if not rt.settings.simulator_enabled:
         raise ApiError(404, "not_found", "Not found.")
 
 
-async def _own_number(rt, p, business_phone: str) -> None:  # noqa: ANN001
+async def _own_number(rt: Runtime, p: Principal, business_phone: str) -> None:
     async with tx(rt, p) as c:
         r = await (await c.execute("SELECT 1 FROM whatsapp_numbers WHERE display_phone=%s AND channel='simulator'", (business_phone,))).fetchone()
     if r is None:

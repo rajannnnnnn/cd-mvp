@@ -3,13 +3,18 @@ WhatsApp network. Nothing in the product is mocked; the simulator speaks signed 
 from __future__ import annotations
 
 import asyncio
+import os
 import uuid
 from dataclasses import dataclass
 from typing import Any
 
 from salesai.modules.channels.ingress import accept_webhook
 from salesai.modules.channels.simulator import (
-    build_account_payload, build_echo_payload, build_message_payload, build_status_payload, signed,
+    build_account_payload,
+    build_echo_payload,
+    build_message_payload,
+    build_status_payload,
+    signed,
 )
 from salesai.modules.tenants import add_simulated_number, create_business
 from salesai.phone import wa_id
@@ -109,6 +114,9 @@ class World:
                 "SELECT * FROM sim_messages WHERE phone=%s AND business_phone=%s ORDER BY id", (wa_id(phone), business_phone))).fetchall()
 
 
+BACKEND = os.environ.get("TEST_QUEUE_BACKEND", "postgres")
+
+
 def pg_queue_factory(db, s):  # noqa: ANN001, ARG001
     return PostgresQueue(db, backoff_base=0.05)
 
@@ -120,7 +128,6 @@ from decimal import Decimal  # noqa: E402
 from salesai.db import jsonb  # noqa: E402
 from salesai.modules.agent.llm.base import LLMRequest, LLMResult  # noqa: E402
 from salesai.modules.agent.llm.chain import ResilientLLM  # noqa: E402
-from salesai.modules.agent.llm.local import LocalRulesProvider  # noqa: E402
 from salesai.modules.catalog import PolicyIn, ProductIn, VariantIn, repo  # noqa: E402
 
 FAST_CONV = {"first_check_ms": 20, "max_wait_ms": 1500, "min_quiet_complete_ms": 60, "min_quiet_incomplete_ms": 250,
@@ -180,7 +187,7 @@ async def sim_texts(world: World, shop: Shop, phone: str) -> list[str]:
     return [r["body"] for r in rows if r["direction"] == "to_user" and r["kind"] in ("text",)]
 
 
-async def settle(world: World, shop: Shop, phone: str, *, want: int = 1, timeout: float = 8.0) -> list[str]:
+async def settle(world: World, shop: Shop, phone: str, *, want: int = 1, timeout: float = 8.0) -> list[str]:  # noqa: ASYNC109
     """Drain until at least `want` outbound texts exist (or timeout)."""
     loop = asyncio.get_running_loop()
     end = loop.time() + timeout

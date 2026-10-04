@@ -8,7 +8,13 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
-from salesai.modules.agent.llm.base import LLMError, LLMProvider, LLMRequest, LLMResult, LLMUnavailable
+from salesai.modules.agent.llm.base import (
+    LLMError,
+    LLMProvider,
+    LLMRequest,
+    LLMResult,
+    LLMUnavailable,
+)
 from salesai.obs import LLM_CALLS
 
 log = logging.getLogger("salesai.llm")
@@ -25,9 +31,7 @@ class CircuitBreaker:
     def open(self) -> bool:
         if self.opened_at is None:
             return False
-        if time.monotonic() - self.opened_at >= self.cooldown_s:   # half-open: allow a probe
-            return False
-        return True
+        return time.monotonic() - self.opened_at < self.cooldown_s   # after the cooldown it is half-open: one probe is allowed
 
     def record(self, ok: bool) -> None:
         if ok:

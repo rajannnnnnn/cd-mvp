@@ -59,8 +59,7 @@ Operator = Annotated[Principal, Depends(operator_principal)]
 
 @asynccontextmanager
 async def tx(rt: Runtime, p: Principal) -> AsyncIterator[Conn]:
-    assert p.business_id is not None
-    async with rt.db.tenant(p.business_id) as c:
+    async with rt.db.tenant(p.bid) as c:
         yield c
 
 

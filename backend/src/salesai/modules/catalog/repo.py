@@ -8,7 +8,15 @@ from typing import Any
 
 from salesai.db import Conn, jsonb
 from salesai.modules.catalog.models import (
-    OfferIn, OfferOut, PolicyIn, PolicyOut, ProductIn, ProductOut, ProductPatch, VariantIn, VariantOut,
+    OfferIn,
+    OfferOut,
+    PolicyIn,
+    PolicyOut,
+    ProductIn,
+    ProductOut,
+    ProductPatch,
+    VariantIn,
+    VariantOut,
 )
 
 STOP = {"the", "and", "for", "you", "any", "can", "have", "has", "with", "this", "that", "what", "which", "show", "your",
@@ -145,7 +153,8 @@ async def get_product(c: Conn, product_id: uuid.UUID) -> ProductOut | None:
 
 async def list_products(c: Conn, *, search: str | None = None, category: str | None = None,
                         active: bool | None = None, limit: int = 50, offset: int = 0) -> tuple[list[ProductOut], int]:
-    where, args = ["TRUE"], []
+    where: list[str] = ["TRUE"]
+    args: list[Any] = []
     if search:
         where.append("(name ILIKE %s OR description ILIKE %s OR category ILIKE %s)")
         args += [f"%{search}%"] * 3

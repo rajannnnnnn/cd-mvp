@@ -9,12 +9,18 @@ import hashlib
 import hmac
 import logging
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 
 from salesai.modules.channels.base import (
-    AccountEvent, ChannelEvent, EchoMessage, InboundMessage, NumberRef, SendResult, StatusUpdate,
+    AccountEvent,
+    ChannelEvent,
+    EchoMessage,
+    InboundMessage,
+    NumberRef,
+    SendResult,
+    StatusUpdate,
 )
 
 log = logging.getLogger("salesai.channels.whatsapp")
@@ -46,8 +52,11 @@ def _ts(v: Any) -> datetime:
         return datetime.now(UTC)
 
 
-def _kind(t: str) -> str:
-    return {"text": "text", "audio": "audio", "voice": "audio", "image": "image", "reaction": "reaction"}.get(t, "other")
+_KINDS: dict[str, Literal["text", "audio", "image", "reaction"]] = {"text": "text", "audio": "audio", "voice": "audio", "image": "image", "reaction": "reaction"}
+
+
+def _kind(t: str) -> Literal["text", "audio", "image", "reaction", "other"]:
+    return _KINDS.get(t, "other")
 
 
 def _body(m: dict[str, Any]) -> str | None:
@@ -112,7 +121,7 @@ def parse_webhook(payload: dict[str, Any]) -> list[ChannelEvent]:
 
 def _account_event(field_: str, v: dict[str, Any], waba: str | None, pn: str | None) -> AccountEvent:
     ev = str(v.get("event") or "").upper()
-    detail = {"field": field_, "event": ev, **{k: v[k] for k in ("current_limit", "decision", "display_phone_number") if k in v}}
+    detail: dict[str, Any] = {"field": field_, "event": ev, **{k: v[k] for k in ("current_limit", "decision", "display_phone_number") if k in v}}
     if field_ == "phone_number_quality_update":
         rating = {"FLAGGED": "yellow", "UNFLAGGED": "green", "DOWNGRADE": "red", "ONBOARDING": "green"}.get(ev)
         if v.get("quality_rating"):

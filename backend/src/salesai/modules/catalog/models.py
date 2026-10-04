@@ -41,9 +41,8 @@ class PolicyIn(BaseModel):
         d = self.disclosure
         if d in ("fixed", "starts_from") and self.list_price is None:
             raise ValueError(f"disclosure '{d}' needs a list price")
-        if d == "range":
-            if self.range_min is None or self.range_max is None or self.range_min > self.range_max:
-                raise ValueError("disclosure 'range' needs range_min <= range_max")
+        if d == "range" and (self.range_min is None or self.range_max is None or self.range_min > self.range_max):
+            raise ValueError("disclosure 'range' needs range_min <= range_max")
         if self.negotiable and self.list_price is None:
             raise ValueError("a negotiable item needs a list price")
         if self.ai_may_negotiate and not self.negotiable:

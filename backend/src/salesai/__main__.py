@@ -7,6 +7,7 @@ import asyncio
 import logging
 import signal
 import sys
+from typing import TYPE_CHECKING
 
 import uvicorn
 from fastapi import FastAPI
@@ -14,10 +15,13 @@ from fastapi import FastAPI
 from salesai.config import get_settings
 from salesai.obs import setup_logging
 
+if TYPE_CHECKING:
+    from salesai.runtime import Runtime
+
 log = logging.getLogger("salesai")
 
 
-def health_app(rt, role: str) -> FastAPI:  # noqa: ANN001
+def health_app(rt: Runtime, role: str) -> FastAPI:
     from salesai.api.routes import system
     app = FastAPI(title=f"salesai-{role}", docs_url=None, openapi_url=None)
     app.state.rt = rt

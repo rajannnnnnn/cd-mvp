@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 import re
-import uuid
 from decimal import Decimal as D
 
-import pytest
-
 from salesai.modules.agent.llm.base import LLMError
+from salesai.modules.agent.llm.local import LocalRulesProvider
 from tests.world import (
-    Recorder, add_product, configure_fast, install_llm, llm_json, LocalRulesProvider, settle, sim_texts,
+    Recorder,
+    add_product,
+    configure_fast,
+    install_llm,
+    llm_json,
+    settle,
+    sim_texts,
 )
 
 PROFILE = {"address": "12 MG Road, Pune 411001", "hours": "Mon-Sat 10am-8pm", "payment_modes": ["UPI", "cash", "cards"],
@@ -118,6 +122,30 @@ async def test_new_message_after_planning_discards_the_stale_reply(world):
     assert cancelled
 
 
+async def test_ai_reply_is_never_sent_after_the_24h_window_closes(world):
+    """INV-8: the window is checked at SEND time. A reply planned while the window was open, but delayed past its
+    end, is not sent; it becomes a handoff plus an operator alert instead of silence (INV-12)."""
+    shop, _ = await shop_with_catalog(world)
+    await configure_fast(world, shop, timing={"read_delay": {"mu": 7.0, "sigma": 0.01, "min_ms": 900, "max_ms": 1000},
+                                              "max_total_delay_ms": 5000})
+    phone = "+919700000031"
+    await world.customer_says(shop, phone, "silk saree price?")
+    for _ in range(40):
+        await world.drain_for(0.1, ["inbound.events", "conversation.turns"])
+        if await world.q(shop, "SELECT 1 FROM turns"):
+            break
+    assert await world.q(shop, "SELECT 1 FROM messages WHERE direction='out' AND status='queued'")      # planned, not yet sent
+    async with world.rt.db.tenant(shop.business_id) as c:                                                # the window closes meanwhile
+        await c.execute("UPDATE conversations SET last_inbound_at = now() - interval '25 hours'")
+    await world.drain_for(3, ["outbound.actions"])
+    assert await sim_texts(world, shop, phone) == []
+    failed = await world.q(shop, "SELECT error FROM messages WHERE direction='out' AND status='failed'")
+    assert failed and "window_closed" in failed[0]["error"]
+    assert await world.q(shop, "SELECT 1 FROM handoffs WHERE reason='system_failure'")
+    async with world.rt.db.system_tx() as s:
+        assert await (await s.execute("SELECT 1 FROM operator_alerts WHERE kind='send_failed' AND business_id=%s", (shop.business_id,))).fetchone()
+
+
 async def test_owner_manual_reply_pauses_the_ai(world):
     shop, _ = await shop_with_catalog(world)
     phone = "+919700000007"
@@ -201,7 +229,7 @@ async def test_order_flow_captures_a_deal_with_the_engine_price(world):
     t1 = await settle(world, shop, phone, want=1)
     assert any("address" in t.lower() for t in t1) and "₹1,000" in " ".join(t1)
     await world.customer_says(shop, phone, "Flat 4, Rose Apartments, near City Mall, Pune 411001")
-    t2 = await settle(world, shop, phone, want=2)
+    await settle(world, shop, phone, want=2)
     await world.customer_says(shop, phone, "yes confirm")
     t3 = await settle(world, shop, phone, want=3)
     assert "owner" in " ".join(t3).lower()

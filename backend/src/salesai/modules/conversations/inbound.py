@@ -8,15 +8,21 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from salesai.db import Database
+from psycopg.types.json import Jsonb
+
+from salesai.db import Conn, Database, jsonb
 from salesai.events.outbox import emit
 from salesai.modules.channels import (
-    AccountEvent, ChannelEvent, EchoMessage, InboundMessage, StatusUpdate,
+    AccountEvent,
+    ChannelEvent,
+    EchoMessage,
+    InboundMessage,
+    StatusUpdate,
+    parse_webhook,
 )
-from salesai.modules.channels.whatsapp import parse_webhook
-from salesai.rules import is_opt_in, is_opt_out
 from salesai.obs import bind
 from salesai.queue.base import Job, Queue
+from salesai.rules import is_opt_in, is_opt_out
 
 log = logging.getLogger("salesai.inbound")
 _RANK = {"queued": 0, "sent": 1, "delivered": 2, "read": 3}
@@ -154,7 +160,7 @@ class InboundRouter:
         if version is not None and conv_id is not None:
             await self.queue.cancel_superseded(f"conversation:{conv_id}", version)
 
-    async def _owner_message(self, c, bid: uuid.UUID, business_user_id: uuid.UUID, ev: InboundMessage) -> None:  # noqa: ANN001
+    async def _owner_message(self, c: Conn, bid: uuid.UUID, business_user_id: uuid.UUID, ev: InboundMessage) -> None:
         ins = await (await c.execute(
             """INSERT INTO owner_messages (business_id, business_user_id, direction, kind, purpose, body, wa_message_id, status)
                VALUES (%s,%s,'in',%s,'chat',%s,%s,'received') ON CONFLICT (wa_message_id) DO NOTHING RETURNING id""",
@@ -222,12 +228,12 @@ class InboundRouter:
             col = {"sent": "sent_at", "delivered": "delivered_at", "read": "read_at"}[ev.status]
             new_status = ev.status if _RANK.get(ev.status, -1) > _RANK.get(msg["status"], -1) else msg["status"]
             extra = ", delivered_at = COALESCE(delivered_at, %s)" if ev.status == "read" else ""
-            args: list = [new_status, ev.timestamp]
+            args: list[Any] = [new_status, ev.timestamp]
             if extra:
                 args.append(ev.timestamp)
             await c.execute(f"UPDATE messages SET status=%s, {col}=COALESCE({col}, %s){extra} WHERE id=%s", (*args, msg["id"]))  # noqa: S608
 
-    async def _failed_delivery(self, c, bid: uuid.UUID, msg: dict[str, Any], ev: StatusUpdate) -> None:  # noqa: ANN001
+    async def _failed_delivery(self, c: Conn, bid: uuid.UUID, msg: dict[str, Any], ev: StatusUpdate) -> None:
         """INV-12: a message that Meta reports as failed becomes a handoff + operator alert."""
         import json
         open_h = await (await c.execute(
@@ -250,6 +256,5 @@ class InboundRouter:
                        business_id=number["business_id"], ordering_key=f"biz:{number['business_id']}")
 
 
-def _json(d: dict[str, Any]):
-    from salesai.db import jsonb
+def _json(d: dict[str, Any]) -> Jsonb:
     return jsonb(d)

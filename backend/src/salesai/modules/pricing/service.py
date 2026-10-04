@@ -10,7 +10,15 @@ from typing import Any
 
 from salesai.db import Database, jsonb
 from salesai.modules.pricing.engine import (
-    Ask, Decision, Facts, NegState, Offer, Policy, Request, Requirement, decide,
+    Ask,
+    Decision,
+    Facts,
+    NegState,
+    Offer,
+    Policy,
+    Request,
+    Requirement,
+    decide,
 )
 
 
@@ -40,7 +48,7 @@ class PricingService:
     def __init__(self, db: Database):
         self.db = db
 
-    async def _load(self, business_id: uuid.UUID, variant_id: uuid.UUID):
+    async def _load(self, business_id: uuid.UUID, variant_id: uuid.UUID) -> tuple[dict[str, Any], Decimal | None, list[Offer]]:
         """Policy + floor + offers through the pricing role. The floor never leaves this function's scope
         except inside the pure engine request."""
         async with self.db.pricing_tenant(business_id) as c:

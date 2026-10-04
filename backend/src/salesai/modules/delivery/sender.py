@@ -9,7 +9,7 @@ import uuid
 from typing import Any
 
 from salesai import ratelimit
-from salesai.db import Database
+from salesai.db import Database, required
 from salesai.events.outbox import emit
 from salesai.modules.channels import ChannelRegistry, SendResult
 from salesai.modules.handoffs import create_handoff
@@ -40,9 +40,9 @@ class OutboundSender:
                 conv = await (await c.execute("SELECT * FROM conversations WHERE id=%s", (cid,))).fetchone()
                 if conv is None:
                     return
-                cust = await (await c.execute("SELECT * FROM customers WHERE id=%s", (conv["customer_id"],))).fetchone()
-                biz = await (await c.execute("SELECT * FROM businesses WHERE id=%s", (bid,))).fetchone()
-                num = await (await c.execute("SELECT * FROM whatsapp_numbers WHERE id=%s", (conv["whatsapp_number_id"],))).fetchone()
+                cust = required(await (await c.execute("SELECT * FROM customers WHERE id=%s", (conv["customer_id"],))).fetchone(), "cust")
+                biz = required(await (await c.execute("SELECT * FROM businesses WHERE id=%s", (bid,))).fetchone(), "biz")
+                num = required(await (await c.execute("SELECT * FROM whatsapp_numbers WHERE id=%s", (conv["whatsapp_number_id"],))).fetchone(), "num")
                 msg = None
                 if p.get("message_id"):
                     msg = await (await c.execute("SELECT * FROM messages WHERE id=%s", (p["message_id"],))).fetchone()

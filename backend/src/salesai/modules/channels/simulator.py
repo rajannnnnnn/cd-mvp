@@ -111,7 +111,9 @@ class SimulatorNetwork:
         self.db, self.app_secret = db, app_secret
 
     async def _post(self, payload: dict[str, Any]) -> None:
-        from salesai.modules.channels.ingress import accept_webhook   # local: ingress depends on events/outbox
+        from salesai.modules.channels.ingress import (
+            accept_webhook,  # local: ingress depends on events/outbox
+        )
         raw, sig = signed(self.app_secret, payload)
         status, body = await accept_webhook(self.db, self.app_secret, raw, sig)
         if status != 200:
@@ -134,7 +136,7 @@ class SimulatorNetwork:
                 "INSERT INTO sim_messages (phone, business_phone, direction, kind, body, wa_message_id) VALUES (%s,%s,'from_user',%s,%s,%s)",
                 (wa_id(from_phone), n["display_phone"], kind, text, wamid))
         await self._post(payload)
-        return wamid
+        return str(wamid)
 
     async def owner_replies_from_app(self, business_phone: str, to_phone: str, text: str) -> None:
         n = await self._number(business_phone)

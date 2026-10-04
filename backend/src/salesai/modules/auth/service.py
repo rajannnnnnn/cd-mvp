@@ -21,7 +21,7 @@ import jwt
 
 from salesai import crypto
 from salesai.config import Settings
-from salesai.db import Database
+from salesai.db import Conn, Database, required
 from salesai.modules.channels import ChannelRegistry
 from salesai.phone import normalize_phone, wa_id
 
@@ -42,6 +42,14 @@ class Principal:
     role: str                      # owner | staff | operator
     phone: str
     impersonated_by: uuid.UUID | None = None
+
+    @property
+    def bid(self) -> uuid.UUID:
+        """The business of a tenant-scoped session. Tenant routes sit behind the owner/staff dependency, which
+        guarantees it; anything else is refused rather than silently continuing without a tenant."""
+        if self.business_id is None:
+            raise AuthError("forbidden", "This action needs a business account.", 403)
+        return self.business_id
 
 
 @dataclass
@@ -180,13 +188,13 @@ class AuthService:
             raise failure or AuthError("invalid_refresh", "Please sign in again.")
         return new
 
-    async def _role(self, c, acct: dict[str, Any], bid: uuid.UUID | None) -> str | None:  # noqa: ANN001
+    async def _role(self, c: Conn, acct: dict[str, Any], bid: uuid.UUID | None) -> str | None:
         if bid is None:
             return "operator" if acct["platform_role"] == "operator" else None
         r = await (await c.execute("SELECT role FROM business_users WHERE account_id=%s AND business_id=%s", (acct["id"], bid))).fetchone()
         return r["role"] if r else None
 
-    async def _rotate(self, c, s: dict[str, Any], acct: dict[str, Any], role: str, ip: str | None) -> TokenPair:  # noqa: ANN001
+    async def _rotate(self, c: Conn, s: dict[str, Any], acct: dict[str, Any], role: str, ip: str | None) -> TokenPair:
         refresh = crypto.random_token(32)
         sid = uuid.uuid4()
         await c.execute(
@@ -201,7 +209,7 @@ class AuthService:
         if p.role != "pending":
             raise AuthError("forbidden", "Invalid ticket.", 403)
         async with self.db.system_tx() as c:
-            acct = await (await c.execute("SELECT * FROM accounts WHERE id=%s", (p.account_id,))).fetchone()
+            acct = required(await (await c.execute("SELECT * FROM accounts WHERE id=%s", (p.account_id,))).fetchone(), "acct")
             role = await self._role(c, acct, business_id)
             if role is None:
                 raise AuthError("forbidden", "You don't have access to that business.", 403)
@@ -210,7 +218,7 @@ class AuthService:
 
     async def switch_business(self, principal: Principal, business_id: uuid.UUID, ip: str | None) -> TokenPair:
         async with self.db.system_tx() as c:
-            acct = await (await c.execute("SELECT * FROM accounts WHERE id=%s", (principal.account_id,))).fetchone()
+            acct = required(await (await c.execute("SELECT * FROM accounts WHERE id=%s", (principal.account_id,))).fetchone(), "acct")
             role = await self._role(c, acct, business_id)
             if role is None:
                 raise AuthError("forbidden", "You don't have access to that business.", 403)
@@ -219,7 +227,7 @@ class AuthService:
     async def impersonate(self, operator: Principal, business_id: uuid.UUID, ip: str | None) -> TokenPair:
         """Operator support access: a short-lived owner-role token for one business, audited."""
         async with self.db.system_tx() as c:
-            acct = await (await c.execute("SELECT * FROM accounts WHERE id=%s", (operator.account_id,))).fetchone()
+            acct = required(await (await c.execute("SELECT * FROM accounts WHERE id=%s", (operator.account_id,))).fetchone(), "acct")
             ok = await (await c.execute("SELECT 1 FROM businesses WHERE id=%s", (business_id,))).fetchone()
         if not ok:
             raise AuthError("not_found", "Business not found.", 404)

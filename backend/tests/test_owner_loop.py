@@ -3,9 +3,8 @@ from __future__ import annotations
 
 import re
 
-from tests.test_conversation_flow import PROFILE, shop_with_catalog
-from tests.world import add_product, configure_fast, settle, sim_texts
-from salesai.phone import wa_id
+from tests.test_conversation_flow import shop_with_catalog
+from tests.world import settle, sim_texts
 
 
 async def owner_thread(world, shop):

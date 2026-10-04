@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Query
@@ -9,8 +9,8 @@ from pydantic import BaseModel, Field
 
 from salesai.api.deps import RT, Tenant, decode_cursor, encode_cursor, tx
 from salesai.api.errors import ApiError
+from salesai.db import required
 from salesai.events.outbox import emit
-from salesai.modules.handoffs import create_handoff
 from salesai.rules import window_closes_at, window_open
 
 router = APIRouter(tags=["conversations"])
@@ -154,7 +154,8 @@ def _summary(r: dict[str, Any]) -> ConversationSummary:
 async def list_conversations(rt: RT, p: Tenant, stage: Annotated[list[Stage] | None, Query()] = None, attention: bool | None = None,
                              paused: bool | None = None, search: str | None = None, number_id: uuid.UUID | None = None,
                              limit: Annotated[int, Query(ge=1, le=100)] = 30, cursor: str | None = None) -> Any:
-    where, args = ["TRUE"], []
+    where: list[str] = ["TRUE"]
+    args: list[Any] = []
     if stage:
         where.append("cv.lead_stage = ANY(%s)")
         args.append(list(stage))
@@ -228,18 +229,18 @@ async def send_message(conversation_id: uuid.UUID, body: SendIn, rt: RT, p: Tena
             raise ApiError(404, "not_found", "Conversation not found.")
         if not window_open(conv["last_inbound_at"]):
             raise ApiError(409, "window_closed", "WhatsApp only allows free-form replies within 24 hours of the customer's last message.")
-        biz = await (await c.execute("SELECT conversation_settings FROM businesses WHERE id=%s", (p.business_id,))).fetchone()
+        biz = await (await c.execute("SELECT conversation_settings FROM businesses WHERE id=%s", (p.bid,))).fetchone()
         pause = timedelta(minutes=int((biz["conversation_settings"] or {}).get("owner_pause_minutes", 120)))
-        m = await (await c.execute(
+        m = required(await (await c.execute(
             "INSERT INTO messages (business_id, conversation_id, direction, sender, kind, body, status, answered) VALUES (%s,%s,'out','owner','text',%s,'queued',true) RETURNING *",
-            (p.business_id, conversation_id, body.text.strip()))).fetchone()
+            (p.bid, conversation_id, body.text.strip()))).fetchone(), "message")
         v = (await (await c.execute(
             """UPDATE conversations SET version = version + 1, state='idle', ai_paused_until = now() + %s, ai_paused_reason='owner_reply', last_owner_reply_at = now()
                WHERE id=%s RETURNING version""", (pause, conversation_id))).fetchone())["version"]
         await c.execute("UPDATE messages SET status='cancelled', error='superseded' WHERE conversation_id=%s AND direction='out' AND sender='ai' AND status='queued'", (conversation_id,))
         await c.execute("UPDATE messages SET answered=true WHERE conversation_id=%s AND direction='in' AND NOT answered", (conversation_id,))
         await emit(c, "outbound.action_requested", {"conversation_id": conversation_id, "action": "send_text", "message_id": m["id"], "version": v, "human": True, "last_part": True},
-                   business_id=p.business_id, ordering_key=f"num:{conv['whatsapp_number_id']}")
+                   business_id=p.bid, ordering_key=f"num:{conv['whatsapp_number_id']}")
     await rt.queue.cancel_superseded(f"conversation:{conversation_id}", v)
     return _msg(m)
 
@@ -250,7 +251,7 @@ async def pause(conversation_id: uuid.UUID, body: PauseIn, rt: RT, p: Tenant) ->
         r = await c.execute("UPDATE conversations SET ai_paused_until = now() + %s, ai_paused_reason='manual' WHERE id=%s", (timedelta(minutes=body.minutes), conversation_id))
         if r.rowcount == 0:
             raise ApiError(404, "not_found", "Conversation not found.")
-        row = await (await c.execute(f"{_SELECT} WHERE cv.id=%s", (conversation_id,))).fetchone()  # noqa: S608
+        row = required(await (await c.execute(f"{_SELECT} WHERE cv.id=%s", (conversation_id,))).fetchone(), "conversation")  # noqa: S608
     return _summary(row)
 
 
@@ -261,7 +262,7 @@ async def resume(conversation_id: uuid.UUID, rt: RT, p: Tenant) -> Any:
         if r.rowcount == 0:
             raise ApiError(404, "not_found", "Conversation not found.")
         await c.execute("UPDATE handoffs SET status='resolved', resolved_at=now(), resolved_by=%s WHERE conversation_id=%s AND status='open'", (p.account_id, conversation_id))
-        row = await (await c.execute(f"{_SELECT} WHERE cv.id=%s", (conversation_id,))).fetchone()  # noqa: S608
+        row = required(await (await c.execute(f"{_SELECT} WHERE cv.id=%s", (conversation_id,))).fetchone(), "conversation")  # noqa: S608
     return _summary(row)
 
 
@@ -278,5 +279,5 @@ async def patch_conversation(conversation_id: uuid.UUID, body: ConversationPatch
             await c.execute("UPDATE conversations SET lead_stage=%s, lost_reason=%s WHERE id=%s", (d["lead_stage"], d.get("lost_reason") if d["lead_stage"] == "lost" else None, conversation_id))
         if "selling_stopped" in d and d["selling_stopped"] is not None:
             await c.execute("UPDATE conversations SET selling_stopped=%s WHERE id=%s", (d["selling_stopped"], conversation_id))
-        row = await (await c.execute(f"{_SELECT} WHERE cv.id=%s", (conversation_id,))).fetchone()  # noqa: S608
+        row = required(await (await c.execute(f"{_SELECT} WHERE cv.id=%s", (conversation_id,))).fetchone(), "conversation")  # noqa: S608
     return _summary(row)

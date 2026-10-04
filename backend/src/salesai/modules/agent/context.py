@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from salesai.db import Database
+from salesai.db import Database, required
 from salesai.modules.catalog import repo as catalog
 
 PLANNER_KEYS = ("variant_id", "product_id", "product_name", "variant_name", "description", "category",
@@ -82,10 +82,10 @@ def _public_qualification(q: dict[str, Any]) -> dict[str, Any]:
 
 async def load(db: Database, business_id: uuid.UUID, conversation_id: uuid.UUID, now: datetime) -> TurnContext:
     async with db.tenant(business_id) as c:
-        business = await (await c.execute("SELECT * FROM businesses WHERE id=%s", (business_id,))).fetchone()
-        conv = await (await c.execute("SELECT * FROM conversations WHERE id=%s", (conversation_id,))).fetchone()
-        customer = await (await c.execute("SELECT * FROM customers WHERE id=%s", (conv["customer_id"],))).fetchone()
-        number = await (await c.execute("SELECT * FROM whatsapp_numbers WHERE id=%s", (conv["whatsapp_number_id"],))).fetchone()
+        business = required(await (await c.execute("SELECT * FROM businesses WHERE id=%s", (business_id,))).fetchone(), "business")
+        conv = required(await (await c.execute("SELECT * FROM conversations WHERE id=%s", (conversation_id,))).fetchone(), "conv")
+        customer = required(await (await c.execute("SELECT * FROM customers WHERE id=%s", (conv["customer_id"],))).fetchone(), "customer")
+        number = required(await (await c.execute("SELECT * FROM whatsapp_numbers WHERE id=%s", (conv["whatsapp_number_id"],))).fetchone(), "number")
         unanswered = await (await c.execute(
             """SELECT id, kind, body, wa_message_id, created_at FROM messages
                WHERE conversation_id=%s AND direction='in' AND NOT answered ORDER BY created_at, id""", (conversation_id,))).fetchall()
