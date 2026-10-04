@@ -217,11 +217,15 @@ class InboundRouter:
                 await c.execute("UPDATE messages SET status='failed', error=%s WHERE id=%s", (f"{ev.error_code}: {ev.error}", msg["id"]))
                 await self._failed_delivery(c, bid, msg, ev)
                 return
-            if _RANK.get(ev.status, -1) <= _RANK.get(msg["status"], -1):
-                return
+            # timestamps are learning signals: record each one even when webhooks arrive out of order,
+            # but never move the status backwards
             col = {"sent": "sent_at", "delivered": "delivered_at", "read": "read_at"}[ev.status]
-            await c.execute(f"UPDATE messages SET status=%s, {col}=COALESCE({col}, %s) WHERE id=%s",  # noqa: S608
-                            (ev.status, ev.timestamp, msg["id"]))
+            new_status = ev.status if _RANK.get(ev.status, -1) > _RANK.get(msg["status"], -1) else msg["status"]
+            extra = ", delivered_at = COALESCE(delivered_at, %s)" if ev.status == "read" else ""
+            args: list = [new_status, ev.timestamp]
+            if extra:
+                args.append(ev.timestamp)
+            await c.execute(f"UPDATE messages SET status=%s, {col}=COALESCE({col}, %s){extra} WHERE id=%s", (*args, msg["id"]))  # noqa: S608
 
     async def _failed_delivery(self, c, bid: uuid.UUID, msg: dict[str, Any], ev: StatusUpdate) -> None:  # noqa: ANN001
         """INV-12: a message that Meta reports as failed becomes a handoff + operator alert."""

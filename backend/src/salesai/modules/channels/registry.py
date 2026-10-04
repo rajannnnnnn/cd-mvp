@@ -12,8 +12,10 @@ from salesai.modules.tenants import TokenVault
 
 class ChannelRegistry:
     def __init__(self, db: Database, vault: TokenVault, *, graph_base: str, graph_version: str,
-                 simulator_enabled: bool, cloud: CloudApiChannel | None = None):
+                 simulator_enabled: bool, cloud: CloudApiChannel | None = None, platform_channel: str = "simulator",
+                 platform_phone_number_id: str = "sim-platform", platform_token: str = ""):
         self.db, self.vault = db, vault
+        self._platform = (platform_channel, platform_phone_number_id, platform_token)
         self.simulator = SimulatorChannel(db) if simulator_enabled else None
         self.cloud = cloud or CloudApiChannel(graph_base, graph_version)
 
@@ -32,3 +34,9 @@ class ChannelRegistry:
         token = await self.vault.decrypt_token(business_id, r["access_token_enc"]) if r["access_token_enc"] else None
         ref = NumberRef(r["id"], business_id, r["channel"], r["phone_number_id"], r["display_phone"], token)
         return ref, self.channel(r["channel"])
+
+    def platform_sender(self) -> tuple[NumberRef, MessagingChannel]:
+        """The platform's own sender (login codes, alerts to owners whose own number is down)."""
+        channel, pn_id, token = self._platform
+        ref = NumberRef(uuid.UUID(int=0), uuid.UUID(int=0), channel, pn_id, "platform", token or None)
+        return ref, self.channel(channel)

@@ -13,6 +13,7 @@ from salesai.modules.agent import AgentService, Models
 from salesai.modules.agent.llm.factory import make_llm
 from salesai.modules.conversations import HeuristicEOT, InboundRouter, TurnWorker
 from salesai.modules.delivery.sender import OutboundSender
+from salesai.modules.notifications import OwnerLoop
 from salesai.modules.pricing import PricingService
 from salesai.modules.tenants import TokenVault
 from salesai.queue.base import Queue
@@ -28,7 +29,9 @@ class Runtime:
         self.vault = TokenVault(db, settings.master_key_bytes)
         self.channels = ChannelRegistry(db, self.vault, graph_base=settings.meta_graph_base,
                                         graph_version=settings.meta_graph_version,
-                                        simulator_enabled=settings.simulator_enabled)
+                                        simulator_enabled=settings.simulator_enabled, platform_channel=settings.otp_channel,
+                                        platform_phone_number_id=settings.platform_sender_phone_number_id,
+                                        platform_token=settings.platform_wa_access_token)
         self.relay = OutboxRelay(db, queue)
         self.router = InboundRouter(db, queue)
         self.registry = HandlerRegistry()
@@ -40,6 +43,7 @@ class Runtime:
                                   llm_checks=settings.llm_provider != "local")
         self.turns = TurnWorker(db, self.agent, HeuristicEOT())
         self.sender = OutboundSender(db, self.channels)
+        self.owner = OwnerLoop(db, self.channels, self.llm, settings.llm_model_check)
         self.extra: dict[str, Any] = {}
         self._wire()
 
@@ -60,6 +64,11 @@ class Runtime:
         self.registry.add("conversation.turns", "eot_check", self.turns.eot_check)
         self.registry.add("conversation.turns", "nudge", self.turns.nudge)
         self.registry.add("outbound.actions", "execute", self.sender.execute)
+        self.registry.add("owner.notifications", "notify", self.owner.notify)
+        self.registry.add("owner.notifications", "owner_chat", self.owner.owner_chat)
+        self.registry.add("owner.notifications", "daily_summary", self.owner.daily_summary)
+        self.registry.add("platform.events", "account_update", self.owner.account_update)
+        self.registry.add("platform.events", "number_status", self.owner.number_status)
 
         async def conv_version(key: str) -> int | None:
             async with self.db.system_tx() as c:

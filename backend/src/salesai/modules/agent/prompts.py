@@ -21,8 +21,8 @@ class Prompt:
 
 
 @lru_cache
-def load(prompt_id: str, version: int | None = None) -> Prompt:
-    files = sorted(DIR.glob(f"{prompt_id}.v*.md"), key=lambda p: int(re.search(r"\.v(\d+)\.md$", p.name).group(1)))  # type: ignore[union-attr]
+def load(prompt_id: str, version: int | None = None, directory: Path | None = None) -> Prompt:
+    files = sorted((directory or DIR).glob(f"{prompt_id}.v*.md"), key=lambda p: int(re.search(r"\.v(\d+)\.md$", p.name).group(1)))  # type: ignore[union-attr]
     if not files:
         raise FileNotFoundError(prompt_id)
     f = next((p for p in files if version and p.name.endswith(f".v{version}.md")), files[-1])

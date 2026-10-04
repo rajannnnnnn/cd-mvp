@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from salesai.modules.agent.llm import local_nlg, local_nlu
+from salesai.modules.agent.llm import local_config, local_nlg, local_nlu
 from salesai.modules.agent.llm.base import LLMError, LLMRequest, LLMResult, T, now_ms
 
 HUMAN_CLAIM = re.compile(r"\b(i am|i'm|main|mai) (a )?(real )?(human|person|insaan|man|woman)\b|मैं (एक )?(इंसान|इन्सान)", re.I)
@@ -28,6 +28,8 @@ class LocalRulesProvider:
                 raw = local_nlg.write(req.input)
             elif req.stage == "check":
                 raw = check(req.input)
+            elif req.stage == "config":
+                raw = local_config.extract(req.input)
             else:
                 raise LLMError(f"unknown stage {req.stage}", retryable=False)
             out = schema.model_validate(raw)
