@@ -19,7 +19,7 @@ if ($Reset) { docker compose --profile demo --profile redis down -v; Remove-Item
 
 # Windows git often checks files out with CRLF line endings. Files that run inside Linux containers must have LF,
 # or the database's first-start script fails silently and no roles are created. Normalise them (safe to repeat).
-foreach ($f in @('postgres-init\10-roles.sh', '..\db\bootstrap_roles.sql', '..\frontend\deploy\Caddyfile')) {
+foreach ($f in @('postgres-init\10-roles.sh', '..\db\bootstrap_roles.sql', '..\frontend\deploy\Caddyfile', '..\frontend\deploy\entrypoint.sh')) {
   if (Test-Path $f) {
     $t = [IO.File]::ReadAllText((Resolve-Path $f))
     if ($t.Contains("`r`n")) { [IO.File]::WriteAllText((Resolve-Path $f), $t.Replace("`r`n", "`n"), (New-Object Text.UTF8Encoding($false))); Write-Host "fixed line endings: $f" }

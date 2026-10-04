@@ -13,6 +13,8 @@ FROM caddy:2-alpine
 COPY --from=build /web/dist /srv
 COPY deploy/Caddyfile /etc/caddy/Caddyfile
 COPY deploy/entrypoint.sh /entrypoint.sh
+# a checkout on Windows may carry CRLF line endings, which this shell script and the Caddyfile must not have
+RUN sed -i 's/\r$//' /entrypoint.sh /etc/caddy/Caddyfile
 ENV API_BASE="" SITE_ADDRESS=":80" API_UPSTREAM="api:8000" INGRESS_UPSTREAM="ingress:8000"
 EXPOSE 80 443
 ENTRYPOINT ["/bin/sh", "/entrypoint.sh"]
