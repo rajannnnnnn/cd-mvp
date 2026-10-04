@@ -542,6 +542,8 @@ CREATE UNIQUE INDEX jobs_dedupe_uq ON jobs (queue, dedupe_key) WHERE dedupe_key 
 CREATE INDEX jobs_due_idx      ON jobs (queue, run_at) WHERE status = 'pending';
 CREATE INDEX jobs_running_idx  ON jobs (queue, ordering_key) WHERE status = 'running';
 CREATE INDEX jobs_entity_idx   ON jobs (entity_key) WHERE status = 'pending';
+CREATE INDEX jobs_orderkey_idx ON jobs (queue, ordering_key, run_at, id) WHERE status = 'pending' AND ordering_key IS NOT NULL;
+CREATE INDEX jobs_lease_idx    ON jobs (lease_until) WHERE status = 'running';
 CREATE INDEX jobs_dead_idx     ON jobs (queue, finished_at) WHERE status = 'dead';
 
 -- Token buckets for per-number outbound rate limits (Meta throughput).
