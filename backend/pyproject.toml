@@ -17,6 +17,7 @@ dependencies = [
   "orjson>=3.10",
   "python-multipart>=0.0.12",
   "sse-starlette>=2.1",
+  "anthropic>=1.0",
 ]
 
 [dependency-groups]

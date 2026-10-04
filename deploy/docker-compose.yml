@@ -1,0 +1,125 @@
+# One command on one machine:   scripts/up.sh        (generates deploy/.env with fresh secrets on first run)
+# Frontend: http://localhost:8080   (marketing site at /, the app at /app)
+#
+# Services
+#   postgres   data store, with the four least-privilege roles created on first start
+#   migrate    one-off: applies schema migrations, then exits
+#   api        REST API + live updates (role=api)
+#   ingress    WhatsApp webhook receiver, isolated from the API so webhook latency never depends on it (role=ingress)
+#   worker     async pipeline: inbound routing, AI turns, delivery, owner notifications (role=worker)
+#   scheduler  leader-elected timers: daily summaries, nudges, retention (role=scheduler)
+#   web        static frontend + reverse proxy (Caddy)
+#   seed       (profile "demo") loads demo shops and real conversations played through the system
+# Optional:  --profile redis   starts Redis for QUEUE_BACKEND=redis
+name: saathi
+
+x-backend: &backend
+  build: { context: ../backend }
+  image: saathi-backend:local
+  restart: unless-stopped
+  environment: &backend-env
+    ENV: ${APP_ENV:-staging}
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    TRUST_PROXY: "true"
+    ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8080}
+    DATABASE_URL: postgresql://app_user:${APP_USER_PASSWORD}@postgres:5432/salesai
+    PRICING_DATABASE_URL: postgresql://app_pricing:${APP_PRICING_PASSWORD}@postgres:5432/salesai
+    SYSTEM_DATABASE_URL: postgresql://app_system:${APP_SYSTEM_PASSWORD}@postgres:5432/salesai
+    MIGRATION_DATABASE_URL: postgresql://app_owner:${APP_OWNER_PASSWORD}@postgres:5432/salesai
+    QUEUE_BACKEND: ${QUEUE_BACKEND:-postgres}
+    REDIS_URL: redis://redis:6379/0
+    MASTER_KEY: ${MASTER_KEY}
+    JWT_SECRET: ${JWT_SECRET}
+    OTP_SECRET: ${OTP_SECRET}
+    META_APP_SECRET: ${META_APP_SECRET}
+    META_VERIFY_TOKEN: ${META_VERIFY_TOKEN}
+    META_APP_ID: ${META_APP_ID:-}
+    OTP_CHANNEL: ${OTP_CHANNEL:-simulator}
+    SIMULATOR_ENABLED: ${SIMULATOR_ENABLED:-true}
+    LLM_PROVIDER: ${LLM_PROVIDER:-local}
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  depends_on:
+    migrate: { condition: service_completed_successfully }
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: salesai
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      APP_OWNER_PASSWORD: ${APP_OWNER_PASSWORD}
+      APP_USER_PASSWORD: ${APP_USER_PASSWORD}
+      APP_PRICING_PASSWORD: ${APP_PRICING_PASSWORD}
+      APP_SYSTEM_PASSWORD: ${APP_SYSTEM_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+      - ../db/bootstrap_roles.sql:/bootstrap_roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d salesai"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    <<: *backend
+    restart: "no"
+    command: ["migrate"]
+    environment: *backend-env
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    <<: *backend
+    command: ["api"]
+    environment: *backend-env
+    expose: ["8000"]
+
+  ingress:
+    <<: *backend
+    command: ["ingress"]
+    environment: *backend-env
+    expose: ["8000"]
+
+  worker:
+    <<: *backend
+    command: ["worker"]
+    environment: *backend-env
+    deploy: { replicas: 1 }
+
+  scheduler:
+    <<: *backend
+    command: ["scheduler"]
+    environment: *backend-env
+
+  web:
+    build: { context: ../frontend, args: { VITE_BRAND: "${BRAND:-Saathi}", VITE_CONTACT_EMAIL: "${CONTACT_EMAIL:-hello@saathi.example}" } }
+    image: saathi-web:local
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+      API_BASE: ""
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on: [api, ingress]
+
+  seed:
+    <<: *backend
+    profiles: ["demo"]
+    restart: "no"
+    entrypoint: ["python", "-m", "salesai.seed"]
+    command: ["--conversations", "--spread-days", "6"]
+    environment: *backend-env
+
+  redis:
+    image: redis:7-alpine
+    profiles: ["redis"]
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: [redisdata:/data]
+
+volumes:
+  pgdata:
+  redisdata:
