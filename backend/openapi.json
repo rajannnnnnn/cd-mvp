@@ -86,6 +86,93 @@
         "title": "AlertOut",
         "type": "object"
       },
+      "AnalyticsOut": {
+        "properties": {
+          "ai": {
+            "additionalProperties": true,
+            "title": "Ai",
+            "type": "object"
+          },
+          "busiest_hours": {
+            "items": {
+              "$ref": "#/components/schemas/HourRow"
+            },
+            "title": "Busiest Hours",
+            "type": "array"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "deals_by_kind": {
+            "items": {
+              "$ref": "#/components/schemas/KindRow"
+            },
+            "title": "Deals By Kind",
+            "type": "array"
+          },
+          "end": {
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "funnel": {
+            "items": {
+              "$ref": "#/components/schemas/Count"
+            },
+            "title": "Funnel",
+            "type": "array"
+          },
+          "handoff_reasons": {
+            "items": {
+              "$ref": "#/components/schemas/Count"
+            },
+            "title": "Handoff Reasons",
+            "type": "array"
+          },
+          "kpis": {
+            "$ref": "#/components/schemas/Kpis"
+          },
+          "previous": {
+            "$ref": "#/components/schemas/Kpis"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/Point"
+            },
+            "title": "Series",
+            "type": "array"
+          },
+          "start": {
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          },
+          "top_products": {
+            "items": {
+              "$ref": "#/components/schemas/Count"
+            },
+            "title": "Top Products",
+            "type": "array"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "days",
+          "kpis",
+          "previous",
+          "series",
+          "funnel",
+          "handoff_reasons",
+          "deals_by_kind",
+          "busiest_hours",
+          "top_products",
+          "ai"
+        ],
+        "title": "AnalyticsOut",
+        "type": "object"
+      },
       "AnswerIn": {
         "properties": {
           "answer": {
@@ -1281,6 +1368,24 @@
         "title": "CostRow",
         "type": "object"
       },
+      "Count": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "label",
+          "n"
+        ],
+        "title": "Count",
+        "type": "object"
+      },
       "CustomerBrief": {
         "properties": {
           "id": {
@@ -1968,6 +2073,24 @@
         "title": "HandoffOut",
         "type": "object"
       },
+      "HourRow": {
+        "properties": {
+          "hour": {
+            "title": "Hour",
+            "type": "integer"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hour",
+          "n"
+        ],
+        "title": "HourRow",
+        "type": "object"
+      },
       "InvoiceLine": {
         "properties": {
           "amount_paise": {
@@ -2098,6 +2221,104 @@
           "paid_at"
         ],
         "title": "InvoiceOut",
+        "type": "object"
+      },
+      "KindRow": {
+        "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "kind",
+          "n",
+          "confirmed",
+          "value"
+        ],
+        "title": "KindRow",
+        "type": "object"
+      },
+      "Kpis": {
+        "properties": {
+          "ai_replies": {
+            "title": "Ai Replies",
+            "type": "integer"
+          },
+          "avg_first_reply_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg First Reply S"
+          },
+          "conversations": {
+            "title": "Conversations",
+            "type": "integer"
+          },
+          "conversion_rate": {
+            "title": "Conversion Rate",
+            "type": "number"
+          },
+          "customer_messages": {
+            "title": "Customer Messages",
+            "type": "integer"
+          },
+          "deal_value": {
+            "title": "Deal Value",
+            "type": "number"
+          },
+          "deals": {
+            "title": "Deals",
+            "type": "integer"
+          },
+          "handoff_rate": {
+            "title": "Handoff Rate",
+            "type": "number"
+          },
+          "handoffs": {
+            "title": "Handoffs",
+            "type": "integer"
+          },
+          "messages_per_conversation": {
+            "title": "Messages Per Conversation",
+            "type": "number"
+          },
+          "new_customers": {
+            "title": "New Customers",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "conversations",
+          "new_customers",
+          "customer_messages",
+          "ai_replies",
+          "deals",
+          "deal_value",
+          "handoffs",
+          "handoff_rate",
+          "conversion_rate",
+          "avg_first_reply_s",
+          "messages_per_conversation"
+        ],
+        "title": "Kpis",
         "type": "object"
       },
       "LadderIn": {
@@ -3288,6 +3509,34 @@
           "phone"
         ],
         "title": "PersonalIn",
+        "type": "object"
+      },
+      "Point": {
+        "properties": {
+          "ai_replies": {
+            "title": "Ai Replies",
+            "type": "integer"
+          },
+          "conversations": {
+            "title": "Conversations",
+            "type": "integer"
+          },
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "deals": {
+            "title": "Deals",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "conversations",
+          "ai_replies",
+          "deals"
+        ],
+        "title": "Point",
         "type": "object"
       },
       "PolicyIn": {
@@ -5471,6 +5720,67 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/analytics": {
+      "get": {
+        "operationId": "analytics_api_v1_analytics_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Business analytics for the last N days, with the previous period for comparison",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
     "/api/v1/auth/logout": {
       "post": {
         "operationId": "logout_api_v1_auth_logout_post",
@@ -10382,6 +10692,156 @@
         "summary": "What the frontend needs to know before sign-in",
         "tags": [
           "public"
+        ]
+      }
+    },
+    "/api/v1/reports/export/{kind}.csv": {
+      "get": {
+        "operationId": "export_csv_api_v1_reports_export__kind__csv_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "conversations",
+                "deals",
+                "customers"
+              ],
+              "title": "Kind",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Start",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "End",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download conversations, orders and visits, or customers as CSV",
+        "tags": [
+          "analytics"
+        ]
+      }
+    },
+    "/api/v1/reports/summary": {
+      "get": {
+        "operationId": "report_api_v1_reports_summary_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Start",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "End",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The same figures for an explicit date range (a report)",
+        "tags": [
+          "analytics"
         ]
       }
     },

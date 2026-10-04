@@ -13,7 +13,6 @@ from salesai.modules.billing import PLANS, ManualProvider, catalogue
 from tests.test_api import PRODUCT, V1, hdr, login, operator_token
 from tests.test_onboarding import signup
 
-
 PLANS_JSON = Path(__file__).resolve().parents[2] / "frontend" / "src" / "site" / "plans.json"
 
 

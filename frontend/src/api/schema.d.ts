@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/v1/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Business analytics for the last N days, with the previous period for comparison */
+        get: operations["analytics_api_v1_analytics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/logout": {
         parameters: {
             query?: never;
@@ -1205,6 +1222,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/export/{kind}.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download conversations, orders and visits, or customers as CSV */
+        get: operations["export_csv_api_v1_reports_export__kind__csv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The same figures for an explicit date range (a report) */
+        get: operations["report_api_v1_reports_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sim/account-event": {
         parameters: {
             query?: never;
@@ -1459,6 +1510,39 @@ export interface components {
             resolved_at: string | null;
             /** Severity */
             severity: string;
+        };
+        /** AnalyticsOut */
+        AnalyticsOut: {
+            /** Ai */
+            ai: {
+                [key: string]: unknown;
+            };
+            /** Busiest Hours */
+            busiest_hours: components["schemas"]["HourRow"][];
+            /** Days */
+            days: number;
+            /** Deals By Kind */
+            deals_by_kind: components["schemas"]["KindRow"][];
+            /**
+             * End
+             * Format: date
+             */
+            end: string;
+            /** Funnel */
+            funnel: components["schemas"]["Count"][];
+            /** Handoff Reasons */
+            handoff_reasons: components["schemas"]["Count"][];
+            kpis: components["schemas"]["Kpis"];
+            previous: components["schemas"]["Kpis"];
+            /** Series */
+            series: components["schemas"]["Point"][];
+            /**
+             * Start
+             * Format: date
+             */
+            start: string;
+            /** Top Products */
+            top_products: components["schemas"]["Count"][];
         };
         /** AnswerIn */
         AnswerIn: {
@@ -1839,6 +1923,13 @@ export interface components {
             /** Turns */
             turns: number;
         };
+        /** Count */
+        Count: {
+            /** Label */
+            label: string;
+            /** N */
+            n: number;
+        };
         /** CustomerBrief */
         CustomerBrief: {
             /**
@@ -2105,6 +2196,13 @@ export interface components {
              */
             status: "open" | "resolved";
         };
+        /** HourRow */
+        HourRow: {
+            /** Hour */
+            hour: number;
+            /** N */
+            n: number;
+        };
         /** InvoiceLine */
         InvoiceLine: {
             /** Amount Paise */
@@ -2166,6 +2264,42 @@ export interface components {
             subtotal_paise: number;
             /** Total Paise */
             total_paise: number;
+        };
+        /** KindRow */
+        KindRow: {
+            /** Confirmed */
+            confirmed: number;
+            /** Kind */
+            kind: string;
+            /** N */
+            n: number;
+            /** Value */
+            value: number;
+        };
+        /** Kpis */
+        Kpis: {
+            /** Ai Replies */
+            ai_replies: number;
+            /** Avg First Reply S */
+            avg_first_reply_s: number | null;
+            /** Conversations */
+            conversations: number;
+            /** Conversion Rate */
+            conversion_rate: number;
+            /** Customer Messages */
+            customer_messages: number;
+            /** Deal Value */
+            deal_value: number;
+            /** Deals */
+            deals: number;
+            /** Handoff Rate */
+            handoff_rate: number;
+            /** Handoffs */
+            handoffs: number;
+            /** Messages Per Conversation */
+            messages_per_conversation: number;
+            /** New Customers */
+            new_customers: number;
         };
         /** LadderIn */
         LadderIn: {
@@ -2615,6 +2749,17 @@ export interface components {
             name?: string | null;
             /** Phone */
             phone: string;
+        };
+        /** Point */
+        Point: {
+            /** Ai Replies */
+            ai_replies: number;
+            /** Conversations */
+            conversations: number;
+            /** Date */
+            date: string;
+            /** Deals */
+            deals: number;
         };
         /** PolicyIn */
         PolicyIn: {
@@ -3345,6 +3490,39 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    analytics_api_v1_analytics_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     logout_api_v1_auth_logout_post: {
         parameters: {
             query?: never;
@@ -6030,6 +6208,76 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    export_csv_api_v1_reports_export__kind__csv_get: {
+        parameters: {
+            query: {
+                start: string;
+                end: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                kind: "conversations" | "deals" | "customers";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_api_v1_reports_summary_get: {
+        parameters: {
+            query: {
+                start: string;
+                end: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalyticsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
