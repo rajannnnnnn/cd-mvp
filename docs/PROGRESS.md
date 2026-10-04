@@ -68,7 +68,12 @@ login on mobile and in dark mode.
 
 **Measured (authoring machine, dev stack, language-model stand-in, so zero model latency):**
 - NFR-1 webhook acknowledgement: 1,500 signed webhooks at concurrency 5 → p50 11 ms, p95 18 ms, **p99 25 ms** (limit 300 ms), 414 requests/s on one ingress process; at concurrency 30 the single process saturates near 320 req/s and p99 rises to ~345 ms, so scale ingress horizontally beyond that. NFR-3: **every acknowledged message was stored** (1,500 of 1,500), zero inbound dead letters.
-- Async pipeline throughput: one `all` process drained thousands of queued turns at roughly 2 turns/s on a shared machine, far above NFR-5's 5,000 conversations/day. The end-to-end conversation load test (`loadtest.run conversations`) has not produced recorded results yet; run it and record them here.
+- Async pipeline throughput: one `all` process drained thousands of queued turns at roughly 2 turns/s on a shared machine, far above NFR-5's 5,000 conversations/day. End-to-end conversation test (`loadtest.run conversations`: 60 new customers × 4 messages spread over the 3 demo shops, one worker
+process, human-like pacing left ON): 240 messages processed in 252 s, **0 dead letters, 0 failed sends**; agent pipeline time
+p50 1 ms / p95 2 ms (stand-in model); message-to-first-reply p50 8.5 s (includes intentional read/typing delays) but **p95 105 s**,
+which is the open question: replies queue behind per-number rate limiting and pacing when many customers hit one number at once.
+Investigate before trusting NFR-2 at scale: re-run with pacing set to "quick", compare against the per-number token bucket settings
+(`rate_per_s`, `burst` in `delivery/sender.py`), and decide whether the bucket or the pacing cap needs tuning.
 - Browser suite: 29/29 passing against the dev stack (desktop and mobile projects). Backend: 209+ tests passing; evaluations 32/32.
 
 **Not verified:** anything against real Meta infrastructure; any real language model; Docker image builds and the compose
@@ -122,7 +127,7 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
 4. Run the conversation evaluation suite (`backend/tests/evals/`, command in `docs/RUNNING.md`) against each candidate model
    once an API key exists; compare safety first, then cost and latency; record the choice and cost per conversation in a new
    ADR. Grow the scenario list with every real failure found in pilots.
-5. Extend the load tests with a real model (NFR-2 p95 < 8 s) and a larger tenant count (NFR-5: 50 businesses, 5,000
+5. Explain and fix the p95 reply latency above, then extend the load tests with a real model (NFR-2 p95 < 8 s) and a larger tenant count (NFR-5: 50 businesses, 5,000
    conversations/day); the harness is `backend/loadtest/run.py`.
 6. Replace synthetic Meta payloads with recordings from a real test number; add contract tests per event type.
 7. Verify the whole Embedded Signup flow with a real Meta number: the browser side (Settings → Numbers → "Connect a
