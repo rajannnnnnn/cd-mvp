@@ -6,6 +6,7 @@ import { useAuth } from '@/auth/AuthProvider'
 import { useT } from '@/i18n'
 import { Avatar, Logo, Switch, Modal, useToast } from '@/ui'
 import { cx } from '@/lib/format'
+import { tokens } from '@/auth/tokens'
 import { startLive } from '@/api/live'
 import { useBusiness, useOverview, usePublicConfig } from '@/api/hooks'
 import { api, ok } from '@/api/client'
@@ -14,16 +15,22 @@ import { currentTheme, setTheme, type Theme } from '@/lib/theme'
 type Item = { to: string; icon: any; key: string; label: string; badge?: number; dev?: boolean }
 
 export default function Shell() {
-  const { me, role, logout, switchBusiness } = useAuth()
+  const { me, role, logout, switchBusiness, reload } = useAuth()
   const { t, lang, setLang } = useT()
   const qc = useQueryClient()
   const nav = useNavigate()
+  const backToConsole = async () => {
+    try {
+      const stash = sessionStorage.getItem('saathi.operator.stash')
+      if (stash) { sessionStorage.removeItem('saathi.operator.stash'); qc.clear(); tokens.set(JSON.parse(stash)); await reload(); nav('/operator') } else await logout()
+    } catch { await logout() }
+  }
   const loc = useLocation()
   const toast = useToast()
   const cfg = usePublicConfig()
   const isOwner = role === 'owner' || role === 'staff'
-  const biz = useBusiness()
-  const ov = useOverview()
+  const biz = useBusiness(isOwner)
+  const ov = useOverview(14, isOwner)
   const [live, setLive] = useState(false)
   const [theme, setThemeState] = useState<Theme>(currentTheme())
   const [more, setMore] = useState(false)
@@ -87,7 +94,7 @@ export default function Shell() {
           <div className="lg:hidden"><Logo size={28} wordmark={false} /></div>
           <div className="min-w-0 flex-1 lg:hidden"><div className="truncate text-sm font-bold">{me?.business?.name ?? t('nav.operator', 'Operator console')}</div></div>
           <div className="hidden flex-1 lg:block" />
-          {me?.impersonated && <span className="badge badge-amber">Viewing as owner (support)</span>}
+          {me?.impersonated && <button className="badge badge-amber cursor-pointer hover:brightness-95" onClick={backToConsole}>Viewing as owner (support) · Back to console</button>}
           {isOwner && <span className={cx('hidden items-center gap-1.5 text-xs sm:flex', live ? 'text-brand-ink' : 'text-muted')} title={live ? 'Live updates connected' : 'Reconnecting…'}>{live ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}{live ? 'Live' : 'Offline'}</span>}
           {isOwner && <div className="flex items-center gap-2 lg:hidden"><span className="text-xs font-semibold text-muted">AI</span><Switch checked={aiOn} onChange={toggleAi} label="AI assistant" /></div>}
           <button className="btn btn-ghost btn-icon" onClick={() => setLang(lang === 'en' ? 'hi' : 'en')} aria-label="Language"><Globe className="h-[18px] w-[18px]" /><span className="ml-1 hidden text-xs font-bold sm:inline">{lang === 'en' ? 'हिं' : 'EN'}</span></button>
