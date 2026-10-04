@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b8f5b" />
+  <title>{{brand}} — a WhatsApp sales assistant for your shop</title>
+  <meta name="description" content="{{brand}} answers your customers on your own WhatsApp number, quotes prices only within the limits you set, and brings you in when it matters. Made for Indian shops." />
+  <meta property="og:title" content="{{brand}} — your shop’s WhatsApp sales assistant" />
+  <meta property="og:description" content="Never lose a customer to a slow reply again. You set the prices and the lowest you’ll accept; the assistant never goes below it." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <script>try{var t=localStorage.getItem('saathi.theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=t}catch(e){}</script>
+  <script type="module" src="/src/site/site.ts"></script>
+</head>
+<body>
+<!--@header-->
+<main>
+  <!-- ============================================================ HERO -->
+  <section class="relative overflow-hidden">
+    <div class="hero-glow pointer-events-none absolute inset-0"></div><div class="dotgrid pointer-events-none absolute inset-0"></div>
+    <div class="wrap relative grid items-center gap-12 pb-16 pt-14 sm:pt-20 lg:grid-cols-[1.08fr_.92fr] lg:pb-24 lg:pt-24">
+      <div>
+        <span class="eyebrow reveal"><span class="h-2 w-2 animate-pulseDot rounded-full bg-brand"></span><span data-i18n="hero.eyebrow">Built for Indian shops on WhatsApp</span></span>
+        <h1 class="h-display reveal mt-6 text-[38px] leading-[1.06] sm:text-[52px] lg:text-[56px]" data-i18n-html="hero.title">Every customer message answered. <span class="text-brand">At your price,</span> never below it.</h1>
+        <p class="lead reveal mt-6 max-w-xl" data-i18n="hero.sub">{{brand}} replies on your own WhatsApp number like you would: in Hindi, English or Hinglish. It answers from your catalog, bargains only within the limits you set, and brings you in when it matters.</p>
+        <div class="reveal mt-9 flex flex-wrap items-center gap-3">
+          <a href="mailto:{{contact}}?subject=Pilot%20at%20my%20shop" class="btn btn-primary btn-lg" data-i18n="hero.cta">Start a pilot at your shop</a>
+          <a href="#how" class="btn btn-outline btn-lg" data-i18n="hero.cta2">See how it works</a>
+        </div>
+        <ul class="reveal mt-9 grid max-w-xl gap-3 text-[15px] font-medium sm:grid-cols-2">
+          <li class="flex items-start gap-2.5"><svg class="mt-0.5 h-5 w-5 shrink-0 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg><span data-i18n="hero.b1">Works on your own business number</span></li>
+          <li class="flex items-start gap-2.5"><svg class="mt-0.5 h-5 w-5 shrink-0 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg><span data-i18n="hero.b2">Never sees your lowest price</span></li>
+          <li class="flex items-start gap-2.5"><svg class="mt-0.5 h-5 w-5 shrink-0 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg><span data-i18n="hero.b3">Pause or take over any chat, any time</span></li>
+          <li class="flex items-start gap-2.5"><svg class="mt-0.5 h-5 w-5 shrink-0 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg><span data-i18n="hero.b4">Daily summary on your WhatsApp</span></li>
+        </ul>
+      </div>
+
+      <!-- phone with a looping example conversation -->
+      <div class="relative mx-auto w-full max-w-[420px] reveal" aria-label="Example conversation">
+        <div class="phone mx-auto !h-[600px]" style="transform: rotate(1.5deg)">
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+            <div class="flex items-center gap-3 bg-[#0b6b4b] px-4 pb-3 pt-9 text-white">
+              <div class="grid h-9 w-9 place-items-center rounded-full bg-white/20 text-sm font-bold">SS</div>
+              <div class="min-w-0 flex-1"><div class="truncate text-[15px] font-bold leading-tight">Sharma Sarees</div><div class="text-[11.5px] opacity-80" id="hero-status">business account</div></div>
+            </div>
+            <div id="hero-chat" class="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden bg-[rgb(var(--chat-bg))] px-3 py-3">
+              <div class="chat-msg bubble bubble-in" data-who="c">Bhaiya, Banarasi silk saree hai red colour mein?<div class="bubble-meta">10:41 PM</div></div>
+              <div class="chat-msg bubble bubble-out" data-who="a">Haan ji! Banarasi Silk Saree (Red) available hai 🙏<div class="bubble-meta">10:41 PM ✓✓</div></div>
+              <div class="chat-msg bubble bubble-out" data-who="a">₹8,500, aur free fall &amp; pico bhi milega.<div class="bubble-meta">10:41 PM ✓✓</div></div>
+              <div class="chat-msg bubble bubble-in" data-who="c">thoda kam karo na, 7000 mein de do<div class="bubble-meta">10:42 PM</div></div>
+              <div class="chat-msg bubble bubble-out" data-who="a">Ji, aapke liye ₹8,100 kar deta hoon.<div class="bubble-meta">10:42 PM ✓✓</div></div>
+              <div class="chat-msg bubble bubble-in" data-who="c">aur kam?<div class="bubble-meta">10:43 PM</div></div>
+              <div class="chat-msg bubble bubble-out" data-who="a">₹7,650 final ji, isse neeche nahi ho payega. Order confirm kar du?<div class="bubble-meta">10:43 PM ✓✓</div></div>
+              <div class="chat-msg bubble bubble-in" data-who="c">haan confirm 👍<div class="bubble-meta">10:43 PM</div></div>
+              <div class="typing-bubble bubble bubble-out !px-3.5 !py-2.5" id="hero-typing"><span class="typing-dots"><span></span><span></span><span></span></span></div>
+            </div>
+            <div class="flex items-center gap-2 border-t border-line/60 bg-surface px-3 py-2.5"><div class="flex-1 rounded-full bg-surface2 px-4 py-2 text-[13px] text-muted">Message</div><div class="grid h-9 w-9 place-items-center rounded-full bg-brand text-white"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/></svg></div></div>
+          </div>
+        </div>
+        <!-- owner alert floats beside the phone -->
+        <div id="hero-alert" class="glass float-card pointer-events-none absolute -left-2 bottom-10 w-[230px] translate-y-3 p-3.5 opacity-0 transition duration-500 sm:-left-14" aria-hidden="true">
+          <div class="flex items-center gap-2 text-[12px] font-bold text-brand-ink"><span class="grid h-6 w-6 place-items-center rounded-lg bg-brand-soft">🛍️</span><span data-i18n="hero.alert.t">New order captured</span></div>
+          <div class="mt-1.5 text-[13.5px] font-semibold">Priya · 1 × Banarasi Silk Saree</div>
+          <div class="text-[22px] font-extrabold tnum">₹7,650</div>
+          <div class="text-[11.5px] text-muted" data-i18n="hero.alert.s">Sent to your WhatsApp. Confirm in one tap.</div>
+        </div>
+        <p class="mt-5 text-center text-[12px] text-muted" data-i18n="hero.note">Example conversation, shown for illustration.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ PROBLEM -->
+  <section class="border-y border-line/60 bg-surface">
+    <div class="wrap grid gap-8 py-14 sm:grid-cols-3">
+      <div class="reveal"><div class="text-[34px]">⏰</div><h3 class="mt-3 text-lg font-bold" data-i18n="pb.1.t">You’re busy with the customer in front of you</h3><p class="mt-2 text-[15px] leading-relaxed text-muted" data-i18n="pb.1.d">WhatsApp messages wait for hours. By the time you reply, they’ve bought somewhere else.</p></div>
+      <div class="reveal"><div class="text-[34px]">🏷️</div><h3 class="mt-3 text-lg font-bold" data-i18n="pb.2.t">Prices change with who answers</h3><p class="mt-2 text-[15px] leading-relaxed text-muted" data-i18n="pb.2.d">A helper quotes too low, you quote too high. Customers notice, and trust drops.</p></div>
+      <div class="reveal"><div class="text-[34px]">🌙</div><h3 class="mt-3 text-lg font-bold" data-i18n="pb.3.t">Late-night enquiries go cold</h3><p class="mt-2 text-[15px] leading-relaxed text-muted" data-i18n="pb.3.d">People shop after hours. Nobody’s there to answer, so the interest fades by morning.</p></div>
+    </div>
+  </section>
+
+  <!-- ============================================================ HOW -->
+  <section id="how" class="section">
+    <div class="wrap">
+      <div class="mx-auto max-w-2xl text-center reveal"><div class="kicker" data-i18n="how.k">How it works</div><h2 class="h-display text-[32px] sm:text-[44px]" data-i18n="how.t">Set it up once. Then it sells while you work.</h2></div>
+      <div class="mt-14 grid gap-6 lg:grid-cols-3">
+        <div class="glass reveal p-7"><div class="grid h-12 w-12 place-items-center rounded-2xl bg-brand text-lg font-extrabold text-white">1</div><h3 class="mt-5 text-xl font-bold" data-i18n="how.1.t">Tell it about your shop</h3><p class="mt-2.5 text-[15.5px] leading-relaxed text-muted" data-i18n="how.1.d">Add your products, prices and opening hours. Set how low you’ll go on each item. Show it a few of your own replies so it writes like you.</p></div>
+        <div class="glass reveal p-7"><div class="grid h-12 w-12 place-items-center rounded-2xl bg-brand text-lg font-extrabold text-white">2</div><h3 class="mt-5 text-xl font-bold" data-i18n="how.2.t">It talks to your customers</h3><p class="mt-2.5 text-[15.5px] leading-relaxed text-muted" data-i18n="how.2.d">It answers questions from your catalog, quotes prices, and negotiates in small steps, never below your lowest price. Replies come in short messages with a natural pause, not a wall of text.</p></div>
+        <div class="glass reveal p-7"><div class="grid h-12 w-12 place-items-center rounded-2xl bg-brand text-lg font-extrabold text-white">3</div><h3 class="mt-5 text-xl font-bold" data-i18n="how.3.t">You step in when it matters</h3><p class="mt-2.5 text-[15.5px] leading-relaxed text-muted" data-i18n="how.3.d">Orders, complaints and questions it can’t answer reach your WhatsApp right away. Reply yourself and the assistant steps back so you never talk over each other.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ CONTROL (interactive) -->
+  <section id="control" class="section bg-surface">
+    <div class="wrap grid items-center gap-14 lg:grid-cols-[.95fr_1.05fr]">
+      <div class="reveal">
+        <div class="kicker" data-i18n="ctl.k">You hold the price</div>
+        <h2 class="h-display text-[32px] sm:text-[44px]" data-i18n="ctl.t">The assistant can’t give away your margin.</h2>
+        <p class="lead mt-5" data-i18n="ctl.d">For every item you decide whether to show the price, give a range, or keep it for yourself. If customers may bargain, you set the lowest price you’ll accept. That number is stored separately: the assistant never sees it, and prices come from a calculator, not from the AI’s imagination.</p>
+        <ul class="mt-7 space-y-3.5 text-[15.5px]">
+          <li class="flex gap-3"><span class="mt-1 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-soft text-brand-ink">✓</span><span data-i18n="ctl.b1"><b>Five ways to talk price:</b> show it, “starts from”, a range, only after a couple of questions, or “I quote myself”.</span></li>
+          <li class="flex gap-3"><span class="mt-1 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-soft text-brand-ink">✓</span><span data-i18n="ctl.b2"><b>Discounts with conditions:</b> only when they buy two, pay an advance, or are a returning customer.</span></li>
+          <li class="flex gap-3"><span class="mt-1 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-soft text-brand-ink">✓</span><span data-i18n="ctl.b3"><b>Below your lowest price?</b> It brings you in instead of agreeing.</span></li>
+        </ul>
+      </div>
+
+      <div class="glass reveal p-5 sm:p-7" id="ladder-demo">
+        <div class="mb-1 flex items-center justify-between"><h3 class="font-display text-lg font-bold" data-i18n="ld.title">Try it: set your limits</h3><span class="badge badge-gray" data-i18n="ld.illus">Illustration</span></div>
+        <p class="mb-6 text-[13.5px] text-muted" data-i18n="ld.sub">Move the sliders and see how the assistant would come down for a customer who keeps asking.</p>
+        <div class="space-y-6">
+          <div><div class="mb-2 flex justify-between text-sm font-semibold"><label for="ld-list" data-i18n="ld.list">Your price</label><b class="tnum" id="ld-list-v">₹8,500</b></div><input id="ld-list" class="range" type="range" min="500" max="20000" step="100" value="8500" /></div>
+          <div><div class="mb-2 flex justify-between text-sm font-semibold"><label for="ld-floor" class="flex items-center gap-1.5"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span data-i18n="ld.floor">Your lowest price (private)</span></label><b class="tnum" id="ld-floor-v">₹7,650</b></div><input id="ld-floor" class="range" type="range" min="100" max="20000" step="50" value="7650" /></div>
+          <div><div class="mb-2 flex justify-between text-sm font-semibold"><label for="ld-steps" data-i18n="ld.steps">Steps it may come down in</label><b class="tnum" id="ld-steps-v">2</b></div><input id="ld-steps" class="range" type="range" min="1" max="5" step="1" value="2" /></div>
+        </div>
+        <div class="mt-7 rounded-2xl bg-surface2/70 p-4">
+          <div class="mb-3 text-[12px] font-bold uppercase tracking-wider text-muted" data-i18n="ld.path">What your customer is told</div>
+          <div id="ld-path" class="flex flex-wrap items-center gap-2"></div>
+          <div id="ld-note" class="mt-4 flex items-start gap-2.5 rounded-xl bg-brand-soft px-3.5 py-3 text-[13.5px] font-medium text-brand-ink"></div>
+        </div>
+        <div class="mt-5"><div class="mb-2 flex justify-between text-sm font-semibold"><label for="ld-ask" data-i18n="ld.ask">Customer asks for</label><b class="tnum" id="ld-ask-v">₹6,000</b></div><input id="ld-ask" class="range" type="range" min="100" max="20000" step="50" value="6000" />
+          <div id="ld-reply" class="mt-4 rounded-2xl rounded-tl-md bg-[rgb(var(--bubble-out))] px-4 py-3 text-[14.5px] font-medium shadow-card"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ PRODUCT PEEK -->
+  <section class="section overflow-hidden">
+    <div class="wrap">
+      <div class="mx-auto max-w-2xl text-center reveal"><div class="kicker" data-i18n="pk.k">Your dashboard</div><h2 class="h-display text-[32px] sm:text-[44px]" data-i18n="pk.t">See every conversation. Step in with one tap.</h2><p class="lead mt-5" data-i18n="pk.d">Pipeline, orders to confirm, customers waiting for you: all in one place, on your phone or laptop.</p></div>
+      <div class="reveal mx-auto mt-14 max-w-[1020px]">
+        <div class="overflow-hidden rounded-[20px] border border-line bg-surface shadow-pop">
+          <div class="flex items-center gap-2 border-b border-line/70 bg-surface2/70 px-4 py-2.5"><i class="h-3 w-3 rounded-full bg-[#ff6159]"></i><i class="h-3 w-3 rounded-full bg-[#ffbd2e]"></i><i class="h-3 w-3 rounded-full bg-[#28c940]"></i><span class="ml-3 rounded-md bg-surface px-3 py-0.5 text-[12px] text-muted">{{brand}} dashboard</span></div>
+          <img src="/site/dashboard.png" alt="The {{brand}} dashboard showing today’s conversations, orders and what needs the owner" width="1440" height="900" loading="lazy" class="block w-full" />
+        </div>
+        <p class="mt-4 text-center text-[12.5px] text-muted" data-i18n="pk.note">Screenshot with sample data.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ FEATURES -->
+  <section id="features" class="section bg-surface">
+    <div class="wrap">
+      <div class="mx-auto max-w-2xl text-center reveal"><div class="kicker" data-i18n="ft.k">What’s inside</div><h2 class="h-display text-[32px] sm:text-[44px]" data-i18n="ft.t">Everything a good salesperson does, nothing they shouldn’t.</h2></div>
+      <div class="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="card card-pad reveal"><div class="text-[28px]">📦</div><h3 class="mt-3 text-[17px] font-bold" data-i18n="ft.1.t">Answers from your catalog</h3><p class="mt-2 text-[15px] leading-relaxed text-muted" data-i18n="ft.1.d">Stock, variants, delivery, returns, timings. If it isn’t in your shop details, it says so and asks you. It doesn’t guess.</p></div>
+        <div class="card card-pad reveal"><div class="text-[28px]">🗣️</div><h3 class="mt-3 text-[17px] font-bold" data-i18n="ft.2.t">Hindi, English and Hinglish</h3><p class="mt-2 text-[15px] leading-relaxed text-muted" data-i18n="ft.2.d">It replies in the language the customer writes in, in the tone you’ve shown it: “ji”, emojis and all.</p></div>
+        <div class="card card-pad reveal"><div class="text-[28px]">⌨️</div><h3 class="mt-3 text-[17px] font-bold" data-i18n="ft.3.t">Paced like a person</h3><p class="mt-2 text-[15px] leading-relaxed text-muted" data-i18n="ft.3.d">It reads first, shows “typing…”, and sends short messages. If the customer adds another line, it waits and answers everything together.</p></div>
+        <div class="card card-pad reveal"><div class="text-[28px]">🤝</div><h3 class="mt-3 text-[17px] font-bold" data-i18n="ft.4.t">Bargains within your limits</h3><p class="mt-2 text-[15px] leading-relaxed text-muted" data-i18n="ft.4.d">Small steps down, festive offers, a free gift: only what you’ve allowed, and never below your lowest price.</p></div>
+        <div class="card card-pad reveal"><div class="text-[28px]">🔔</div><h3 class="mt-3 text-[17px] font-bold" data-i18n="ft.5.t">Alerts on WhatsApp</h3><p class="mt-2 text-[15px] leading-relaxed text-muted" data-i18n="ft.5.d">New order, store visit booked, a complaint, a question it couldn’t answer. You get a short message, and a daily summary every evening.</p></div>
+        <div class="card card-pad reveal"><div class="text-[28px]">🎛️</div><h3 class="mt-3 text-[17px] font-bold" data-i18n="ft.6.t">You’re always in control</h3><p class="mt-2 text-[15px] leading-relaxed text-muted" data-i18n="ft.6.d">Reply to a customer yourself and the assistant pauses. Switch it off with one word on WhatsApp, or one tap here.</p></div>
+        <div class="card card-pad reveal"><div class="text-[28px]">✅</div><h3 class="mt-3 text-[17px] font-bold" data-i18n="ft.7.t">Orders and visits, captured</h3><p class="mt-2 text-[15px] leading-relaxed text-muted" data-i18n="ft.7.d">When a customer agrees, it records the items, price and address and asks you to confirm. Nothing is sold behind your back.</p></div>
+        <div class="card card-pad reveal"><div class="text-[28px]">📱</div><h3 class="mt-3 text-[17px] font-bold" data-i18n="ft.8.t">Set up on your phone</h3><p class="mt-2 text-[15px] leading-relaxed text-muted" data-i18n="ft.8.d">Use the dashboard or just talk to it on WhatsApp. It reads every change back to you before saving.</p></div>
+        <div class="card card-pad reveal relative"><span class="badge badge-amber absolute right-4 top-4" data-i18n="soon">Coming soon</span><div class="text-[28px]">🎤</div><h3 class="mt-3 text-[17px] font-bold" data-i18n="ft.9.t">Voice notes</h3><p class="mt-2 text-[15px] leading-relaxed text-muted" data-i18n="ft.9.d">Understand voice notes from customers and from you, in Hindi and English.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ HONEST -->
+  <section class="section">
+    <div class="wrap grid items-center gap-12 lg:grid-cols-2">
+      <div class="reveal"><div class="kicker" data-i18n="hn.k">Honest by design</div><h2 class="h-display text-[32px] sm:text-[44px]" data-i18n="hn.t">Your customers’ trust is your business.</h2><p class="lead mt-5" data-i18n="hn.d">A sales assistant that lies or pressures costs you customers. So ours is built not to.</p></div>
+      <ul class="space-y-3.5 reveal">
+        <li class="glass flex gap-3.5 p-4"><span class="text-[22px]">🚫</span><span class="text-[15.5px]" data-i18n="hn.1"><b>No made-up urgency.</b> It only says “only 3 left” when your stock count says so.</span></li>
+        <li class="glass flex gap-3.5 p-4"><span class="text-[22px]">🪪</span><span class="text-[15.5px]" data-i18n="hn.2"><b>Honest if asked.</b> If a customer sincerely asks whether it’s a person, it says it’s the shop’s assistant and offers to bring you in.</span></li>
+        <li class="glass flex gap-3.5 p-4"><span class="text-[22px]">🔒</span><span class="text-[15.5px]" data-i18n="hn.3"><b>Never asks for card numbers, passwords or OTPs.</b></span></li>
+        <li class="glass flex gap-3.5 p-4"><span class="text-[22px]">✋</span><span class="text-[15.5px]" data-i18n="hn.4"><b>Opt-outs respected.</b> Customers who say stop are not messaged again. Personal contacts are never answered by the assistant.</span></li>
+        <li class="glass flex gap-3.5 p-4"><span class="text-[22px]">🏪</span><span class="text-[15.5px]" data-i18n="hn.5"><b>Your data stays yours.</b> One shop’s customers and prices are never used for another. You can have it deleted.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============================================================ FAQ -->
+  <section id="faq" class="section bg-surface">
+    <div class="wrap max-w-[860px]">
+      <div class="text-center reveal"><div class="kicker" data-i18n="faq.k">Questions</div><h2 class="h-display text-[32px] sm:text-[44px]" data-i18n="faq.t">Things shop owners ask us</h2></div>
+      <div class="mt-12 divide-y divide-line/70 rounded-2xl border border-line/70 bg-bg reveal">
+        <details class="group p-5"><summary class="flex items-center justify-between gap-4 text-[16.5px] font-bold"><span data-i18n="q1.q">Will it give discounts I didn’t allow?</span><svg class="chev h-5 w-5 shrink-0 transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary><p class="mt-3 text-[15.5px] leading-relaxed text-muted" data-i18n="q1.a">No. Every price it quotes comes from a calculator that follows your rules. Your lowest price is kept apart from the AI, so it can’t reveal or go below what it never sees. If a customer wants less, it brings you in.</p></details>
+        <details class="group p-5"><summary class="flex items-center justify-between gap-4 text-[16.5px] font-bold"><span data-i18n="q2.q">What if it doesn’t know the answer?</span><svg class="chev h-5 w-5 shrink-0 transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary><p class="mt-3 text-[15.5px] leading-relaxed text-muted" data-i18n="q2.a">It tells the customer you’ll get back to them and sends you the question. When you answer, it can remember the answer for next time, but only after you confirm.</p></details>
+        <details class="group p-5"><summary class="flex items-center justify-between gap-4 text-[16.5px] font-bold"><span data-i18n="q3.q">Do I need a new phone number?</span><svg class="chev h-5 w-5 shrink-0 transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary><p class="mt-3 text-[15.5px] leading-relaxed text-muted" data-i18n="q3.a">It’s built to run on your shop’s own WhatsApp Business number, so customers keep messaging the number they already know. During the pilot we connect it with you.</p></details>
+        <details class="group p-5"><summary class="flex items-center justify-between gap-4 text-[16.5px] font-bold"><span data-i18n="q4.q">Can I still reply myself?</span><svg class="chev h-5 w-5 shrink-0 transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary><p class="mt-3 text-[15.5px] leading-relaxed text-muted" data-i18n="q4.a">Always. The moment you reply to a customer, the assistant pauses on that chat for a while so you never talk over each other. You can also take over from the dashboard.</p></details>
+        <details class="group p-5"><summary class="flex items-center justify-between gap-4 text-[16.5px] font-bold"><span data-i18n="q5.q">What does it cost?</span><svg class="chev h-5 w-5 shrink-0 transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary><p class="mt-3 text-[15.5px] leading-relaxed text-muted" data-i18n="q5.a">We’re running pilots with a small group of shops first, and will set simple pricing once we’ve measured what it really costs to serve a conversation. Pilot shops hear about pricing before anything is charged.</p></details>
+        <details class="group p-5"><summary class="flex items-center justify-between gap-4 text-[16.5px] font-bold"><span data-i18n="q6.q">Is my customers’ data safe?</span><svg class="chev h-5 w-5 shrink-0 transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></summary><p class="mt-3 text-[15.5px] leading-relaxed text-muted"><span data-i18n="q6.a">Each shop’s data is separated from every other shop’s, enforced in the database itself. See our</span> <a class="font-semibold text-brand-ink underline underline-offset-2" href="/privacy.html" data-i18n="foot.privacy">Privacy policy</a> <span data-i18n="q6.b">and how to</span> <a class="font-semibold text-brand-ink underline underline-offset-2" href="/data-deletion.html" data-i18n="q6.c">delete your data</a>.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ CTA -->
+  <section class="section">
+    <div class="wrap">
+      <div class="relative overflow-hidden rounded-[28px] bg-[#0b3d2c] px-6 py-16 text-center text-white sm:px-14 sm:py-20 reveal">
+        <div class="pointer-events-none absolute inset-0 opacity-60" style="background: radial-gradient(50% 60% at 85% 0%, rgb(34 197 126 / .45), transparent 70%), radial-gradient(40% 50% at 0% 100%, rgb(245 165 36 / .25), transparent 70%)"></div>
+        <div class="relative"><h2 class="h-display mx-auto max-w-2xl text-[32px] sm:text-[46px]" data-i18n="cta.t">Don’t let the next message go cold.</h2>
+          <p class="mx-auto mt-5 max-w-xl text-[17px] text-white/80" data-i18n="cta.d">We’re onboarding a small group of shops for a pilot. Tell us about yours and we’ll set it up with you.</p>
+          <div class="mt-9 flex flex-wrap justify-center gap-3"><a href="mailto:{{contact}}?subject=Pilot%20at%20my%20shop" class="btn btn-lg bg-white text-[#0b3d2c] hover:bg-white/90" data-i18n="hero.cta">Start a pilot at your shop</a><a href="/app/login" class="btn btn-lg border border-white/30 text-white hover:bg-white/10" data-i18n="nav.login">Log in</a></div></div>
+      </div>
+    </div>
+  </section>
+</main>
+<!--@footer-->
+</body>
+</html>

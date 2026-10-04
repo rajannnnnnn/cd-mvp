@@ -92,10 +92,10 @@ export default function Home() {
           <h2 className="text-lg font-bold">{t('dash.ai', 'AI assistant')}</h2>
           <p className="text-xs text-muted">Last 30 days</p>
           <div className="mt-4 flex items-center gap-5">
-            <Ring value={ai.autonomous_pct ?? 0} size={104} label={<div><div className="tnum font-display text-2xl font-extrabold">{ai.autonomous_pct ?? '–'}{ai.autonomous_pct != null && '%'}</div><div className="text-[10px] font-semibold uppercase tracking-wide text-muted">{t('dash.autonomy', 'handled alone')}</div></div>} />
+            <Ring value={ai.autonomous_pct ?? 0} size={112} label={<div><div className="tnum font-display text-2xl font-extrabold">{ai.autonomous_pct ?? '–'}{ai.autonomous_pct != null && '%'}</div><div className="text-[10px] font-semibold leading-tight tracking-wide text-muted">{t('dash.autonomy', 'handled alone')}</div></div>} />
             <dl className="grid flex-1 gap-3 text-sm">
               <div className="flex justify-between"><dt className="text-muted">Replies planned</dt><dd className="tnum font-semibold">{ai.turns_30d ?? '–'}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted">Avg. thinking time</dt><dd className="tnum font-semibold">{ov.data ? `${((ai.avg_latency_ms ?? 0) / 1000).toFixed(1)}s` : '–'}</dd></div>
+              <div className="flex justify-between"><dt className="text-muted">Avg. thinking time</dt><dd className="tnum font-semibold">{ov.data ? ((ai.avg_latency_ms ?? 0) < 1000 ? 'under 1 s' : `${((ai.avg_latency_ms ?? 0) / 1000).toFixed(1)} s`) : '–'}</dd></div>
               <div className="flex justify-between"><dt className="text-muted">AI cost</dt><dd className="tnum font-semibold">{ov.data ? inr(ai.cost_inr_30d ?? 0) : '–'}</dd></div>
             </dl>
           </div>

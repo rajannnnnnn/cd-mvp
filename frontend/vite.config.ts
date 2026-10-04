@@ -2,9 +2,23 @@ import { type Plugin } from 'vite'
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { resolve, dirname } from 'node:path'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
+
+
+/** Marketing pages are plain static HTML. Shared header/footer and the brand constants are filled in at build time
+ *  (and in dev), so every page ships complete HTML with no client-side rendering. */
+function sitePartials(): Plugin {
+  const brand = process.env.VITE_BRAND ?? 'Saathi'
+  const contact = process.env.VITE_CONTACT_EMAIL ?? 'hello@saathi.example'
+  const read = (f: string) => readFileSync(resolve(__dirname, 'src/site/partials', f), 'utf8')
+  return {
+    name: 'site-partials', enforce: 'pre',
+    transformIndexHtml: { order: 'pre', handler: (html) => html.replaceAll('<!--@header-->', read('header.html')).replaceAll('<!--@footer-->', read('footer.html')).replaceAll('{{brand}}', brand).replaceAll('{{contact}}', contact) },
+  }
+}
 
 /** Dev only: the logged-in app is a single-page app under /app/*; the marketing pages are plain static HTML. */
 function appFallback(): Plugin {
@@ -17,7 +31,7 @@ function appFallback(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), appFallback()],
+  plugins: [react(), sitePartials(), appFallback()],
   appType: 'mpa',
   resolve: { alias: { '@': resolve(__dirname, 'src') } },
   build: {

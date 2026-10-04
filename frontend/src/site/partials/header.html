@@ -1,0 +1,21 @@
+<header id="top" class="sticky top-0 z-40 border-b border-line/60 bg-bg/80 backdrop-blur-lg">
+  <div class="mx-auto flex max-w-[1180px] items-center gap-4 px-4 py-3 lg:px-8">
+    <a href="/" class="flex items-center gap-2.5 font-display text-[20px] font-extrabold tracking-tight" aria-label="{{brand}} home">
+      <span class="grid h-9 w-9 place-items-center rounded-xl bg-brand text-white shadow-[0_8px_18px_-8px_rgb(var(--brand))]">
+        <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.5-4.6A8 8 0 1 1 21 12Z"/><path d="m9 11.5 2 2 4-4"/></svg>
+      </span>{{brand}}
+    </a>
+    <nav class="ml-6 hidden items-center gap-1 text-[14.5px] font-semibold text-muted lg:flex" aria-label="Main">
+      <a class="rounded-lg px-3 py-2 hover:bg-surface2 hover:text-ink" href="/#how" data-i18n="nav.how">How it works</a>
+      <a class="rounded-lg px-3 py-2 hover:bg-surface2 hover:text-ink" href="/#control" data-i18n="nav.control">Your price limits</a>
+      <a class="rounded-lg px-3 py-2 hover:bg-surface2 hover:text-ink" href="/#features" data-i18n="nav.features">Features</a>
+      <a class="rounded-lg px-3 py-2 hover:bg-surface2 hover:text-ink" href="/#faq" data-i18n="nav.faq">Questions</a>
+    </nav>
+    <div class="ml-auto flex items-center gap-1.5">
+      <button id="lang-toggle" class="btn btn-ghost btn-sm" aria-label="Change language"><svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg><span id="lang-label" class="font-bold">हिं</span></button>
+      <button id="theme-toggle" class="btn btn-ghost btn-icon" aria-label="Toggle dark mode"><svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg></button>
+      <a href="/app/login" class="btn btn-outline btn-sm hidden sm:inline-flex" data-i18n="nav.login">Log in</a>
+      <a href="mailto:{{contact}}?subject=Pilot%20at%20my%20shop" class="btn btn-primary btn-sm" data-i18n="nav.pilot">Start a pilot</a>
+    </div>
+  </div>
+</header>

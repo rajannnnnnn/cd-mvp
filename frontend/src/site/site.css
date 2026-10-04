@@ -1,0 +1,42 @@
+  .wrap { @apply mx-auto max-w-[1180px] px-4 lg:px-8; }
+  .eyebrow { @apply inline-flex items-center gap-2 rounded-full border border-brand/25 bg-brand-soft px-3.5 py-1.5 text-[13px] font-bold text-brand-ink; }
+  .h-display { @apply font-display font-extrabold tracking-tight; letter-spacing: -0.025em; text-wrap: balance; line-height: 1.1; }
+  .section { @apply py-20 sm:py-28; }
+  .lead { @apply text-[17px] leading-relaxed text-muted sm:text-[19px]; }
+  .reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1); }
+  .reveal.in { opacity: 1; transform: none; }
+  .glass { @apply rounded-2xl border border-line/70 bg-surface/80 shadow-card backdrop-blur; }
+  .kicker { @apply mb-3 text-[13px] font-bold uppercase tracking-[0.14em] text-brand-ink; }
+@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
+
+html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+.hero-glow { background:
+  radial-gradient(60% 50% at 78% 18%, rgb(var(--brand) / .20), transparent 70%),
+  radial-gradient(45% 40% at 12% 8%, rgb(var(--accent) / .22), transparent 70%),
+  radial-gradient(50% 45% at 55% 95%, rgb(var(--info) / .10), transparent 70%); }
+.dotgrid { background-image: radial-gradient(rgb(var(--ink) / .08) 1px, transparent 1px); background-size: 22px 22px; mask-image: radial-gradient(70% 70% at 50% 40%, #000 30%, transparent 100%); }
+
+/* hero chat */
+.chat-msg { display: none; }
+.chat-msg.show { display: block; animation: pop .35s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes pop { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
+.typing-bubble { display: none; }
+.typing-bubble.show { display: block; animation: pop .25s ease both; }
+.float-card { animation: floaty 6s ease-in-out infinite; }
+@keyframes floaty { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-8px) } }
+@media (prefers-reduced-motion: reduce) { .float-card { animation: none; } }
+
+/* price ladder demo */
+.range { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; border-radius: 999px; background: rgb(var(--line)); outline: none; }
+.range::-webkit-slider-thumb { -webkit-appearance: none; width: 26px; height: 26px; border-radius: 50%; background: rgb(var(--brand)); border: 4px solid rgb(var(--surface)); box-shadow: 0 2px 8px rgb(0 0 0 / .3); cursor: pointer; }
+.range::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: rgb(var(--brand)); border: 4px solid rgb(var(--surface)); cursor: pointer; }
+.step-pill { transition: all .35s cubic-bezier(.2,.7,.2,1); }
+details > summary { list-style: none; cursor: pointer; }
+details > summary::-webkit-details-marker { display: none; }
+details[open] .chev { transform: rotate(180deg); }
+.prose-legal h2 { @apply mt-10 text-[22px] font-extrabold; }
+.prose-legal h3 { @apply mt-6 text-[17px] font-bold; }
+.prose-legal p, .prose-legal li { @apply text-[15.5px] leading-relaxed text-ink/85; }
+.prose-legal p { @apply mt-3; }
+.prose-legal ul { @apply mt-3 list-disc space-y-1.5 pl-6; }
+.prose-legal a { @apply font-semibold text-brand-ink underline underline-offset-2; }

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b8f5b" />
+  <title>Data deletion — {{brand}}</title>
+  <meta name="description" content="How to have your data deleted from {{brand}}." />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <script>try{var t=localStorage.getItem('saathi.theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=t}catch(e){}</script>
+  <script type="module" src="/src/site/site.ts"></script>
+</head>
+<body>
+<!--@header-->
+<main class="wrap max-w-[820px] py-14 sm:py-20">
+  <p class="kicker">Your data</p>
+  <h1 class="h-display text-[34px] sm:text-[44px]">Data deletion</h1>
+  <p class="mt-3 text-sm text-muted">Last updated: 4 October 2026</p>
+  <div class="mt-6 rounded-xl border border-accent/40 bg-accent-soft px-4 py-3 text-[14px] font-medium text-[rgb(110_70_0)]">Draft for review. Bracketed items are filled in when the operating entity is registered. Have this checked by a lawyer before launch.</div>
+  <div class="prose-legal">
+
+<p>You can ask us to delete your data at any time. This page explains how, what is deleted, and what to expect.</p>
+
+<h2>If you are a shop owner or staff member</h2>
+<ol class="mt-3 list-decimal space-y-1.5 pl-6 text-[15.5px] leading-relaxed">
+  <li>Write to <a href="mailto:{{contact}}?subject=Delete%20my%20data">{{contact}}</a> from the contact email you gave us, or message us from your registered WhatsApp number, and say what you want deleted (your whole shop, or only your own login).</li>
+  <li>We confirm it is you, by sending a code to your registered WhatsApp number.</li>
+  <li>If you wish, we first send you a copy of your data (shop details, catalog, conversations, orders) in a machine-readable file. Floor prices, access tokens and secrets are not included in exports.</li>
+  <li>We delete the data and confirm in writing. This normally takes under 7 days and never more than 30.</li>
+</ol>
+<p><b>What is deleted:</b> the shop account, team members, WhatsApp connection details, catalog, prices (including floor prices), offers, sample replies, customers, conversations and messages, orders and visits, alerts, and logs tied to the shop. It cannot be undone.</p>
+<p><b>What may remain:</b> records we must keep by law (for example billing records), and anonymous aggregate statistics that do not identify any person or shop. Backups are overwritten within [30] days.</p>
+
+<h2>If you are a customer of a shop that uses {{brand}}</h2>
+<ul>
+  <li><b>Stop messages:</b> reply “stop” to the shop. We record your choice and the assistant will not message you again.</li>
+  <li><b>Erase your data:</b> ask the shop to delete your conversation, or write to <a href="mailto:{{contact}}?subject=Erase%20my%20chat%20data">{{contact}}</a> from, or naming, the mobile number involved and the shop you messaged. We verify the request with a code sent to your number, then remove your number, name, messages and any orders or visits linked to it from that shop’s records.</li>
+</ul>
+
+<h2>Facebook / Meta data deletion</h2>
+<p>If you connected a WhatsApp number through Meta and want {{brand}} to delete the data it received through Meta, follow the steps above for shop owners. Removing {{brand}} from your Meta Business settings also stops it from receiving new messages.</p>
+
+<h2>Questions</h2>
+<p>Write to <a href="mailto:{{contact}}">{{contact}}</a>. See also our <a href="/privacy.html">Privacy policy</a>.</p>
+  </div>
+</main>
+<!--@footer-->
+</body>
+</html>

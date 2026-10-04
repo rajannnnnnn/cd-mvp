@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b8f5b" />
+  <title>Privacy policy — {{brand}}</title>
+  <meta name="description" content="How {{brand}} collects, uses, stores and deletes personal data." />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <script>try{var t=localStorage.getItem('saathi.theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=t}catch(e){}</script>
+  <script type="module" src="/src/site/site.ts"></script>
+</head>
+<body>
+<!--@header-->
+<main class="wrap max-w-[820px] py-14 sm:py-20">
+  <p class="kicker">Legal</p>
+  <h1 class="h-display text-[34px] sm:text-[44px]">Privacy policy</h1>
+  <p class="mt-3 text-sm text-muted">Last updated: 4 October 2026</p>
+  <div class="mt-6 rounded-xl border border-accent/40 bg-accent-soft px-4 py-3 text-[14px] font-medium text-[rgb(110_70_0)]">Draft for review. Bracketed items are filled in when the operating entity is registered. Have this checked by a lawyer before launch.</div>
+  <div class="prose-legal">
+
+<p>{{brand}} (“we”, “us”) is a service operated by [legal entity name and registered address]. It helps shops answer and sell to their customers on WhatsApp. This policy explains what personal data we handle, why, and what rights you have under India’s Digital Personal Data Protection Act, 2023 (DPDP Act).</p>
+
+<h2>Who this covers</h2>
+<ul>
+  <li><b>Shop owners and staff</b> who sign in to the dashboard (our customers).</li>
+  <li><b>Shoppers</b> who message a shop that uses {{brand}} (the shop’s customers).</li>
+</ul>
+<p>For shoppers’ data, the shop is the <b>data fiduciary</b> (it decides why the data is used) and {{brand}} is its <b>data processor</b>. For shop owners’ and staff’s own account data, {{brand}} is the data fiduciary.</p>
+
+<h2>What we collect</h2>
+<h3>From shop owners and staff</h3>
+<ul>
+  <li>Name and WhatsApp mobile number (used as your login identity).</li>
+  <li>One-time login codes (stored only as a keyed hash, and expire in minutes).</li>
+  <li>Device and sign-in details (device type, IP address, time) shown to you under Settings → Security and used to detect abuse.</li>
+  <li>The shop information you enter: profile, opening hours, catalog, prices, offers and sample replies.</li>
+  <li>Your lowest (“floor”) prices. These are stored separately from other data, are never shown back to anyone, and are never given to the AI model.</li>
+</ul>
+<h3>From shoppers</h3>
+<ul>
+  <li>Mobile number and WhatsApp profile name.</li>
+  <li>The messages exchanged with the shop (customer, shop owner and assistant), with delivery and read status.</li>
+  <li>Details a shopper gives to place an order or book a visit, such as delivery address and preferred time.</li>
+</ul>
+<p>We do not ask shoppers for card numbers, passwords or one-time codes, and the assistant is instructed never to.</p>
+
+<h2>Why we use it</h2>
+<ul>
+  <li>To deliver the service: receive WhatsApp messages, prepare replies, send them, and alert the shop owner.</li>
+  <li>To keep the service safe and working: security, abuse prevention, fixing errors, and measuring cost and quality.</li>
+  <li>To meet legal obligations and respond to lawful requests.</li>
+</ul>
+<p>We do not sell personal data. We do not use one shop’s customer data to serve another shop, and we do not use shoppers’ messages to build advertising profiles.</p>
+
+<h2>AI processing</h2>
+<p>To write replies, relevant parts of a conversation and the shop’s catalog are sent to a third-party AI model provider. The provider receives only what is needed for that reply. Prices quoted to shoppers are calculated by our own pricing engine rather than the AI model, and floor prices are never sent to the provider. Voice notes, when supported, are transcribed by a speech-to-text provider.</p>
+
+<h2>Who else sees data</h2>
+<ul>
+  <li><b>Meta Platforms</b> (WhatsApp Business Platform), which carries the messages.</li>
+  <li><b>Infrastructure providers</b> that host our servers and database: [hosting provider and region].</li>
+  <li><b>AI model and speech providers</b>, as described above: [provider names].</li>
+</ul>
+<p>These providers process data only to provide their service to us, under agreements that restrict other use.</p>
+
+<h2>Where it is stored and how it is protected</h2>
+<p>Data is stored in [region]. Each shop’s data is separated from every other shop’s inside the database itself, so one shop cannot read another’s data even through a software error. Connections are encrypted in transit, secrets and WhatsApp access tokens are encrypted at rest, login codes are hashed, and access by our staff is limited and logged.</p>
+
+<h2>How long we keep it</h2>
+<ul>
+  <li>Conversations and customer records: while the shop uses {{brand}}, unless the shop or shopper asks for earlier deletion. Technical logs and raw webhook records are kept for a short fixed period and then removed.</li>
+  <li>When a shop leaves, we delete its data within [30] days, except what the law requires us to keep.</li>
+</ul>
+
+<h2>Your rights</h2>
+<p>Under the DPDP Act you may ask to access, correct, update or erase your personal data, to withdraw consent, and to nominate someone to act for you. You can also complain to us and, if unresolved, to the Data Protection Board of India.</p>
+<ul>
+  <li><b>Shoppers:</b> you can tell the shop, in the chat, to stop messaging you (say “stop”); we record that and the assistant will not message you again. To ask for your data to be erased, contact the shop or write to us.</li>
+  <li><b>Shop owners and staff:</b> you can ask us to export or delete your data at any time. See <a href="/data-deletion.html">how to delete your data</a>.</li>
+</ul>
+
+<h2>Children</h2>
+<p>{{brand}} is for businesses and is not directed at children. We do not knowingly process children’s data.</p>
+
+<h2>Changes</h2>
+<p>If we change this policy in a way that matters, we will tell shop owners in the dashboard or on WhatsApp before it takes effect.</p>
+
+<h2>Contact</h2>
+<p>Grievance officer: [name], <a href="mailto:{{contact}}">{{contact}}</a>, [postal address]. We aim to respond within 7 days.</p>
+  </div>
+</main>
+<!--@footer-->
+</body>
+</html>

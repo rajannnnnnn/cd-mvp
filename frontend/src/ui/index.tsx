@@ -197,7 +197,7 @@ export function AreaChart({ series, labels, height = 180, colors = ['rgb(var(--b
           return <g key={k}><path d={`${line} L${X(n - 1)},${H - P.b} L${X(0)},${H - P.b} Z`} fill={`url(#g${id}${k})`} /><path d={line} fill="none" stroke={colors[k]} strokeWidth="2.5" strokeLinecap="round" /></g>
         })}
         {hover !== null && <g><line x1={X(hover)} x2={X(hover)} y1={P.t} y2={H - P.b} stroke="rgb(var(--ink) / .25)" />{series.map((s, k) => <circle key={k} cx={X(hover)} cy={Y(s[hover])} r="4.5" fill="rgb(var(--surface))" stroke={colors[k]} strokeWidth="2.5" />)}</g>}
-        {labels.map((l, i) => (i % Math.ceil(n / 7) === 0 || i === n - 1) && <text key={i} x={X(i)} y={H - 4} textAnchor={i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'} fontSize="11" fill="rgb(var(--muted))">{l}</text>)}
+        {labels.map((l, i) => (i === n - 1 || (i % Math.ceil(n / 7) === 0 && n - 1 - i >= Math.ceil(n / 7) * 0.6)) && <text key={i} x={X(i)} y={H - 4} textAnchor={i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'} fontSize="11" fill="rgb(var(--muted))">{l}</text>)}
       </svg>
       {hover !== null && (
         <div className="pointer-events-none absolute top-0 rounded-xl border border-line bg-surface px-3 py-2 text-xs shadow-pop" style={{ left: `${(X(hover) / W) * 100}%`, transform: `translateX(${hover > n / 2 ? '-105%' : '5%'})` }}>
