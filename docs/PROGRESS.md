@@ -79,8 +79,10 @@ p95 105 s. **Diagnosis:** that run overlapped a 1,500-message flood from one cus
 per *number* (ordering key `num:<id>`, contradicting the per-conversation rule in the Technical Design), so everyone on that number queued behind the flood
 at the 5 msgs/s per-number limit (Meta's coexistence throughput). The other two shops answered normally. **Fixed:** outbound actions are now ordered per
 conversation (`conv:<id>`); the per-number token bucket stays shared. A per-conversation flood guard (`MAX_AI_TURNS_PER_CONVERSATION_10MIN`, default 30) records
-but no longer answers messages beyond the budget. Both have tests. **Still to do:** re-run the conversation load test on a clean database with nothing else
-running and record the new p50/p95 here.
+but no longer answers messages beyond the budget. Both have tests. **Re-measured on a clean database, nothing else running** (same 60 customers × 4 messages): all 240 messages handled in 20 s
+(was 252 s), 0 dead letters, 0 failed sends, agent pipeline p95 1 ms, **message-to-first-reply p50 8.5 s / p95 12.2 s** (was p95 105 s). That
+figure still contains the intentional human-like delay (reading, typing; up to 20 s by default), so NFR-2 (excluding pacing) holds for the
+stand-in model; it must be re-measured with a real model.
 - Browser suite: **36/36** passing against the dev stack on a freshly seeded database (desktop and mobile projects), including the whole path
   marketing → sign-up → onboarding → live → billing → analytics, shop-address links, and paying in test mode. Backend: **273 tests passing** (including
   billing, onboarding, analytics, alert routing, migrations-with-data) and evaluations 32/32 (run with `env -u OTP_PER_PHONE_PER_HOUR -u OTP_PER_IP_PER_HOUR`
@@ -143,7 +145,7 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
 4. Run the conversation evaluation suite (`backend/tests/evals/`, command in `docs/RUNNING.md`) against each candidate model
    once an API key exists; compare safety first, then cost and latency; record the choice and cost per conversation in a new
    ADR. Grow the scenario list with every real failure found in pilots.
-5. Re-measure reply latency on a clean database (fix described above), then extend the load tests with a real model (NFR-2 p95 < 8 s) and a larger tenant count (NFR-5: 50 businesses, 5,000
+5. Extend the load tests with a real model (NFR-2 p95 < 8 s) and a larger tenant count (NFR-5: 50 businesses, 5,000
    conversations/day); the harness is `backend/loadtest/run.py`.
 6. Replace synthetic Meta payloads with recordings from a real test number; add contract tests per event type.
 7. Verify the whole Embedded Signup flow with a real Meta number: the browser side (Settings → Numbers → "Connect a
