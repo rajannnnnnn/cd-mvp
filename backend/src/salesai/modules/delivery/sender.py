@@ -48,11 +48,13 @@ class OutboundSender:
                     msg = await (await c.execute("SELECT * FROM messages WHERE id=%s", (p["message_id"],))).fetchone()
 
             # --- send-time checks
-            if conv["version"] != p["version"]:                                      # INV-7
+            human = bool(p.get("human"))
+            if not human and conv["version"] != p["version"]:                        # INV-7 (an owner's own message is never stale)
                 await self._cancel(bid, msg, "superseded")
                 return
-            block = ai_block_reason(business=biz, conv=conv, customer=cust, number=num, ignore_pause=bool(p.get("allow_while_paused")))
-            if block:                                                                 # INV-10
+            block = ai_block_reason(business=biz, conv=conv, customer=cust, number=num, ignore_pause=bool(p.get("allow_while_paused"))) \
+                if not human else (None if num["status"] == "connected" else "number_disconnected")
+            if block:                                                                 # INV-10 (AI rules; humans only need a live number)
                 await self._cancel(bid, msg, block)
                 return
             if action in ("send_text", "send_reaction") and not window_open(conv["last_inbound_at"]):   # INV-8
@@ -76,7 +78,7 @@ class OutboundSender:
                 res = await channel.send_reaction(ref, cust["wa_id"], p["inbound_wa_id"], p["emoji"])
             else:
                 res = await channel.send_text(ref, cust["wa_id"], msg["body"])
-            await self._record(bid, cid, msg, res, num["id"], last=bool(p.get("last_part")) or action == "send_reaction", version=p["version"])
+            await self._record(bid, cid, msg, res, num["id"], last=bool(p.get("last_part")) or action == "send_reaction", version=p["version"] if not human else conv["version"])
 
     # ------------------------------------------------------------------
     async def _record(self, bid: uuid.UUID, cid: uuid.UUID, msg: dict[str, Any] | None, res: SendResult, number_id: uuid.UUID,

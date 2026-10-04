@@ -55,10 +55,12 @@ class Settings(BaseSettings):
 
     # --- api
     allowed_origins: str = "http://localhost:5173,http://localhost:8080"
+    trust_proxy: bool = True             # honour X-Forwarded-For from the reverse proxy
     access_token_ttl_s: int = 900
     refresh_token_ttl_s: int = 60 * 60 * 24 * 30
     otp_ttl_s: int = 300
     otp_max_attempts: int = 5
+    otp_min_interval_s: int = 20          # spacing between code requests for one number
     otp_per_phone_per_hour: int = 5
     otp_per_ip_per_hour: int = 30
 

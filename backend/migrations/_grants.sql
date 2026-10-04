@@ -11,7 +11,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
   products, product_variants, pricing_policies, offers,
   customers, conversations, turns, messages,
   negotiations, deals, handoffs, knowledge_gaps,
-  owner_messages, config_proposals
+  owner_messages, config_proposals, idempotency_keys
 TO app_user;
 GRANT SELECT, INSERT ON audit_log TO app_user;            -- append-only from tenant code
 GRANT SELECT ON accounts TO app_user;                      -- RLS limits it to the tenant's members
@@ -35,5 +35,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON businesses TO app_system;   -- onboardin
 GRANT SELECT ON business_users, whatsapp_numbers, conversations, customers TO app_system;
 GRANT UPDATE (status, quality_rating, status_reason) ON whatsapp_numbers TO app_system;
 GRANT SELECT ON audit_log TO app_system;
+-- operator console aggregates (counts only; no tenant content is returned by operator endpoints)
+GRANT SELECT ON turns, messages, handoffs TO app_system;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO app_system;
 GRANT EXECUTE ON FUNCTION current_business_id() TO app_system;

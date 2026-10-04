@@ -44,6 +44,7 @@ class OutboundActionRequested(_P):
     emoji: str | None = None
     allow_while_paused: bool = False
     last_part: bool = False
+    human: bool = False                   # a person (owner/staff) wrote this; AI-specific rules do not apply
 
 
 class TurnDecided(_P):

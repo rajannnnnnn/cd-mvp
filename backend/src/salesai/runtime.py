@@ -8,7 +8,9 @@ from typing import Any
 from salesai.config import Settings, get_settings
 from salesai.db import Database
 from salesai.events.relay import OutboxRelay
+from salesai.modules.auth import AuthService
 from salesai.modules.channels import ChannelRegistry
+from salesai.modules.channels.simulator import SimulatorNetwork
 from salesai.modules.agent import AgentService, Models
 from salesai.modules.agent.llm.factory import make_llm
 from salesai.modules.conversations import HeuristicEOT, InboundRouter, TurnWorker
@@ -44,6 +46,9 @@ class Runtime:
         self.turns = TurnWorker(db, self.agent, HeuristicEOT())
         self.sender = OutboundSender(db, self.channels)
         self.owner = OwnerLoop(db, self.channels, self.llm, settings.llm_model_check)
+        self.auth = AuthService(db, self.channels, settings)
+        self.sim = SimulatorNetwork(db, settings.meta_app_secret)
+        self.hub: Any = None
         self.extra: dict[str, Any] = {}
         self._wire()
 
