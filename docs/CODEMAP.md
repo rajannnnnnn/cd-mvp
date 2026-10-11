@@ -31,7 +31,7 @@ Process roles of the one image: `api`, `ingress`, `web` (both), `worker`, `sched
 
 `site/` marketing page logic (hero, price-limits demo, EN/HI), `auth/` (login, token store), `api/` (generated typed client,
 SSE), `app/` (shell, routes), `features/` (onboarding wizard, billing, analytics and reports, dashboard, conversations, pipeline, inbox, catalog (the Products and Offers pages share `features/catalog/shared.tsx`: cards/grid, per-item edit/delete/on-off, ticks and bulk actions, docked editor; category picker in `CategoryField.tsx`), voice (owner style examples, shown in Settings → My voice), customers,
-settings, the practice chat (`playground/`, route `/try`), operator), `ui/` (design system), `i18n/`, `lib/`. Static pages at the root: `index.html`,
+settings (incl. Support tickets, `features/support/`), the practice chat (`playground/`, route `/try`), operator), `ui/` (design system), `i18n/`, `lib/`. Static pages at the root: `index.html`,
 `privacy.html`, `terms.html`, `data-deletion.html`; the app is `app/index.html` served under `/app`.
 
 ## Invariants → tests

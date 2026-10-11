@@ -193,4 +193,6 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
   types (fixed, starts from, range, on request; one per product, shared by its variants), and keeps bargaining in its own card. Offers got the Products
   layout (cards/grid, switch + confirm, ticks + bulk on/off/delete, docked editor) and can target a whole category as well as one product
   (migration `0007_offer_category.sql`; the pricing role gets column-level SELECT on `products(id, business_id, category)` only).
+  Settings → Support (ADR 0020, migration `0008_support.sql`): an owner or staff member opens a ticket in one step, support (operator console →
+  Support) answers in the same thread, the owner can mark it sorted or reopen it by replying. Tests: `test_support.py`, `e2e/support.spec.ts`.
 

@@ -24,3 +24,4 @@ superseded by a new ADR, never rewritten. Status is `accepted` unless stated.
 | [0017](0017-alert-routing.md) | Alert routing to the platform team |
 | [0018](0018-self-serve-signup-onboarding-slugs.md) | Self-serve sign-up, onboarding and shop addresses |
 | [0019](0019-billing.md) | Billing: plans, trial, GST invoices, payment provider port |
+| [0020](0020-support-tickets.md) | Support tickets from Settings; operators read ticket text |

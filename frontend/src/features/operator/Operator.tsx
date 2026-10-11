@@ -1,15 +1,16 @@
 import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, AlertOctagon, Building2, CircleDollarSign, Download, Eye, Inbox, Plus, RotateCw, Trash2, Webhook } from 'lucide-react'
+import { Activity, AlertOctagon, Building2, CircleDollarSign, Download, Eye, Inbox, LifeBuoy, Plus, RotateCw, Trash2, Webhook } from 'lucide-react'
 import { api, ok, type Schemas } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
 import { tokens } from '@/auth/tokens'
 import { Badge, Confirm, EmptyState, ErrorNote, Field, Modal, Segmented, Skeleton, Spinner, Stat, Switch, useToast } from '@/ui'
 import { ago, cx, inr, phone as fmtPhone } from '@/lib/format'
+import { StatusBadge, Thread } from '@/features/support/Thread'
 
 export const STASH_KEY = 'saathi.operator.stash'
-type Tab = 'tenants' | 'alerts' | 'queues' | 'webhooks' | 'turns' | 'costs' | 'billing'
+type Tab = 'tenants' | 'alerts' | 'queues' | 'webhooks' | 'turns' | 'costs' | 'billing' | 'support'
 const sevTone = (s: string) => (s === 'critical' || s === 'error' ? 'red' : s === 'warning' ? 'amber' : 'blue') as 'red' | 'amber' | 'blue'
 
 function Table({ head, children, empty }: { head: string[]; children: ReactNode; empty?: ReactNode }) {
@@ -209,6 +210,44 @@ function Costs() {
     </Table></>)
 }
 
+function SupportQueue() {
+  const toast = useToast(); const qc = useQueryClient()
+  const [only, setOnly] = useState<'open' | 'all'>('open')
+  const [openId, setOpenId] = useState<string | null>(null)
+  const list = useQuery({ queryKey: ['op-support', only], queryFn: () => ok(api.GET('/api/v1/operator/support', { params: { query: only === 'open' ? { status: 'open' } : {} } })), refetchInterval: 15_000 })
+  const one = useQuery({ enabled: !!openId, queryKey: ['op-support', 'one', openId], queryFn: () => ok(api.GET('/api/v1/operator/support/{ticket_id}', { params: { path: { ticket_id: openId! } } })), refetchInterval: 10_000 })
+  const done = () => { qc.invalidateQueries({ queryKey: ['op-support'] }) }
+  const answer = useMutation({ mutationFn: (body: string) => ok(api.POST('/api/v1/operator/support/{ticket_id}/messages', { params: { path: { ticket_id: openId! } }, body: { body } })), onSuccess: () => { done(); toast('Reply sent') }, onError: (e) => toast((e as Error).message, 'error') })
+  const status = useMutation({ mutationFn: (st: 'open' | 'answered' | 'resolved') => ok(api.PUT('/api/v1/operator/support/{ticket_id}/status', { params: { path: { ticket_id: openId! } }, body: { status: st } })), onSuccess: done, onError: (e) => toast((e as Error).message, 'error') })
+  const t = one.data
+  return (
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,420px)_1fr]">
+      <div className="space-y-3">
+        <Segmented value={only} onChange={setOnly} options={[{ value: 'open', label: 'Waiting for support' }, { value: 'all', label: 'All tickets' }]} />
+        {list.error && <ErrorNote error={list.error} retry={() => list.refetch()} />}
+        {list.isLoading && <Skeleton className="h-32 rounded-2xl" />}
+        {list.data?.length === 0 && <div className="card"><EmptyState title="Nothing waiting" body="New tickets from shops appear here the moment they are sent." /></div>}
+        {list.data?.map((x) => (
+          <button key={x.id} onClick={() => setOpenId(x.id)} className={`card card-pad w-full text-left transition hover:border-brand/40 ${openId === x.id ? 'border-brand bg-brand-soft/30' : ''}`}>
+            <div className="flex items-start justify-between gap-2"><div className="min-w-0"><div className="truncate font-bold">#{x.number} · {x.subject}</div><div className="truncate text-[13px] text-muted">{x.business_name} · {x.category}</div></div><StatusBadge status={x.status} /></div>
+            <div className="mt-1 truncate text-sm text-muted">{x.last_author === 'support' ? 'You: ' : ''}{x.last_message}</div>
+          </button>))}
+      </div>
+      <div>
+        {!openId && <div className="card"><EmptyState title="Pick a ticket" body="Read the thread, reply, or mark it sorted." /></div>}
+        {openId && one.error && <ErrorNote error={one.error} retry={() => one.refetch()} />}
+        {openId && t && (
+          <section className="card card-pad space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div><div className="text-xs font-bold uppercase tracking-wide text-muted">Ticket #{t.number} · {t.business_name} · {t.category}</div><h2 className="font-display text-xl font-bold">{t.subject}</h2></div>
+              <div className="flex items-center gap-2"><StatusBadge status={t.status} />{t.status !== 'resolved' ? <button className="btn btn-outline btn-sm" onClick={() => status.mutate('resolved')}>Mark sorted</button> : <button className="btn btn-outline btn-sm" onClick={() => status.mutate('open')}>Reopen</button>}</div>
+            </div>
+            <Thread messages={t.messages} mine="support" busy={answer.isPending} onSend={(b) => answer.mutateAsync(b)} placeholder="Reply to the shop…" />
+          </section>)}
+      </div>
+    </div>)
+}
+
 export default function Operator() {
   const [tab, setTab] = useState<Tab>('tenants')
   const alerts = useQuery({ queryKey: ['op-alerts', false], queryFn: () => ok(api.GET('/api/v1/operator/alerts', { params: { query: { resolved: false } } })), refetchInterval: 15_000 })
@@ -216,6 +255,7 @@ export default function Operator() {
   const tabs = [
     { value: 'tenants' as const, label: <span className="inline-flex items-center gap-1.5"><Building2 className="h-4 w-4" />Tenants</span> },
     { value: 'alerts' as const, label: <span className="inline-flex items-center gap-1.5"><AlertOctagon className="h-4 w-4" />Alerts{n > 0 && <span className="rounded-full bg-danger px-1.5 text-[11px] font-bold leading-4 text-white">{n}</span>}</span> },
+    { value: 'support' as const, label: <span className="inline-flex items-center gap-1.5"><LifeBuoy className="h-4 w-4" />Support</span> },
     { value: 'queues' as const, label: <span className="inline-flex items-center gap-1.5"><Activity className="h-4 w-4" />Queues</span> },
     { value: 'webhooks' as const, label: <span className="inline-flex items-center gap-1.5"><Webhook className="h-4 w-4" />Webhooks</span> },
     { value: 'billing' as const, label: <span className="inline-flex items-center gap-1.5"><CircleDollarSign className="h-4 w-4" />Billing</span> }, { value: 'turns' as const, label: 'AI turns' }, { value: 'costs' as const, label: <span className="inline-flex items-center gap-1.5"><CircleDollarSign className="h-4 w-4" />Costs</span> },
@@ -224,7 +264,7 @@ export default function Operator() {
     <div className="mx-auto max-w-[1240px] space-y-5 px-4 py-6 lg:px-8 lg:py-8">
       <div><h1 className="text-[28px] font-extrabold">Operator console</h1><p className="text-[15px] text-muted">Every business on the platform: health, volume, cost, and the plumbing underneath.</p></div>
       <div className="-mx-4 overflow-x-auto px-4"><Segmented value={tab} onChange={setTab} options={tabs} className="w-max" /></div>
-      {tab === 'tenants' && <Tenants />}{tab === 'alerts' && <Alerts />}{tab === 'queues' && <Queues />}{tab === 'webhooks' && <Webhooks />}{tab === 'turns' && <Turns />}{tab === 'costs' && <Costs />}{tab === 'billing' && <PlatformBilling />}
+      {tab === 'tenants' && <Tenants />}{tab === 'alerts' && <Alerts />}{tab === 'support' && <SupportQueue />}{tab === 'queues' && <Queues />}{tab === 'webhooks' && <Webhooks />}{tab === 'turns' && <Turns />}{tab === 'costs' && <Costs />}{tab === 'billing' && <PlatformBilling />}
     </div>
   )
 }

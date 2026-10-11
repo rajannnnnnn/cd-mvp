@@ -46,3 +46,10 @@ GRANT EXECUTE ON FUNCTION current_business_id() TO app_system;
 GRANT SELECT ON subscriptions, invoices, payments TO app_user;
 GRANT SELECT, INSERT, UPDATE, DELETE ON subscriptions, invoices, payments TO app_system;
 GRANT USAGE ON SEQUENCE invoice_number_seq TO app_system;
+
+-- ---------------------------------------------------------------- support tickets (shop writes its own; support = app_system)
+GRANT SELECT, INSERT, UPDATE ON support_tickets TO app_user;
+GRANT SELECT, INSERT ON support_messages TO app_user;
+GRANT USAGE ON SEQUENCE support_messages_id_seq TO app_user, app_system;
+GRANT SELECT, INSERT, UPDATE ON support_tickets TO app_system;
+GRANT SELECT, INSERT ON support_messages TO app_system;

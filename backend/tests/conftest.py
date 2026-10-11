@@ -72,6 +72,8 @@ def env(pg_urls: dict[str, str]) -> dict[str, str]:
         "META_APP_SECRET": "test-app-secret",
         "META_VERIFY_TOKEN": "test-verify-token",
         "OTP_MIN_INTERVAL_S": "0",
+        "OTP_PER_PHONE_PER_HOUR": "5",       # the tests assert the production defaults, whatever the developer .env says
+        "OTP_PER_IP_PER_HOUR": "30",
         "REDIS_URL": os.environ.get("TEST_REDIS_URL", "redis://127.0.0.1:6379/15"),
         "BLOB_PATH": "/tmp/salesai-test-blobs",  # noqa: S108
     }

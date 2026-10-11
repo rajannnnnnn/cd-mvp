@@ -27,6 +27,7 @@ from salesai.api.routes import (
     operator,
     pricing,
     simulator,
+    support,
     system,
     workflow,
 )
@@ -80,6 +81,6 @@ def create_app(rt: Runtime | None = None, role: str = "web", *, owns_runtime: bo
     if role in ("api", "web", "all"):
         v1 = "/api/v1"
         app.include_router(system.public, prefix=v1)
-        for r in (auth.router, business.router, catalog.router, contacts.router, conversations.router, workflow.router, metrics.router, events.router, pricing.router, simulator.router, operator.router, onboarding.router, billing.router, analytics.router):
+        for r in (auth.router, business.router, catalog.router, contacts.router, conversations.router, workflow.router, metrics.router, events.router, pricing.router, simulator.router, operator.router, onboarding.router, billing.router, analytics.router, support.router):
             app.include_router(r, prefix=v1)
     return app

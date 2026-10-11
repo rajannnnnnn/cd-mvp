@@ -1083,6 +1083,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/operator/support": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** All tickets, waiting-for-support first */
+        get: operations["all_tickets_api_v1_operator_support_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/operator/support/{ticket_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ticket For Support */
+        get: operations["ticket_for_support_api_v1_operator_support__ticket_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/operator/support/{ticket_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer a ticket */
+        post: operations["answer_api_v1_operator_support__ticket_id__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/operator/support/{ticket_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Status */
+        put: operations["set_status_api_v1_operator_support__ticket_id__status_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/operator/turns": {
         parameters: {
             query?: never;
@@ -1422,6 +1490,75 @@ export interface paths {
         post?: never;
         /** Delete Style */
         delete: operations["delete_style_api_v1_style_examples__example_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support/tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your shop's tickets, newest activity first */
+        get: operations["my_tickets_api_v1_support_tickets_get"];
+        put?: never;
+        /** Open a support ticket (it exists immediately) */
+        post: operations["open_ticket_api_v1_support_tickets_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support/tickets/{ticket_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Ticket */
+        get: operations["my_ticket_api_v1_support_tickets__ticket_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support/tickets/{ticket_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add to a ticket (reopens it if it was resolved) */
+        post: operations["add_message_api_v1_support_tickets__ticket_id__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support/tickets/{ticket_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark your own ticket as sorted */
+        post: operations["resolve_api_v1_support_tickets__ticket_id__resolve_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2656,6 +2793,94 @@ export interface components {
             /** Total Paise */
             total_paise: number;
         };
+        /** OperatorTicket */
+        OperatorTicket: {
+            /**
+             * Business Id
+             * Format: uuid
+             */
+            business_id: string;
+            /** Business Name */
+            business_name: string;
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "question" | "problem" | "billing" | "whatsapp" | "other";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Author */
+            last_author?: ("shop" | "support") | null;
+            /** Last Message */
+            last_message?: string | null;
+            /** Number */
+            number: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "answered" | "resolved";
+            /** Subject */
+            subject: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** OperatorTicketDetail */
+        OperatorTicketDetail: {
+            /**
+             * Business Id
+             * Format: uuid
+             */
+            business_id: string;
+            /** Business Name */
+            business_name: string;
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "question" | "problem" | "billing" | "whatsapp" | "other";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Author */
+            last_author?: ("shop" | "support") | null;
+            /** Last Message */
+            last_message?: string | null;
+            /** Messages */
+            messages: components["schemas"]["TicketMessageOut"][];
+            /** Number */
+            number: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "answered" | "resolved";
+            /** Subject */
+            subject: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** OtpRequest */
         OtpRequest: {
             /**
@@ -2993,6 +3218,11 @@ export interface components {
             /** Refresh Token */
             refresh_token: string;
         };
+        /** ReplyIn */
+        ReplyIn: {
+            /** Body */
+            body: string;
+        };
         /** RequirementIn */
         RequirementIn: {
             /** Min */
@@ -3130,6 +3360,14 @@ export interface components {
             slug: string;
             /** Suggestion */
             suggestion: string;
+        };
+        /** StatusIn */
+        StatusIn: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "answered" | "resolved";
         };
         /** Step */
         Step: {
@@ -3312,6 +3550,110 @@ export interface components {
             status: string;
             /** Turns 24H */
             turns_24h: number;
+        };
+        /** TicketDetail */
+        TicketDetail: {
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "question" | "problem" | "billing" | "whatsapp" | "other";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Author */
+            last_author?: ("shop" | "support") | null;
+            /** Last Message */
+            last_message?: string | null;
+            /** Messages */
+            messages: components["schemas"]["TicketMessageOut"][];
+            /** Number */
+            number: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "answered" | "resolved";
+            /** Subject */
+            subject: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** TicketIn */
+        TicketIn: {
+            /**
+             * Category
+             * @default question
+             * @enum {string}
+             */
+            category: "question" | "problem" | "billing" | "whatsapp" | "other";
+            /** Message */
+            message: string;
+            /** Subject */
+            subject: string;
+        };
+        /** TicketMessageOut */
+        TicketMessageOut: {
+            /**
+             * Author
+             * @enum {string}
+             */
+            author: "shop" | "support";
+            /** Body */
+            body: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Id */
+            id: number;
+        };
+        /** TicketOut */
+        TicketOut: {
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "question" | "problem" | "billing" | "whatsapp" | "other";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Author */
+            last_author?: ("shop" | "support") | null;
+            /** Last Message */
+            last_message?: string | null;
+            /** Number */
+            number: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "answered" | "resolved";
+            /** Subject */
+            subject: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** TimingIn */
         TimingIn: {
@@ -5886,6 +6228,146 @@ export interface operations {
             };
         };
     };
+    all_tickets_api_v1_operator_support_get: {
+        parameters: {
+            query?: {
+                status?: ("open" | "answered" | "resolved") | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorTicket"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ticket_for_support_api_v1_operator_support__ticket_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorTicketDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    answer_api_v1_operator_support__ticket_id__messages_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorTicketDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_status_api_v1_operator_support__ticket_id__status_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperatorTicketDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     turns_api_v1_operator_turns_get: {
         parameters: {
             query?: {
@@ -6670,6 +7152,175 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_tickets_api_v1_support_tickets_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_ticket_api_v1_support_tickets_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_ticket_api_v1_support_tickets__ticket_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_message_api_v1_support_tickets__ticket_id__messages_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_api_v1_support_tickets__ticket_id__resolve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ticket_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetail"];
+                };
             };
             /** @description Validation Error */
             422: {

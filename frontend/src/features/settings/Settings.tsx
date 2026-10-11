@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BellRing, Building2, Mic2, Clock, Laptop, Phone, Plus, ShieldCheck, Sliders, Smartphone, Trash2, Users, X } from 'lucide-react'
+import { BellRing, Building2, LifeBuoy, Mic2, Clock, Laptop, Phone, Plus, ShieldCheck, Sliders, Smartphone, Trash2, Users, X } from 'lucide-react'
 import { api, ok, type Schemas } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
 import { useBusiness, usePublicConfig } from '@/api/hooks'
@@ -12,10 +12,11 @@ import { tr } from '@/i18n/tr'
 import { currentSlug, shopUrl } from '@/lib/slug'
 import { useSearchParams } from 'react-router-dom'
 import Voice from '@/features/voice/Voice'
+import Support from '@/features/support/Support'
 import { TryButton } from '@/app/SectionTabs'
 
-type Tab = 'shop' | 'assistant' | 'voice' | 'pacing' | 'team' | 'numbers' | 'devices'
-const TABS: Tab[] = ['shop', 'assistant', 'voice', 'pacing', 'team', 'numbers', 'devices']
+type Tab = 'shop' | 'assistant' | 'voice' | 'pacing' | 'team' | 'numbers' | 'devices' | 'support'
+const TABS: Tab[] = ['shop', 'assistant', 'voice', 'pacing', 'team', 'numbers', 'devices', 'support']
 const DAYS = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']] as const
 
 function Section({ title, sub, children, footer }: { title: string; sub?: string; children: ReactNode; footer?: ReactNode }) {
@@ -365,6 +366,7 @@ export default function Settings() {
     { value: 'voice', label: <span className="inline-flex items-center gap-1.5"><Mic2 className="h-4 w-4" />{tr('My voice')}</span> },
     { value: 'pacing', label: <span className="inline-flex items-center gap-1.5"><Clock className="h-4 w-4" />{tr('Speed')}</span> }, { value: 'team', label: <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4" />{tr('Team')}</span> },
     { value: 'numbers', label: <span className="inline-flex items-center gap-1.5"><Phone className="h-4 w-4" />{tr('Numbers')}</span> }, { value: 'devices', label: <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-4 w-4" />{tr('Security')}</span> },
+    { value: 'support', label: <span className="inline-flex items-center gap-1.5"><LifeBuoy className="h-4 w-4" />{tr('Support')}</span> },
   ]
   return (
     <div className="mx-auto max-w-[900px] space-y-5 px-4 py-6 lg:px-8 lg:py-8">
@@ -376,6 +378,7 @@ export default function Settings() {
       {biz.data && tab === 'assistant' && <AssistantTab key={dataKey} b={biz.data} canEdit={canEdit} />}
       {biz.data && tab === 'pacing' && <PacingTab key={dataKey} b={biz.data} canEdit={canEdit} />}
       {tab === 'voice' && <Voice embedded />}
+      {tab === 'support' && <Support />}
       {tab === 'team' && <TeamTab canEdit={canEdit} />}
       {biz.data && tab === 'numbers' && <NumbersTab b={biz.data} canEdit={canEdit} />}
       {tab === 'devices' && <div className="space-y-5"><DevicesTab /><DataSection /></div>}

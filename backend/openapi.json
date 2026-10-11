@@ -3253,6 +3253,204 @@
         "title": "OpenInvoice",
         "type": "object"
       },
+      "OperatorTicket": {
+        "properties": {
+          "business_id": {
+            "format": "uuid",
+            "title": "Business Id",
+            "type": "string"
+          },
+          "business_name": {
+            "title": "Business Name",
+            "type": "string"
+          },
+          "category": {
+            "enum": [
+              "question",
+              "problem",
+              "billing",
+              "whatsapp",
+              "other"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_author": {
+            "anyOf": [
+              {
+                "enum": [
+                  "shop",
+                  "support"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Author"
+          },
+          "last_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Message"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "answered",
+              "resolved"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "subject",
+          "category",
+          "status",
+          "created_at",
+          "updated_at",
+          "business_id",
+          "business_name"
+        ],
+        "title": "OperatorTicket",
+        "type": "object"
+      },
+      "OperatorTicketDetail": {
+        "properties": {
+          "business_id": {
+            "format": "uuid",
+            "title": "Business Id",
+            "type": "string"
+          },
+          "business_name": {
+            "title": "Business Name",
+            "type": "string"
+          },
+          "category": {
+            "enum": [
+              "question",
+              "problem",
+              "billing",
+              "whatsapp",
+              "other"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_author": {
+            "anyOf": [
+              {
+                "enum": [
+                  "shop",
+                  "support"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Author"
+          },
+          "last_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Message"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/TicketMessageOut"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "answered",
+              "resolved"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "subject",
+          "category",
+          "status",
+          "created_at",
+          "updated_at",
+          "business_id",
+          "business_name",
+          "messages"
+        ],
+        "title": "OperatorTicketDetail",
+        "type": "object"
+      },
       "OtpRequest": {
         "properties": {
           "phone": {
@@ -4221,6 +4419,22 @@
         "title": "RefreshIn",
         "type": "object"
       },
+      "ReplyIn": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "title": "ReplyIn",
+        "type": "object"
+      },
       "RequirementIn": {
         "properties": {
           "min": {
@@ -4658,6 +4872,25 @@
           "suggestion"
         ],
         "title": "SlugCheck",
+        "type": "object"
+      },
+      "StatusIn": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "enum": [
+              "open",
+              "answered",
+              "resolved"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "StatusIn",
         "type": "object"
       },
       "Step": {
@@ -5131,6 +5364,250 @@
           "cost_inr_24h"
         ],
         "title": "TenantRow",
+        "type": "object"
+      },
+      "TicketDetail": {
+        "properties": {
+          "category": {
+            "enum": [
+              "question",
+              "problem",
+              "billing",
+              "whatsapp",
+              "other"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_author": {
+            "anyOf": [
+              {
+                "enum": [
+                  "shop",
+                  "support"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Author"
+          },
+          "last_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Message"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/TicketMessageOut"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "answered",
+              "resolved"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "subject",
+          "category",
+          "status",
+          "created_at",
+          "updated_at",
+          "messages"
+        ],
+        "title": "TicketDetail",
+        "type": "object"
+      },
+      "TicketIn": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "default": "question",
+            "enum": [
+              "question",
+              "problem",
+              "billing",
+              "whatsapp",
+              "other"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "subject": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "message"
+        ],
+        "title": "TicketIn",
+        "type": "object"
+      },
+      "TicketMessageOut": {
+        "properties": {
+          "author": {
+            "enum": [
+              "shop",
+              "support"
+            ],
+            "title": "Author",
+            "type": "string"
+          },
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "author",
+          "body",
+          "created_at"
+        ],
+        "title": "TicketMessageOut",
+        "type": "object"
+      },
+      "TicketOut": {
+        "properties": {
+          "category": {
+            "enum": [
+              "question",
+              "problem",
+              "billing",
+              "whatsapp",
+              "other"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_author": {
+            "anyOf": [
+              {
+                "enum": [
+                  "shop",
+                  "support"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Author"
+          },
+          "last_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Message"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "open",
+              "answered",
+              "resolved"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "subject",
+          "category",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TicketOut",
         "type": "object"
       },
       "TimingIn": {
@@ -10049,6 +10526,277 @@
         ]
       }
     },
+    "/api/v1/operator/support": {
+      "get": {
+        "operationId": "all_tickets_api_v1_operator_support_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "open",
+                    "answered",
+                    "resolved"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OperatorTicket"
+                  },
+                  "title": "Response All Tickets Api V1 Operator Support Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "All tickets, waiting-for-support first",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/api/v1/operator/support/{ticket_id}": {
+      "get": {
+        "operationId": "ticket_for_support_api_v1_operator_support__ticket_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorTicketDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Ticket For Support",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/api/v1/operator/support/{ticket_id}/messages": {
+      "post": {
+        "operationId": "answer_api_v1_operator_support__ticket_id__messages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorTicketDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Answer a ticket",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/api/v1/operator/support/{ticket_id}/status": {
+      "put": {
+        "operationId": "set_status_api_v1_operator_support__ticket_id__status_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperatorTicketDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Status",
+        "tags": [
+          "support"
+        ]
+      }
+    },
     "/api/v1/operator/turns": {
       "get": {
         "operationId": "turns_api_v1_operator_turns_get",
@@ -11512,6 +12260,303 @@
         "summary": "Delete Style",
         "tags": [
           "catalog"
+        ]
+      }
+    },
+    "/api/v1/support/tickets": {
+      "get": {
+        "operationId": "my_tickets_api_v1_support_tickets_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TicketOut"
+                  },
+                  "title": "Response My Tickets Api V1 Support Tickets Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Your shop's tickets, newest activity first",
+        "tags": [
+          "support"
+        ]
+      },
+      "post": {
+        "operationId": "open_ticket_api_v1_support_tickets_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open a support ticket (it exists immediately)",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/api/v1/support/tickets/{ticket_id}": {
+      "get": {
+        "operationId": "my_ticket_api_v1_support_tickets__ticket_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "My Ticket",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/api/v1/support/tickets/{ticket_id}/messages": {
+      "post": {
+        "operationId": "add_message_api_v1_support_tickets__ticket_id__messages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Add to a ticket (reopens it if it was resolved)",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/api/v1/support/tickets/{ticket_id}/resolve": {
+      "post": {
+        "operationId": "resolve_api_v1_support_tickets__ticket_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mark your own ticket as sorted",
+        "tags": [
+          "support"
         ]
       }
     },
