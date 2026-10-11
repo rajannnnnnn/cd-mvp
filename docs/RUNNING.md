@@ -109,3 +109,14 @@ Per-business behaviour (timing, limits, sales style) is data in the database. Fr
    `backend/tests/` with recorded payloads, exercise Embedded Signup completion, template sending, status/echo webhooks.
 6. Run the conversation evaluation suite on the chosen models, then load tests for NFR-1/2/5 (both still to be written).
 7. Fill the bracketed placeholders in the legal pages (`frontend/privacy.html`, `terms.html`, `data-deletion.html`) and have a lawyer review them.
+
+## Looking at the database from your computer
+
+The compose stack publishes Postgres on **127.0.0.1:5433** only (set `DB_PORT` in `deploy/.env` to change it). It is not reachable from other
+machines. Connect with any SQL client (DBeaver, pgAdmin, TablePlus, `psql`):
+
+- host `localhost`, port `5433`, database `salesai`, user `postgres`, password = `POSTGRES_PASSWORD` in `deploy/.env`.
+- Use the `postgres` user to *see* shop data: the app's own roles (`app_owner`, `app_user`, …) are bound by row-level security and see nothing
+  without a shop context. That is the isolation working, not a bug.
+- On a cloud server do not publish this port to the internet; use an SSH tunnel (`ssh -L 5433:127.0.0.1:5433 user@server`).
+

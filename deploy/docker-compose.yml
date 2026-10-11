@@ -63,6 +63,8 @@ services:
       APP_USER_PASSWORD: ${APP_USER_PASSWORD}
       APP_PRICING_PASSWORD: ${APP_PRICING_PASSWORD}
       APP_SYSTEM_PASSWORD: ${APP_SYSTEM_PASSWORD}
+    ports:
+      - "127.0.0.1:${DB_PORT:-5433}:5432"      # this computer only (never the network), so you can look at the data with any SQL client
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./postgres-init:/docker-entrypoint-initdb.d:ro
