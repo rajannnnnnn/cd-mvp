@@ -2941,6 +2941,19 @@
             "title": "Active",
             "type": "boolean"
           },
+          "category": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Applies to every product in this category. Not together with variant_id.",
+            "title": "Category"
+          },
           "conditions": {
             "additionalProperties": true,
             "default": {},
@@ -3047,6 +3060,19 @@
             "default": true,
             "title": "Active",
             "type": "boolean"
+          },
+          "category": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Applies to every product in this category. Not together with variant_id.",
+            "title": "Category"
           },
           "conditions": {
             "additionalProperties": true,

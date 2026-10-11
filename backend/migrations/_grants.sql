@@ -24,6 +24,8 @@ GRANT EXECUTE ON FUNCTION current_business_id(), set_price_floor(uuid, numeric),
 
 -- ---------------------------------------------------------------- app_pricing (pricing component only)
 GRANT SELECT ON pricing_policies, price_floors, offers, product_variants TO app_pricing;
+GRANT SELECT (id, business_id, category) ON products TO app_pricing;      -- only to match category offers; nothing else about a product
+
 GRANT EXECUTE ON FUNCTION current_business_id() TO app_pricing;
 
 -- ---------------------------------------------------------------- app_system (platform work, BYPASSRLS)

@@ -5,6 +5,7 @@ import { api, ok } from '@/api/client'
 import { useBusiness } from '@/api/hooks'
 import { Field, Segmented, Skeleton, useToast } from '@/ui'
 import { tr } from '@/i18n/tr'
+import { INSIGHT_TABS, SectionTabs } from '@/app/SectionTabs'
 import { Bars, inr, Panel, PlanGate, pct, secs } from './parts'
 import { HANDOFF_LABEL, STAGE_LABEL, type Stage } from '@/lib/stages'
 
@@ -36,6 +37,7 @@ export default function Reports() {
   }
   return (
     <div className="mx-auto max-w-[900px] space-y-5 px-4 py-6 lg:px-8 lg:py-8">
+      <SectionTabs tabs={INSIGHT_TABS()} className="print:hidden" />
       <div className="flex flex-wrap items-end justify-between gap-3 print:hidden">
         <div><h1 className="text-[28px] font-extrabold">{tr('Reports')}</h1><p className="text-[15px] text-muted">{tr('A summary for any period, to print or share, and your data as spreadsheets.')}</p></div>
         <button className="btn btn-outline" disabled={!r} onClick={() => window.print()}><Printer className="h-4 w-4" /> {tr('Print or save as PDF')}</button>

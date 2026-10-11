@@ -30,7 +30,7 @@ function AddModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-export default function Voice() {
+export default function Voice({ embedded = false }: { embedded?: boolean }) {
   const { t } = useT()
   const qc = useQueryClient(); const toast = useToast()
   const [add, setAdd] = useState(false)
@@ -38,9 +38,9 @@ export default function Voice() {
   const q = useQuery({ queryKey: ['style'], queryFn: () => ok(api.GET('/api/v1/style-examples')) })
   const remove = useMutation({ mutationFn: (id: string) => ok(api.DELETE('/api/v1/style-examples/{example_id}', { params: { path: { example_id: id } } })), onSuccess: () => { qc.invalidateQueries({ queryKey: ['style'] }); setDel(null); toast(tr('Removed')) } })
   return (
-    <div className="mx-auto max-w-[880px] space-y-5 px-4 py-6 lg:px-8 lg:py-8">
+    <div className={embedded ? 'space-y-5' : 'mx-auto max-w-[880px] space-y-5 px-4 py-6 lg:px-8 lg:py-8'}>
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div><h1 className="text-[28px] font-extrabold">{t('nav.voice', 'My voice')}</h1><p className="text-[15px] text-muted">{tr('The assistant writes like you. Show it a few real replies and it picks up your language, tone and emojis.')}</p></div>
+        <div>{embedded ? <h2 className="font-display text-lg font-bold">{t('nav.voice', 'My voice')} <span className="text-sm font-normal text-muted">{tr('(optional)')}</span></h2> : <h1 className="text-[28px] font-extrabold">{t('nav.voice', 'My voice')}</h1>}<p className="text-[15px] text-muted">{tr('The assistant writes like you. Show it a few real replies and it picks up your language, tone and emojis.')}</p></div>
         <button className="btn btn-primary" onClick={() => setAdd(true)}><Plus className="h-4 w-4" /> {tr('Add example')}</button>
       </div>
       {q.error && <ErrorNote error={q.error} retry={() => q.refetch()} />}

@@ -14,7 +14,7 @@ import { currentTheme, setTheme, type Theme } from '@/lib/theme'
 import { tr } from '@/i18n/tr'
 import { useBilling } from '@/features/billing/hooks'
 
-type Item = { to: string; icon: any; key: string; label: string; badge?: number; dev?: boolean; owner?: boolean }
+type Item = { to: string; icon: any; key: string; label: string; badge?: number; dev?: boolean; owner?: boolean; also?: string[] }
 
 export default function Shell() {
   const { me, role, logout, switchBusiness, reload } = useAuth()
@@ -45,21 +45,18 @@ export default function Shell() {
   const needs = (ov.data?.today.open_handoffs ?? 0) + (ov.data?.today.pending_deals ?? 0)
   const items: Item[] = useMemo(() => isOwner ? [
     { to: '/home', icon: Home, key: 'nav.home', label: tr('Home') },
-    { to: '/chats', icon: MessageCircle, key: 'nav.chats', label: tr('Chats') },
+    { to: '/chats', icon: MessageCircle, key: 'nav.chats', label: tr('Chats'), also: ['/pipeline', '/try'] },
     { to: '/inbox', icon: Inbox, key: 'nav.inbox', label: tr('For you'), badge: needs },
-    { to: '/pipeline', icon: KanbanSquare, key: 'nav.pipeline', label: tr('Pipeline') },
     { to: '/products', icon: Package, key: 'nav.products', label: tr('Products') },
     { to: '/offers', icon: Megaphone, key: 'nav.offers', label: tr('Offers') },
-    { to: '/voice', icon: Mic2, key: 'nav.voice', label: tr('My voice') },
     { to: '/customers', icon: Users, key: 'nav.customers', label: tr('Customers') },
-    { to: '/analytics', icon: BarChart3, key: 'nav.analytics', label: tr('Analytics') },
-    { to: '/reports', icon: FileText, key: 'nav.reports', label: tr('Reports') },
-    { to: '/playground', icon: Play, key: 'nav.playground', label: tr('Playground'), dev: true },
+    { to: '/analytics', icon: BarChart3, key: 'nav.analytics', label: tr('Analytics'), also: ['/reports'] },
     { to: '/billing', icon: CreditCard, key: 'nav.billing', label: tr('Billing'), owner: true },
     { to: '/settings', icon: Settings, key: 'nav.settings', label: tr('Settings') },
   ] : [{ to: '/operator', icon: ShieldCheck, key: 'nav.operator', label: tr('Operator console') }], [isOwner, needs])
+  const sibling = (i: Item) => !!i.also?.some((p) => loc.pathname === p || loc.pathname.startsWith(`${p}/`))     // pages that live under this menu entry
   const visible = items.filter((i) => (!i.dev || cfg.data?.simulator_enabled) && (!i.owner || role === 'owner'))
-  const mobile = isOwner ? [visible[0], visible[1], visible[2], visible[4]] : visible
+  const mobile = isOwner ? visible.slice(0, 4) : visible
   const aiOn = biz.data?.ai_enabled ?? false
   const bd = bill.data
   const banner = !bd ? null : bd.state === 'trial_ended' || bd.state === 'canceled' ? { tone: 'bad', text: tr('Your plan has ended and the assistant is paused.') }
@@ -81,7 +78,7 @@ export default function Shell() {
           </div>)}
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto">
           {visible.map((i) => (
-            <NavLink key={i.to} to={i.to} className={({ isActive }) => cx('nav-item', isActive && 'nav-item-active')}>
+            <NavLink key={i.to} to={i.to} className={({ isActive }) => cx('nav-item', (isActive || sibling(i)) && 'nav-item-active')}>
               <i.icon className="h-[18px] w-[18px]" /><span className="flex-1">{t(i.key, i.label)}</span>
               {!!i.badge && <span className="grid min-w-5 place-items-center rounded-full bg-danger px-1.5 text-[11px] font-bold text-white">{i.badge}</span>}
             </NavLink>))}
@@ -111,7 +108,7 @@ export default function Shell() {
 
       <nav className="fixed inset-x-0 bottom-0 z-40 grid border-t border-line/70 bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" style={{ gridTemplateColumns: `repeat(${isOwner ? 5 : 1}, 1fr)` }}>
         {mobile.map((i) => (
-          <NavLink key={i.to} to={i.to} className={({ isActive }) => cx('relative flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold', isActive ? 'text-brand-ink' : 'text-muted')}>
+          <NavLink key={i.to} to={i.to} className={({ isActive }) => cx('relative flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold', isActive || sibling(i) ? 'text-brand-ink' : 'text-muted')}>
             <i.icon className="h-5 w-5" />{t(i.key, i.label)}
             {!!i.badge && <span className="absolute right-[26%] top-1.5 grid min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">{i.badge}</span>}
           </NavLink>))}

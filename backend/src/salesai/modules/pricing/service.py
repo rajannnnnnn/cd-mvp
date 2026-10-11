@@ -41,7 +41,7 @@ def _offer_from_row(r: dict[str, Any]) -> Offer:
     return Offer(id=str(r["id"]), name=r["name"], kind=r["kind"], value=r["value"], free_item=r["free_item"],
                  min_qty=cond.get("min_qty"), first_order_only=bool(cond.get("first_order")),
                  starts_at=r["starts_at"], ends_at=r["ends_at"], may_cross_floor=r["may_cross_floor"], active=r["active"],
-                 variant_scoped=r["variant_id"] is not None)
+                 variant_scoped=r["variant_id"] is not None or r.get("category") is not None)
 
 
 class PricingService:
@@ -59,8 +59,14 @@ class PricingService:
             if pol is None:
                 raise LookupError("variant has no pricing policy")
             fl = await (await c.execute("SELECT floor_price FROM price_floors WHERE variant_id=%s", (variant_id,))).fetchone()
+            # the whole shop, this variant, or this product's category (compared without regard to case or stray spaces)
             offers = await (await c.execute(
-                "SELECT * FROM offers WHERE active AND (variant_id IS NULL OR variant_id=%s)", (variant_id,))).fetchall()
+                """SELECT o.* FROM offers o
+                   WHERE o.active AND (
+                     (o.variant_id IS NULL AND o.category IS NULL)
+                     OR o.variant_id = %s
+                     OR (o.category IS NOT NULL AND lower(btrim(o.category)) =
+                         (SELECT lower(btrim(p.category)) FROM products p WHERE p.id = %s)))""", (variant_id, pol["product_id"]))).fetchall()
         return pol, (fl["floor_price"] if fl else None), [_offer_from_row(o) for o in offers]
 
     async def evaluate(self, business_id: uuid.UUID, conversation_id: uuid.UUID, variant_id: uuid.UUID, *,

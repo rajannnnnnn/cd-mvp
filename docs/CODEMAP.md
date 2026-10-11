@@ -7,7 +7,7 @@ Where things live, and which automated tests prove each invariant. Keep this cur
 | Module | Responsibility | Depends on (enforced by `scripts/check_boundaries.py`) |
 |---|---|---|
 | `tenants` | business creation, accounts, per-tenant key vault (token encryption), export and hard delete (operator and owner self-service) | – |
-| `catalog` | products, variants, pricing policies, offers, write-only floor writes, retrieval | – |
+| `catalog` | products, variants, pricing policies, offers (target: shop, a category, or one variant), write-only floor writes, retrieval | – |
 | `pricing` | **pure** engine (`engine.py`) and the service that loads policy + floor through the pricing DB role | – |
 | `sales` | deals (orders and visits), lead-stage rules | – |
 | `handoffs` | handoffs, knowledge gaps, owner answers becoming facts | – |
@@ -30,8 +30,8 @@ Process roles of the one image: `api`, `ingress`, `web` (both), `worker`, `sched
 ## Frontend (`frontend/src`)
 
 `site/` marketing page logic (hero, price-limits demo, EN/HI), `auth/` (login, token store), `api/` (generated typed client,
-SSE), `app/` (shell, routes), `features/` (onboarding wizard, billing, analytics and reports, dashboard, conversations, pipeline, inbox, catalog (the Products page: cards/grid, per-item edit/delete/on-off, bulk actions, docked editor, category picker), offers, voice (owner style examples), customers,
-settings, playground, operator), `ui/` (design system), `i18n/`, `lib/`. Static pages at the root: `index.html`,
+SSE), `app/` (shell, routes), `features/` (onboarding wizard, billing, analytics and reports, dashboard, conversations, pipeline, inbox, catalog (the Products and Offers pages share `features/catalog/shared.tsx`: cards/grid, per-item edit/delete/on-off, ticks and bulk actions, docked editor; category picker in `CategoryField.tsx`), voice (owner style examples, shown in Settings → My voice), customers,
+settings, the practice chat (`playground/`, route `/try`), operator), `ui/` (design system), `i18n/`, `lib/`. Static pages at the root: `index.html`,
 `privacy.html`, `terms.html`, `data-deletion.html`; the app is `app/index.html` served under `/app`.
 
 ## Invariants → tests

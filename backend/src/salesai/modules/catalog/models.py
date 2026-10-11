@@ -136,6 +136,7 @@ class OfferIn(BaseModel):
     value: Money | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
     free_item: str | None = Field(default=None, max_length=200)
     variant_id: uuid.UUID | None = None
+    category: str | None = Field(default=None, max_length=80, description="Applies to every product in this category. Not together with variant_id.")
     conditions: dict[str, Any] = {}
     starts_at: datetime | None = None
     ends_at: datetime | None = None
@@ -144,6 +145,9 @@ class OfferIn(BaseModel):
 
     @model_validator(mode="after")
     def _ok(self) -> Self:
+        self.category = (self.category or "").strip() or None
+        if self.category and self.variant_id:
+            raise ValueError("an offer applies to one product variant or to a category, not both")
         if self.kind in ("percent", "flat", "bundle") and self.value is None:
             raise ValueError(f"offer kind '{self.kind}' needs a value")
         if self.kind == "percent" and self.value is not None and self.value > 100:

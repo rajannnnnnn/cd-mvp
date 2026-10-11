@@ -7,6 +7,8 @@ import { useAuth } from '@/auth/AuthProvider'
 import { usePublicConfig } from '@/api/hooks'
 import { startEmbeddedSignup } from '@/features/settings/signup'
 import { blank, toPolicy, validate, type Draft } from '@/features/catalog/draft'
+import { CategoryField } from '@/features/catalog/CategoryField'
+import { categoriesOf } from '@/features/catalog/category'
 import { shopUrl } from '@/lib/slug'
 import { cx } from '@/lib/format'
 import { Field, Logo, Segmented, Spinner, Switch, useToast } from '@/ui'
@@ -152,7 +154,7 @@ function ProductsStep({ onDone, onBack }: { onDone: () => void; onBack: () => vo
         <div className="mb-3 text-sm font-bold">{items.length ? tr('Add another') : tr('Add your first product')}</div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={tr('Product or service name')}><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Banarasi Silk Saree')} /></Field>
-          <Field label={tr('Category')} hint={tr('Optional')}><input className="input" value={category} onChange={(e) => setCategory(e.target.value)} placeholder={tr('e.g. Sarees')} /></Field>
+          <Field label={tr('Category')} hint={tr('Optional')}><CategoryField value={category} onChange={setCategory} options={categoriesOf(items)} placeholder={tr('e.g. Sarees')} /></Field>
           <Field label={tr('Price (₹)')}><input className="input" inputMode="decimal" value={d.list_price} onChange={(e) => set({ list_price: e.target.value.replace(/[^0-9.]/g, '') })} placeholder="1999" /></Field>
           <Field label={tr('Availability')}><select className="select" value={d.availability} onChange={(e) => set({ availability: e.target.value })}><option value="in_stock">{tr('In stock')}</option><option value="limited">{tr('Limited')}</option><option value="made_to_order">{tr('Made to order')}</option><option value="out_of_stock">{tr('Out of stock')}</option></select></Field>
         </div>

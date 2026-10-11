@@ -12,7 +12,7 @@ test.describe('floor prices stay private', () => {
     await page.getByText('Banarasi Silk Saree').first().click()
     await expect(page.getByText('Saved privately').first()).toBeVisible()
     await expect(page.getByText('Edit product')).toBeVisible()
-    const dialog = page.locator('[role=dialog]')
+    const dialog = page.getByRole('complementary', { name: 'Edit product' })
     const visible = await dialog.innerText()
     const values = await dialog.locator('input, textarea, select').evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value).join(' '))
     expect(`${visible} ${values}`).not.toMatch(/7650|7,650/)    // the seeded floor is nowhere on screen or in any field

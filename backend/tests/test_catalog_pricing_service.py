@@ -109,3 +109,32 @@ async def test_retrieval_returns_relevant_variants_for_large_catalogs(world):
         hits = await repo.retrieve(c, "do you have any lehenga for wedding?", limit=5)
     assert hits and hits[0]["product_name"] == "Wedding Lehenga"
     assert all("floor" not in k for k in hits[0])
+
+
+async def test_an_offer_can_apply_to_a_whole_category(world):
+    from salesai.modules.catalog import OfferIn
+    shop = await world.make_shop()
+    conv_id = await setup_conv(world, shop, "+919844444444")
+    suit = saree(price="2000", floor="1500")
+    suit.name, suit.category = "Cotton Suit", "suits"
+    async with world.rt.db.tenant(shop.business_id) as c:
+        s1 = await repo.create_product(c, shop.business_id, saree(price="1000", floor="800"))
+        s2 = await repo.create_product(c, shop.business_id, suit)
+        v1 = (await repo.get_product(c, s1)).variants[0].id
+        v2 = (await repo.get_product(c, s2)).variants[0].id
+        await repo.create_offer(c, shop.business_id, OfferIn(name="Saree sale", kind="percent", value=D("10"), category=" Sarees "))
+        listed = await repo.list_offers(c)
+    assert listed[0].category == "Sarees" and listed[0].variant_id is None
+    svc = PricingService(world.rt.db)
+    a = await svc.evaluate(shop.business_id, conv_id, v1, ask="price")
+    b = await svc.evaluate(shop.business_id, conv_id, v2, ask="price")
+    assert a.decision.applied_offers and a.decision.values[0].amount == D("900.00")      # matched without regard to case or spaces
+    assert not b.decision.applied_offers and b.decision.values[0].amount == D("2000.00")  # another category: untouched
+
+
+def test_an_offer_targets_a_variant_or_a_category_not_both():
+    import uuid
+
+    from salesai.modules.catalog import OfferIn
+    with pytest.raises(ValidationError):
+        OfferIn(name="x", kind="percent", value=D("5"), category="sarees", variant_id=uuid.uuid4())

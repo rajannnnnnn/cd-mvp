@@ -222,4 +222,91 @@ test.describe('owner app', () => {
     await expect(page.getByText(`E2E Dupatta ${stamp}`)).toHaveCount(0)
     await page.getByRole('tab', { name: 'Cards' }).click()
   })
+
+  test('related pages share one menu entry and nothing technical sits in the menu', async ({ page }) => {
+    const nav = page.locator('aside nav')
+    for (const gone of ['Pipeline', 'Reports', 'My voice', 'Playground', 'Try the assistant']) await expect(nav.getByRole('link', { name: gone, exact: true })).toHaveCount(0)
+    await page.goto(`${SHOP}/chats`)
+    await expect(page.getByRole('navigation', { name: 'Views' }).getByRole('link', { name: 'Conversations' })).toBeVisible()
+    await page.getByRole('navigation', { name: 'Views' }).getByRole('link', { name: 'Pipeline' }).click()
+    await expect(page).toHaveURL(/\/pipeline$/)
+    await expect(nav.getByRole('link', { name: 'Chats' })).toHaveClass(/nav-item-active/)           // the one menu entry stays lit
+    await page.getByRole('navigation', { name: 'Views' }).getByRole('link', { name: 'Conversations' }).click()
+    await page.getByRole('link', { name: 'Try the assistant' }).click()                              // the practice chat is a button on Chats
+    await expect(page).toHaveURL(/\/try$/)
+    await expect(page.getByRole('heading', { name: /Try the assistant/ })).toBeVisible()
+
+    await page.goto(`${SHOP}/analytics`)
+    await page.getByRole('navigation', { name: 'Views' }).getByRole('link', { name: 'Reports' }).click()
+    await expect(page).toHaveURL(/\/reports$/)
+    await expect(nav.getByRole('link', { name: 'Analytics' })).toHaveClass(/nav-item-active/)
+
+    await page.goto(`${SHOP}/voice`)                                                                 // the old address lands in Settings
+    await expect(page).toHaveURL(/\/settings\?tab=voice/)
+    await expect(page.getByRole('heading', { name: /My voice/ })).toBeVisible()
+  })
+
+  test('the product editor has no visibility toggle or out-of-stock option, and one way of showing the price', async ({ page }) => {
+    await page.goto(`${SHOP}/products`)
+    await page.getByRole('button', { name: 'Add product' }).first().click()
+    const panel = page.getByRole('complementary', { name: 'Add a product' })
+    await expect(panel.getByText('Offer this to customers')).toHaveCount(0)
+    await expect(panel.getByRole('option', { name: 'Out of stock' })).toHaveCount(0)
+    const types = panel.getByRole('radiogroup', { name: 'How the price is shown' })
+    await expect(types.getByRole('radio')).toHaveText(['Fixed price', 'Starts from', 'Price range', 'On request'])
+    await expect(panel.getByText('The assistant tells customers the price straight away.')).toHaveCount(0)
+    await types.getByRole('radio', { name: 'Price range' }).click()
+    await expect(panel.getByText('Lowest in range (₹)')).toBeVisible()
+    await panel.getByRole('button', { name: 'Add a variant (size, colour…)' }).click()
+    await expect(panel.getByRole('radio')).toHaveCount(4)                                            // one price type for the whole product, not one per variant
+    await expect(panel.getByText('Lowest in range (₹)')).toHaveCount(2)
+    await types.getByRole('radio', { name: 'On request' }).click()
+    await expect(panel.getByText('Lowest in range (₹)')).toHaveCount(0)
+    await expect(panel.getByText('Customers may bargain')).toHaveCount(0)
+  })
+
+  test('offers work like products: docked editor, switch with confirmation, bulk actions, and a whole category as the target', async ({ page }) => {
+    const stamp = Date.now(); const a = `E2E offer A ${stamp}`; const b = `E2E offer B ${stamp}`
+    await page.goto(`${SHOP}/offers`)
+    await page.getByRole('button', { name: 'New offer' }).first().click()
+    const panel = page.getByRole('complementary', { name: 'New offer' })
+    await expect(panel).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)                                            // beside the list, not over it
+    await expect(panel.getByText('Offer is live')).toHaveCount(0)
+    await panel.getByLabel('Offer name').fill(a)
+    await panel.getByPlaceholder('10').fill('10')
+    const target = panel.getByLabel('Applies to')
+    await expect(target.locator('optgroup[label="A whole category"] option')).not.toHaveCount(0)    // categories can be picked, not only products
+    await target.selectOption({ index: 1 })
+    await panel.getByRole('button', { name: 'Save offer' }).click()
+    await expect(page.getByText('Offer created')).toBeVisible()
+    await page.getByRole('button', { name: 'New offer' }).first().click()
+    const second = page.getByRole('complementary', { name: 'New offer' })
+    await second.getByLabel('Offer name').fill(b)
+    await second.getByPlaceholder('10').fill('5')
+    await second.getByRole('button', { name: 'Save offer' }).click()
+    await expect(page.getByText(b)).toBeVisible()
+
+    const sw = page.getByRole('switch', { name: `${a} is on` })                                       // switch, with a confirmation
+    await sw.click()
+    await expect(page.getByRole('heading', { name: `Switch off “${a}”?` })).toBeVisible()
+    await page.getByRole('button', { name: 'Cancel' }).click()
+    await expect(sw).toHaveAttribute('aria-checked', 'true')
+    await sw.click()
+    await page.getByRole('button', { name: 'Switch off', exact: true }).click()
+    await expect(sw).toHaveAttribute('aria-checked', 'false')
+
+    await page.getByRole('button', { name: `Edit ${a}` }).click()                                      // edit opens beside the list
+    await expect(page.getByRole('complementary', { name: 'Edit offer' }).getByLabel('Offer name')).toHaveValue(a)
+    await page.getByRole('complementary', { name: 'Edit offer' }).getByRole('button', { name: 'Cancel' }).click()
+
+    await page.getByRole('tab', { name: 'Grid' }).click()                                              // grid view, tick both, delete in bulk
+    await page.getByRole('checkbox', { name: `Select ${a}` }).click()
+    await page.getByRole('checkbox', { name: `Select ${b}` }).click()
+    await page.getByRole('region', { name: 'Selected offers' }).getByRole('button', { name: 'Delete' }).click()
+    await expect(page.getByRole('heading', { name: 'Delete 2 offers?' })).toBeVisible()
+    await page.getByRole('button', { name: 'Yes, delete 2' }).click()
+    await expect(page.getByText(a)).toHaveCount(0)
+    await page.getByRole('tab', { name: 'Cards' }).click()
+  })
 })

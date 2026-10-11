@@ -12,7 +12,7 @@ test.describe('mobile first: owners work from phones', () => {
   test('the app has a bottom navigation and fits the screen', async ({ page }) => {
     await login(page, OWNER)
     await expect(page.locator('nav.fixed')).toBeVisible()
-    for (const path of ['/app/home', '/app/chats', '/app/pipeline', '/app/products', '/app/inbox', '/app/settings', '/app/playground']) {
+    for (const path of ['/app/home', '/app/chats', '/app/pipeline', '/app/products', '/app/inbox', '/app/settings', '/app/try']) {
       await page.goto(path)
       await expect(page.locator('main')).toBeVisible()
       expect(await noHorizontalScroll(page), path).toBe(true)

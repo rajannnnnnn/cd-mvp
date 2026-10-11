@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BellRing, Building2, Clock, Laptop, Phone, Plus, ShieldCheck, Sliders, Smartphone, Trash2, Users, X } from 'lucide-react'
+import { BellRing, Building2, Mic2, Clock, Laptop, Phone, Plus, ShieldCheck, Sliders, Smartphone, Trash2, Users, X } from 'lucide-react'
 import { api, ok, type Schemas } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
 import { useBusiness, usePublicConfig } from '@/api/hooks'
@@ -10,8 +10,12 @@ import { Badge, Confirm, EmptyState, ErrorNote, Field, Modal, Segmented, Skeleto
 import { ago, cx, phone as fmtPhone } from '@/lib/format'
 import { tr } from '@/i18n/tr'
 import { currentSlug, shopUrl } from '@/lib/slug'
+import { useSearchParams } from 'react-router-dom'
+import Voice from '@/features/voice/Voice'
+import { TryButton } from '@/app/SectionTabs'
 
-type Tab = 'shop' | 'assistant' | 'pacing' | 'team' | 'numbers' | 'devices'
+type Tab = 'shop' | 'assistant' | 'voice' | 'pacing' | 'team' | 'numbers' | 'devices'
+const TABS: Tab[] = ['shop', 'assistant', 'voice', 'pacing', 'team', 'numbers', 'devices']
 const DAYS = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']] as const
 
 function Section({ title, sub, children, footer }: { title: string; sub?: string; children: ReactNode; footer?: ReactNode }) {
@@ -151,6 +155,12 @@ function AssistantSwitch({ b }: { b: Schemas['BusinessOut'] }) {
   )
 }
 
+function TrySection() {
+  const on = !!usePublicConfig().data?.simulator_enabled
+  if (!on) return null
+  return <Section title={tr('Try the assistant')} sub={tr('Pretend to be a customer and see how your assistant answers, before real customers do.')}><div><TryButton /></div></Section>
+}
+
 function AssistantTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }) {
   const s = b.sales_settings as any; const c = b.conversation_settings as any
   const [honorific, setHonorific] = useState<string>(s.honorific ?? '')
@@ -166,6 +176,7 @@ function AssistantTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: bool
   return (
     <div className="space-y-5">
       <AssistantSwitch b={b} />
+      <TrySection />
       <Section title={tr('Selling style')} footer={canEdit && <button className="btn btn-primary" disabled={save.isPending} onClick={() => save.mutate({ sales_settings: { honorific: honorific.trim() || null, language_default: lang as any, proactiveness: pro as any, may_mention_offers: offers, handoff_value_threshold: thr || null } })}>{save.isPending && <Spinner />} {tr('Save')}</button>}>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={tr('How should the assistant address customers?')} hint={tr('Added after their name, e.g. “ji”')}><input className="input" value={honorific} onChange={(e) => setHonorific(e.target.value)} disabled={!canEdit} placeholder={tr('ji')} /></Field>
@@ -343,11 +354,15 @@ export default function Settings() {
   const { t } = useT()
   const { role } = useAuth()
   const biz = useBusiness()
-  const [tab, setTab] = useState<Tab>('shop')
+  const [params, setParams] = useSearchParams()
+  const asked = params.get('tab') as Tab | null
+  const tab: Tab = asked && TABS.includes(asked) ? asked : 'shop'
+  const setTab = (t: Tab) => setParams(t === 'shop' ? {} : { tab: t }, { replace: true })
   const canEdit = role === 'owner' || role === 'operator'
   const dataKey = useMemo(() => JSON.stringify(biz.data ?? null), [biz.data])
   const tabs: { value: Tab; label: ReactNode }[] = [
     { value: 'shop', label: <span className="inline-flex items-center gap-1.5"><Building2 className="h-4 w-4" />{tr('Shop')}</span> }, { value: 'assistant', label: <span className="inline-flex items-center gap-1.5"><Sliders className="h-4 w-4" />{tr('Assistant')}</span> },
+    { value: 'voice', label: <span className="inline-flex items-center gap-1.5"><Mic2 className="h-4 w-4" />{tr('My voice')}</span> },
     { value: 'pacing', label: <span className="inline-flex items-center gap-1.5"><Clock className="h-4 w-4" />{tr('Speed')}</span> }, { value: 'team', label: <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4" />{tr('Team')}</span> },
     { value: 'numbers', label: <span className="inline-flex items-center gap-1.5"><Phone className="h-4 w-4" />{tr('Numbers')}</span> }, { value: 'devices', label: <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-4 w-4" />{tr('Security')}</span> },
   ]
@@ -360,6 +375,7 @@ export default function Settings() {
       {biz.data && tab === 'shop' && <ShopTab key={dataKey} b={biz.data} canEdit={canEdit} />}
       {biz.data && tab === 'assistant' && <AssistantTab key={dataKey} b={biz.data} canEdit={canEdit} />}
       {biz.data && tab === 'pacing' && <PacingTab key={dataKey} b={biz.data} canEdit={canEdit} />}
+      {tab === 'voice' && <Voice embedded />}
       {tab === 'team' && <TeamTab canEdit={canEdit} />}
       {biz.data && tab === 'numbers' && <NumbersTab b={biz.data} canEdit={canEdit} />}
       {tab === 'devices' && <div className="space-y-5"><DevicesTab /><DataSection /></div>}

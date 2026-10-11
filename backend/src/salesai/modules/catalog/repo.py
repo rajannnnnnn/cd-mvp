@@ -173,24 +173,24 @@ async def list_products(c: Conn, *, search: str | None = None, category: str | N
 # ---------------------------------------------------------------- offers
 async def create_offer(c: Conn, bid: uuid.UUID, o: OfferIn, *, actor: uuid.UUID | None = None) -> uuid.UUID:
     row = await (await c.execute(
-        """INSERT INTO offers (business_id, variant_id, name, kind, value, free_item, conditions, starts_at, ends_at, may_cross_floor, active)
-           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
-        (bid, o.variant_id, o.name, o.kind, o.value, o.free_item, jsonb(o.conditions), o.starts_at, o.ends_at, o.may_cross_floor, o.active))).fetchone()
+        """INSERT INTO offers (business_id, variant_id, category, name, kind, value, free_item, conditions, starts_at, ends_at, may_cross_floor, active)
+           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+        (bid, o.variant_id, o.category, o.name, o.kind, o.value, o.free_item, jsonb(o.conditions), o.starts_at, o.ends_at, o.may_cross_floor, o.active))).fetchone()
     await audit(c, bid, actor, "owner", "offer.created", "offer", str(row["id"]), {"name": o.name, "kind": o.kind})
     return row["id"]
 
 
 async def list_offers(c: Conn) -> list[OfferOut]:
     rows = await (await c.execute("SELECT * FROM offers ORDER BY created_at DESC")).fetchall()
-    return [OfferOut(**{k: r[k] for k in ("id", "created_at", "name", "kind", "value", "free_item", "variant_id", "conditions",
+    return [OfferOut(**{k: r[k] for k in ("id", "created_at", "name", "kind", "value", "free_item", "variant_id", "category", "conditions",
                                           "starts_at", "ends_at", "may_cross_floor", "active")}) for r in rows]
 
 
 async def update_offer(c: Conn, bid: uuid.UUID, offer_id: uuid.UUID, o: OfferIn, *, actor: uuid.UUID | None = None) -> None:
     r = await c.execute(
-        """UPDATE offers SET variant_id=%s, name=%s, kind=%s, value=%s, free_item=%s, conditions=%s, starts_at=%s, ends_at=%s,
+        """UPDATE offers SET variant_id=%s, category=%s, name=%s, kind=%s, value=%s, free_item=%s, conditions=%s, starts_at=%s, ends_at=%s,
                   may_cross_floor=%s, active=%s WHERE id=%s""",
-        (o.variant_id, o.name, o.kind, o.value, o.free_item, jsonb(o.conditions), o.starts_at, o.ends_at, o.may_cross_floor, o.active, offer_id))
+        (o.variant_id, o.category, o.name, o.kind, o.value, o.free_item, jsonb(o.conditions), o.starts_at, o.ends_at, o.may_cross_floor, o.active, offer_id))
     if r.rowcount == 0:
         raise LookupError("offer not found")
     await audit(c, bid, actor, "owner", "offer.updated", "offer", str(offer_id), {"name": o.name})

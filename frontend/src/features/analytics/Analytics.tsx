@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { FileText } from 'lucide-react'
 import { api, ok } from '@/api/client'
 import { AreaChart, Segmented, Skeleton } from '@/ui'
 import { tr } from '@/i18n/tr'
+import { INSIGHT_TABS, SectionTabs } from '@/app/SectionTabs'
 import { Bars, Hours, inr, Kpi, Panel, PlanGate, pct, secs } from './parts'
 import { HANDOFF_LABEL, STAGE_LABEL, type Stage } from '@/lib/stages'
 
@@ -15,11 +14,11 @@ export default function Analytics() {
   const k = a?.kpis; const p = a?.previous
   return (
     <div className="mx-auto max-w-[1100px] space-y-5 px-4 py-6 lg:px-8 lg:py-8">
+      <SectionTabs tabs={INSIGHT_TABS()} />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div><h1 className="text-[28px] font-extrabold">{tr('Analytics')}</h1><p className="text-[15px] text-muted">{tr('How your WhatsApp sales are going, compared with the period before.')}</p></div>
         <div className="flex items-center gap-2">
           <Segmented value={days} onChange={setDays} options={[{ value: '7', label: tr('7 days') }, { value: '30', label: tr('30 days') }, { value: '90', label: tr('90 days') }]} />
-          <Link className="btn btn-outline" to="/reports"><FileText className="h-4 w-4" /> {tr('Reports')}</Link>
         </div>
       </div>
       {q.error && <PlanGate error={q.error} retry={() => q.refetch()} />}

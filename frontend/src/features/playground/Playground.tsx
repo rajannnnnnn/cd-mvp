@@ -105,14 +105,14 @@ export default function Playground() {
     onSuccess: () => toast(tr('Event sent through the webhook. Check the owner’s phone and Settings → Numbers.')), onError: (e) => toast((e as Error).message, 'error'),
   })
 
-  if (nums.error instanceof ApiError && nums.error.status === 404) return <div className="mx-auto max-w-xl px-4 py-16"><div className="card"><EmptyState icon={<FlaskConical className="h-6 w-6" />} title={tr('The playground is for test numbers')} body={tr('It lets you chat as a customer without a real WhatsApp number. It isn’t available once a real number is connected.')} /></div></div>
+  if (nums.error instanceof ApiError && nums.error.status === 404) return <div className="mx-auto max-w-xl px-4 py-16"><div className="card"><EmptyState icon={<FlaskConical className="h-6 w-6" />} title={tr('Trying the assistant needs a test number')} body={tr('It lets you chat as a customer without a real WhatsApp number. It isn’t available once a real number is connected.')} /></div></div>
   const quick = ['Hi, do you have Banarasi silk sarees?', 'What’s the price of the red one?', 'Bhaiya thoda kam karo na', 'Can you deliver to Pune?', 'I want to talk to the owner']
 
   return (
     <div className="mx-auto max-w-[1100px] space-y-6 px-4 py-6 lg:px-8 lg:py-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div><h1 className="flex items-center gap-2 text-[28px] font-extrabold">{t('nav.playground', 'Playground')} <Badge tone="blue">{tr('Test mode')}</Badge></h1>
-          <p className="max-w-2xl text-[15px] text-muted">{tr('Chat as a customer and watch your assistant answer. Messages travel the real route — signed webhook, queue, AI, human-paced delivery — just without a real WhatsApp number.')}</p></div>
+        <div><h1 className="flex items-center gap-2 text-[28px] font-extrabold">{tr('Try the assistant')} <Badge tone="blue">{tr('Test mode')}</Badge></h1>
+          <p className="max-w-2xl text-[15px] text-muted">{tr('Pretend to be a customer and see how your assistant answers, before real customers do. Nothing is sent to anyone’s WhatsApp.')}</p></div>
       </div>
       {nums.error && !(nums.error instanceof ApiError && nums.error.status === 404) && <ErrorNote error={nums.error} retry={() => nums.refetch()} />}
       {nums.isLoading && <Skeleton className="h-[640px] rounded-3xl" />}

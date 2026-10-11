@@ -8,20 +8,22 @@ import { cx, inr } from '@/lib/format'
 import { blank, fromVariant, toPolicy, validate, type Draft } from './draft'
 import { tr } from '@/i18n/tr'
 import { CategoryField } from './CategoryField'
+import { DockPanel, Tick, useView, ViewToggle } from './shared'
 import { categoriesOf } from './category'
 
 type Product = Schemas['ProductOut']
 type Variant = Schemas['VariantOut']
 type Disclosure = Schemas['PolicyIn']['disclosure']
 
-const DISCLOSURE: { value: Disclosure; label: string; help: string }[] = [
-  { value: 'fixed', label: 'Show the price', help: 'The assistant tells customers the price straight away.' },
-  { value: 'starts_from', label: 'Starts from', help: 'Customers hear “starts from ₹X”.' },
-  { value: 'range', label: 'Price range', help: 'Customers hear “between ₹A and ₹B”.' },
-  { value: 'after_qualifying', label: 'After a question or two', help: 'The assistant first asks what they need, then quotes.' },
-  { value: 'on_request', label: 'I quote myself', help: 'The assistant never quotes; it brings you in.' },
+/** How the price is shown. One per product. Bargaining is separate, and "when to tell" is left to the assistant. */
+const PRICE_TYPES: { value: Disclosure; label: string }[] = [
+  { value: 'fixed', label: 'Fixed price' },
+  { value: 'starts_from', label: 'Starts from' },
+  { value: 'range', label: 'Price range' },
+  { value: 'on_request', label: 'On request' },
 ]
-const AVAIL = [{ value: 'in_stock', label: 'In stock' }, { value: 'limited', label: 'Limited' }, { value: 'made_to_order', label: 'Made to order' }, { value: 'out_of_stock', label: 'Out of stock' }]
+// Out of stock is what the product's on/off switch is for, so it is not offered here; a variant that already has it keeps it.
+const AVAIL = [{ value: 'in_stock', label: 'In stock' }, { value: 'limited', label: 'Limited' }, { value: 'made_to_order', label: 'Made to order' }]
 
 export function priceText(v: Variant | undefined): string {
   const p = v?.policy
@@ -62,8 +64,8 @@ function LadderPreview({ d }: { d: Draft }) {
 }
 
 /* ------------------------------------------------------------ variant editor */
-function VariantEditor({ d, set, onRemove, canRemove, single }: { d: Draft; set: (p: Partial<Draft>) => void; onRemove?: () => void; canRemove: boolean; single: boolean }) {
-  const disc = DISCLOSURE.find((x) => x.value === d.disclosure)!
+function VariantEditor({ d, kind, set, onRemove, canRemove, single }: { d: Draft; kind: Disclosure; set: (p: Partial<Draft>) => void; onRemove?: () => void; canRemove: boolean; single: boolean }) {
+  const avail = d.availability === 'out_of_stock' ? [...AVAIL, { value: 'out_of_stock', label: 'Out of stock' }] : AVAIL
   return (
     <div className="rounded-2xl border border-line/80 bg-surface p-4">
       <div className="flex items-start gap-3">
@@ -71,31 +73,20 @@ function VariantEditor({ d, set, onRemove, canRemove, single }: { d: Draft; set:
         {canRemove && <button className="btn btn-ghost btn-icon mt-6 text-danger" onClick={onRemove} aria-label={tr('Remove variant')}><Trash2 className="h-4 w-4" /></button>}
       </div>
       <div className={cx('grid gap-3 sm:grid-cols-2', !single && 'mt-3')}>
-        <Field label={tr('Availability')}><select className="select" value={d.availability} onChange={(e) => set({ availability: e.target.value })}>{AVAIL.map((a) => <option key={a.value} value={a.value}>{tr(a.label)}</option>)}</select></Field>
+        <Field label={tr('Availability')}><select className="select" value={d.availability} onChange={(e) => set({ availability: e.target.value })}>{avail.map((a) => <option key={a.value} value={a.value}>{tr(a.label)}</option>)}</select></Field>
         <Field label={tr('Stock count')} hint={tr('Optional')}><input className="input" inputMode="numeric" value={d.stock_qty} onChange={(e) => set({ stock_qty: e.target.value.replace(/\D/g, '') })} placeholder="e.g. 12" /></Field>
       </div>
 
-      <div className="mt-4 border-t border-line/60 pt-4">
-        <div className="mb-2 text-sm font-bold">{tr('How should the assistant talk about the price?')}</div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {DISCLOSURE.map((o) => (
-            <button key={o.value} type="button" onClick={() => set({ disclosure: o.value })} className={cx('rounded-xl border px-3 py-2.5 text-left transition', d.disclosure === o.value ? 'border-brand bg-brand-soft' : 'border-line bg-surface hover:bg-surface2')}>
-              <div className="text-sm font-bold">{tr(o.label)}</div>
-            </button>
-          ))}
-        </div>
-        <p className="mt-2 text-[13px] text-muted">{tr(disc.help)}</p>
-
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          {d.disclosure === 'range' && <>
+      {kind !== 'on_request' && (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {kind === 'range' && <>
             <Field label={tr('Lowest in range (₹)')}><input className="input" inputMode="decimal" value={d.range_min} onChange={(e) => set({ range_min: e.target.value })} /></Field>
             <Field label={tr('Highest in range (₹)')}><input className="input" inputMode="decimal" value={d.range_max} onChange={(e) => set({ range_max: e.target.value })} /></Field>
           </>}
-          {d.disclosure !== 'on_request' && (d.disclosure !== 'range' || d.negotiable) && <Field label={d.disclosure === 'starts_from' ? tr('Starting price (₹)') : tr('Price (₹)')}><input className="input" inputMode="decimal" value={d.list_price} onChange={(e) => set({ list_price: e.target.value })} placeholder="e.g. 7650" /></Field>}
-        </div>
-      </div>
+          {(kind !== 'range' || d.negotiable) && <Field label={kind === 'starts_from' ? tr('Starting price (₹)') : kind === 'range' ? tr('Price to start bargaining from (₹)') : tr('Price (₹)')}><input className="input" inputMode="decimal" value={d.list_price} onChange={(e) => set({ list_price: e.target.value })} placeholder="e.g. 7650" /></Field>}
+        </div>)}
 
-      {d.disclosure !== 'on_request' && (
+      {kind !== 'on_request' && (
         <div className="mt-4 rounded-xl bg-surface2/70 p-3.5">
           <div className="flex items-center justify-between gap-3">
             <div><div className="text-sm font-bold">{tr('Customers may bargain')}</div><div className="text-[13px] text-muted">{tr('Turn on if you sometimes give a discount.')}</div></div>
@@ -145,8 +136,10 @@ function ProductPanel({ product, categories, onClose }: { product: Product | 'ne
   const [name, setName] = useState(isNew ? '' : product.name)
   const [category, setCategory] = useState(isNew ? '' : product.category ?? '')
   const [description, setDescription] = useState(isNew ? '' : product.description ?? '')
-  const [active, setActive] = useState(isNew ? true : product.active)
-  const [vs, setVs] = useState<Draft[]>(isNew ? [blank(true)] : product.variants.map(fromVariant))
+  const active = isNew ? true : product.active                // on or off is the switch on the list, not a field here
+  const [vs, setVs] = useState<Draft[]>(isNew ? [blank(true)] : product.variants.filter((v) => v.active).map(fromVariant))
+  const [kind, setKindState] = useState<Disclosure>(vs.find((v) => v.is_default)?.disclosure ?? vs[0]?.disclosure ?? 'fixed')   // one way of showing the price per product
+  const setKind = (k: Disclosure) => { setKindState(k); setVs((a) => a.map((x) => ({ ...x, disclosure: k }))) }
   const [removed, setRemoved] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [confirmDel, setConfirmDel] = useState(false)
@@ -157,8 +150,9 @@ function ProductPanel({ product, categories, onClose }: { product: Product | 'ne
   const save = useMutation({
     mutationFn: async () => {
       if (!name.trim()) throw new Error('Give the product a name')
-      for (const v of vs) { const m = validate(v); if (m) throw new Error(m) }
-      const vars = vs.map((v, i) => ({ ...v, name: multi ? v.name : v.name || 'Standard', is_default: v.is_default || (i === 0 && !vs.some((x) => x.is_default)) }))
+      const all = vs.map((v) => ({ ...v, disclosure: kind }))
+      for (const v of all) { const m = validate(v); if (m) throw new Error(m) }
+      const vars = all.map((v, i) => ({ ...v, name: multi ? v.name : v.name || 'Standard', is_default: v.is_default || (i === 0 && !all.some((x) => x.is_default)) }))
       if (isNew) {
         const body = { name: name.trim(), category: cat() || null, description: description.trim() || null, active, variants: vars.map((v) => ({ name: v.name.trim(), availability: v.availability as any, stock_qty: v.stock_qty ? +v.stock_qty : null, is_default: v.is_default, active: v.active, policy: toPolicy(v), attributes: {} })) }
         await ok(api.POST('/api/v1/products', { body: body as any }))
@@ -186,65 +180,48 @@ function ProductPanel({ product, categories, onClose }: { product: Product | 'ne
 
   const title = isNew ? tr('Add a product') : tr('Edit product')
   return (
-    <aside aria-label={title} onKeyDown={(e) => { if (e.key === 'Escape' && e.currentTarget.contains(e.target as Node)) onClose() }}
-      className="flex min-h-0 flex-col overflow-hidden border-line/80 bg-surface shadow-pop max-lg:fixed max-lg:inset-x-0 max-lg:bottom-[76px] max-lg:top-[60px] max-lg:z-30 max-lg:border-y lg:sticky lg:top-[76px] lg:max-h-[calc(100dvh-6rem)] lg:w-[520px] lg:shrink-0 lg:rounded-2xl lg:border">
-      <div className="flex items-center justify-between border-b border-line/70 px-5 py-3.5"><h2 className="font-display text-lg font-bold">{title}</h2><button className="btn btn-ghost btn-icon" onClick={onClose} aria-label={tr('Close')}><X className="h-5 w-5" /></button></div>
-      <div className="flex-1 overflow-y-auto px-5 py-5">
+    <DockPanel title={title} onClose={onClose} footer={<>
+      {!isNew && <button className="btn btn-ghost mr-auto text-danger" onClick={() => setConfirmDel(true)}><Trash2 className="h-4 w-4" /> {tr('Delete')}</button>}
+      <button className="btn btn-ghost" onClick={onClose}>{tr('Cancel')}</button>
+      <button className="btn btn-primary" disabled={save.isPending} onClick={() => { setError(null); save.mutate() }}>{save.isPending && <Spinner />} {isNew ? tr('Add product') : tr('Save changes')}</button></>}>
       <div className="space-y-4">
         {error && <div className="rounded-xl border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-sm font-medium text-danger">{error}</div>}
         <Field label={tr('Product name')}><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Banarasi Silk Saree')} autoFocus={isNew} /></Field>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={tr('Category')} hint={tr('Type a new one or pick yours')}><CategoryField value={category} onChange={setCategory} options={categories} placeholder={tr('e.g. Sarees')} /></Field>
-          <Field label={tr('Visibility')}><div className="flex min-h-[44px] items-center justify-between rounded-xl border border-line px-3.5"><div className="text-sm font-semibold">{tr('Offer this to customers')}</div><Switch checked={active} onChange={setActive} label={tr('Active')} /></div></Field>
-        </div>
+        <Field label={tr('Category')} hint={tr('Type a new one or pick yours')}><CategoryField value={category} onChange={setCategory} options={categories} placeholder={tr('e.g. Sarees')} /></Field>
         <Field label={tr('Description')} hint={tr('What the assistant can say about it')}><textarea className="textarea min-h-[84px]" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={tr('Fabric, sizes, delivery time, care…')} /></Field>
 
-        <div className="flex items-center justify-between pt-1"><h3 className="font-display text-base font-bold">{multi ? tr('Variants & pricing') : tr('Pricing')}</h3>
-          <button className="btn btn-soft btn-sm" onClick={() => setVs((a) => [...a, blank(false)])}><Plus className="h-3.5 w-3.5" /> {tr('Add variant')}</button></div>
+        <div className="pt-1"><h3 className="font-display text-base font-bold">{tr('Price')}</h3>
+          <div role="radiogroup" aria-label={tr('How the price is shown')} className="mt-2 flex flex-wrap gap-2">
+            {(kind === 'after_qualifying' ? [...PRICE_TYPES, { value: 'after_qualifying' as Disclosure, label: 'After a question or two' }] : PRICE_TYPES).map((o) => (
+              <button key={o.value} type="button" role="radio" aria-checked={kind === o.value} onClick={() => setKind(o.value)} className={cx('chip', kind === o.value && 'chip-active')}>{tr(o.label)}</button>))}
+          </div></div>
+        {multi && <div className="flex items-center justify-between"><h3 className="font-display text-base font-bold">{tr('Variants')}</h3></div>}
         {vs.map((v, i) => (
-          <VariantEditor key={v.id ?? `n${i}`} d={v} single={!multi} set={(p) => setV(i, p)} canRemove={multi}
+          <VariantEditor key={v.id ?? `n${i}`} d={v} kind={kind} single={!multi} set={(p) => setV(i, p)} canRemove={multi}
             onRemove={() => { if (v.id) setRemoved((r) => [...r, v.id!]); setVs((a) => a.filter((_, j) => j !== i)) }} />
         ))}
+        <button type="button" className="btn btn-soft btn-sm" onClick={() => setVs((a) => [...a, { ...blank(false), disclosure: kind }])}><Plus className="h-3.5 w-3.5" /> {tr('Add a variant (size, colour…)')}</button>
         <p className="flex items-start gap-2 rounded-xl bg-surface2 px-3.5 py-3 text-[12.5px] text-muted"><Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />{tr('Your lowest price is stored separately and is never shown again, not even to you. The assistant can’t see it either; only the pricing engine can, and it never goes below it.')}</p>
       </div>
-      </div>
-      <div className="flex items-center justify-end gap-2 border-t border-line/70 bg-surface px-5 py-3">
-        {!isNew && <button className="btn btn-ghost mr-auto text-danger" onClick={() => setConfirmDel(true)}><Trash2 className="h-4 w-4" /> {tr('Delete')}</button>}
-        <button className="btn btn-ghost" onClick={onClose}>{tr('Cancel')}</button>
-        <button className="btn btn-primary" disabled={save.isPending} onClick={() => { setError(null); save.mutate() }}>{save.isPending && <Spinner />} {isNew ? tr('Add product') : tr('Save changes')}</button>
-      </div>
       <Confirm open={confirmDel} title={tr('Delete this product?')} body={tr('Existing conversations keep their history. The assistant will stop offering it.')} confirmLabel={tr('Delete')} danger busy={del.isPending} onClose={() => setConfirmDel(false)} onConfirm={() => del.mutate()} />
-    </aside>
+    </DockPanel>
   )
 }
 
 /* ------------------------------------------------------------ page */
-type View = 'cards' | 'grid'
 const VIEW_KEY = 'saathi.catalog.view'
-const readView = (): View => { try { return localStorage.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'cards' } catch { return 'cards' } }
-
-/** A tick box that is easy to hit on a phone and never opens the product underneath it. */
-function Tick({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
-  return (
-    <button type="button" role="checkbox" aria-checked={checked} aria-label={label} onClick={(e) => { e.stopPropagation(); onChange(!checked) }}
-      className={cx('grid h-6 w-6 shrink-0 place-items-center rounded-md border-2 transition', checked ? 'border-brand bg-brand text-white' : 'border-line bg-surface hover:border-brand/60')}>
-      {checked && <Check className="h-4 w-4" strokeWidth={3} />}
-    </button>
-  )
-}
 
 export default function Products() {
   const { t } = useT()
   const qc = useQueryClient(); const toast = useToast()
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState<Product | 'new' | null>(null)
-  const [view, setViewState] = useState<View>(readView)
+  const [view, setView] = useView(VIEW_KEY)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [one, setOne] = useState<{ p: Product; to: boolean } | null>(null)        // a single on/off waiting for confirmation
   const [bulk, setBulk] = useState<boolean | null>(null)                           // a bulk on/off waiting for the final confirmation
   const [delOne, setDelOne] = useState<Product | null>(null)                       // a single delete waiting for confirmation
   const [bulkDel, setBulkDel] = useState(false)                                    // a bulk delete waiting for the final confirmation
-  const setView = (v: View) => { setViewState(v); try { localStorage.setItem(VIEW_KEY, v) } catch { /* not remembered */ } }
   const q = useQuery({ queryKey: ['products'], queryFn: () => ok(api.GET('/api/v1/products', { params: { query: { limit: 100 } } })) })
   const categories = useMemo(() => categoriesOf(q.data?.items ?? []), [q.data])
   const items = useMemo(() => (q.data?.items ?? []).filter((p) => !search || `${p.name} ${p.category ?? ''}`.toLowerCase().includes(search.toLowerCase())), [q.data, search])
@@ -311,7 +288,7 @@ export default function Products() {
             <div className="flex flex-wrap items-center gap-3">
               {(q.data?.items.length ?? 0) > 4 && <div className="relative min-w-[200px] max-w-sm flex-1"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input className="input pl-10" placeholder={tr('Search products')} value={search} onChange={(e) => setSearch(e.target.value)} /></div>}
               <div className="flex items-center gap-2 text-sm font-semibold"><Tick checked={allTicked} onChange={toggleAll} label={tr('Select all products')} /><span className="cursor-pointer" onClick={() => toggleAll(!allTicked)}>{tr('Select all')}</span></div>
-              <div className="ml-auto"><Segmented value={view} onChange={setView} options={[{ value: 'cards', label: <span className="inline-flex items-center gap-1.5"><LayoutGrid className="h-4 w-4" />{tr('Cards')}</span> }, { value: 'grid', label: <span className="inline-flex items-center gap-1.5"><Rows3 className="h-4 w-4" />{tr('Grid')}</span> }]} /></div>
+              <div className="ml-auto"><ViewToggle value={view} onChange={setView} /></div>
             </div>)}
           {chosen.length > 0 && (
             <div className="sticky top-[68px] z-20 flex flex-wrap items-center gap-2 rounded-2xl border border-brand/40 bg-brand-soft px-4 py-3 shadow-card" role="region" aria-label={tr('Selected products')}>

@@ -2541,6 +2541,11 @@ export interface components {
              */
             active: boolean;
             /**
+             * Category
+             * @description Applies to every product in this category. Not together with variant_id.
+             */
+            category?: string | null;
+            /**
              * Conditions
              * @default {}
              */
@@ -2577,6 +2582,11 @@ export interface components {
              * @default true
              */
             active: boolean;
+            /**
+             * Category
+             * @description Applies to every product in this category. Not together with variant_id.
+             */
+            category?: string | null;
             /**
              * Conditions
              * @default {}

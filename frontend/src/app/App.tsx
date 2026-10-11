@@ -15,7 +15,6 @@ const Chats = lazy(() => import('@/features/conversations/Chats'))
 const Pipeline = lazy(() => import('@/features/pipeline/Pipeline'))
 const Products = lazy(() => import('@/features/catalog/Products'))
 const Offers = lazy(() => import('@/features/catalog/Offers'))
-const Voice = lazy(() => import('@/features/voice/Voice'))
 const Inbox = lazy(() => import('@/features/inbox/Inbox'))
 const Customers = lazy(() => import('@/features/customers/Customers'))
 const Settings = lazy(() => import('@/features/settings/Settings'))
@@ -110,14 +109,15 @@ export default function App() {
                     <Route path="products" element={<Products />} />
                     <Route path="catalog" element={<Navigate to="/products" replace />} />
                     <Route path="offers" element={<Offers />} />
-                    <Route path="voice" element={<Voice />} />
+                    <Route path="voice" element={<Navigate to="/settings?tab=voice" replace />} />
                     <Route path="inbox" element={<Inbox />} />
                     <Route path="customers" element={<Customers />} />
                     <Route path="settings" element={<Settings />} />
                     <Route path="billing" element={<Billing />} />
                     <Route path="analytics" element={<Analytics />} />
                     <Route path="reports" element={<Reports />} />
-                    <Route path="playground" element={<Playground />} />
+                    <Route path="try" element={<Playground />} />
+                    <Route path="playground" element={<Navigate to="/try" replace />} />
                     <Route path="operator/*" element={<Operator />} />
                   </Route>
                   <Route path="*" element={<Navigate to="/" replace />} />

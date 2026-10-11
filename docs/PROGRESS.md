@@ -187,3 +187,10 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
   hint for near-duplicates (`features/catalog/category.ts`, unit-tested). The assistant on/off switch was removed from the sidebar and Home and
   now lives only in Settings → Assistant; changing it needs a code sent to the signed-in number (`POST /business/ai/code`, then `POST /business/ai`
   with `code`; same one-time-code store as sign-in, used once; `OTP_ACCEPT_ANY` accepts any code in demos). Home shows a notice when it is paused.
+  Founder follow-ups the same day: Chats and Pipeline share one menu entry (tabs), as do Analytics and Reports; "Playground" became a
+  "Try the assistant" button on Chats/Pipeline (and in Settings → Assistant), at `/try`; "My voice" moved into Settings (optional tab;
+  `/voice` redirects). The product editor lost the visibility toggle and the out-of-stock option (the list switch does that), shows only price
+  types (fixed, starts from, range, on request; one per product, shared by its variants), and keeps bargaining in its own card. Offers got the Products
+  layout (cards/grid, switch + confirm, ticks + bulk on/off/delete, docked editor) and can target a whole category as well as one product
+  (migration `0007_offer_category.sql`; the pricing role gets column-level SELECT on `products(id, business_id, category)` only).
+

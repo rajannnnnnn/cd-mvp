@@ -8,6 +8,7 @@ import { Avatar, Badge, Confirm, EmptyState, ErrorNote, MessageTicks, Skeleton, 
 import { ago, clock, cx, dayLabel, inr, phone as fmtPhone } from '@/lib/format'
 import { HANDOFF_LABEL, HANDOFF_TONE, STAGES, STAGE_LABEL, STAGE_TONE, type Stage } from '@/lib/stages'
 import { tr } from '@/i18n/tr'
+import { CHAT_TABS, SectionTabs, TryButton } from '@/app/SectionTabs'
 
 type Summary = Schemas['ConversationSummary']
 type Detail = Schemas['ConversationDetail']
@@ -42,7 +43,8 @@ function ChatList({ activeId }: { activeId?: string }) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface">
       <div className="space-y-3 border-b border-line/70 p-4">
-        <h1 className="font-display text-2xl font-extrabold">{t('chat.title', 'Chats')}</h1>
+        <div className="flex items-center justify-between gap-2"><h1 className="font-display text-2xl font-extrabold">{t('chat.title', 'Chats')}</h1><TryButton /></div>
+        <SectionTabs tabs={CHAT_TABS()} />
         <div className="relative"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input className="input !pl-10" placeholder={t('chat.search', 'Search name or number')} value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5">{FILTERS.map((f) => <button key={f.id} className={cx('chip', filter === f.id && 'chip-active')} onClick={() => setFilter(f.id)}>{t(f.key, f.label)}</button>)}</div>
       </div>
