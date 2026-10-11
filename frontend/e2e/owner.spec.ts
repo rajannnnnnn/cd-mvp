@@ -103,9 +103,11 @@ test.describe('owner app', () => {
     await page.getByLabel('Shop phone').fill('+91 99999 00002')
     await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page.getByText('Saved').first()).toBeVisible()
-    await page.getByRole('tab', { name: /Speed/ }).click()
-    await page.getByRole('button', { name: /Natural/ }).click()
-    await page.getByRole('button', { name: 'Save' }).click()
+    await page.getByRole('tab', { name: 'Assistant' }).click()                                      // speed and voice live under Assistant, not in tabs of their own
+    await expect(page.getByRole('tab', { name: /Speed|My voice/ })).toHaveCount(0)
+    const speed = page.locator('section', { has: page.getByRole('heading', { name: 'Reply speed' }) })
+    await speed.getByRole('button', { name: /Natural/ }).click()
+    await speed.getByRole('button', { name: 'Save', exact: true }).click()
     await expect(page.getByText('Saved').first()).toBeVisible()
   })
 
@@ -246,7 +248,7 @@ test.describe('owner app', () => {
     await expect(nav.getByRole('link', { name: 'Analytics' })).toHaveClass(/nav-item-active/)
 
     await page.goto(`${SHOP}/voice`)                                                                 // the old address lands in Settings
-    await expect(page).toHaveURL(/\/settings\?tab=voice/)
+    await expect(page).toHaveURL(/\/settings\?tab=assistant/)
     await expect(page.getByRole('heading', { name: /My voice/ })).toBeVisible()
   })
 

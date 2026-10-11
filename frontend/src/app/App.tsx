@@ -109,7 +109,7 @@ export default function App() {
                     <Route path="products" element={<Products />} />
                     <Route path="catalog" element={<Navigate to="/products" replace />} />
                     <Route path="offers" element={<Offers />} />
-                    <Route path="voice" element={<Navigate to="/settings?tab=voice" replace />} />
+                    <Route path="voice" element={<Navigate to="/settings?tab=assistant" replace />} />
                     <Route path="inbox" element={<Inbox />} />
                     <Route path="customers" element={<Customers />} />
                     <Route path="settings" element={<Settings />} />

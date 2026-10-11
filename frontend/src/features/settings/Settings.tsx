@@ -15,8 +15,9 @@ import Voice from '@/features/voice/Voice'
 import Support from '@/features/support/Support'
 import { TryButton } from '@/app/SectionTabs'
 
-type Tab = 'shop' | 'assistant' | 'voice' | 'pacing' | 'team' | 'numbers' | 'devices' | 'support'
-const TABS: Tab[] = ['shop', 'assistant', 'voice', 'pacing', 'team', 'numbers', 'devices', 'support']
+type Tab = 'shop' | 'assistant' | 'team' | 'numbers' | 'devices' | 'support'
+const TABS: Tab[] = ['shop', 'assistant', 'team', 'numbers', 'devices', 'support']
+const OLD_TABS: Record<string, Tab> = { voice: 'assistant', pacing: 'assistant' }      // links from before voice and speed moved into Assistant
 const DAYS = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']] as const
 
 function Section({ title, sub, children, footer }: { title: string; sub?: string; children: ReactNode; footer?: ReactNode }) {
@@ -195,6 +196,8 @@ function AssistantTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: bool
           <Field label={tr('Daily summary at')}><select className="select" value={hour} onChange={(e) => setHour(e.target.value)} disabled={!canEdit}>{Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>)}</select></Field>
         </div>
       </Section>
+      <PacingTab b={b} canEdit={canEdit} />
+      <section className="card card-pad"><Voice embedded /></section>
     </div>
   )
 }
@@ -356,15 +359,15 @@ export default function Settings() {
   const { role } = useAuth()
   const biz = useBusiness()
   const [params, setParams] = useSearchParams()
-  const asked = params.get('tab') as Tab | null
-  const tab: Tab = asked && TABS.includes(asked) ? asked : 'shop'
+  const raw = params.get('tab') ?? ''
+  const asked = (OLD_TABS[raw] ?? raw) as Tab
+  const tab: Tab = TABS.includes(asked) ? asked : 'shop'
   const setTab = (t: Tab) => setParams(t === 'shop' ? {} : { tab: t }, { replace: true })
   const canEdit = role === 'owner' || role === 'operator'
   const dataKey = useMemo(() => JSON.stringify(biz.data ?? null), [biz.data])
   const tabs: { value: Tab; label: ReactNode }[] = [
     { value: 'shop', label: <span className="inline-flex items-center gap-1.5"><Building2 className="h-4 w-4" />{tr('Shop')}</span> }, { value: 'assistant', label: <span className="inline-flex items-center gap-1.5"><Sliders className="h-4 w-4" />{tr('Assistant')}</span> },
-    { value: 'voice', label: <span className="inline-flex items-center gap-1.5"><Mic2 className="h-4 w-4" />{tr('My voice')}</span> },
-    { value: 'pacing', label: <span className="inline-flex items-center gap-1.5"><Clock className="h-4 w-4" />{tr('Speed')}</span> }, { value: 'team', label: <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4" />{tr('Team')}</span> },
+    { value: 'team', label: <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4" />{tr('Team')}</span> },
     { value: 'numbers', label: <span className="inline-flex items-center gap-1.5"><Phone className="h-4 w-4" />{tr('Numbers')}</span> }, { value: 'devices', label: <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-4 w-4" />{tr('Security')}</span> },
     { value: 'support', label: <span className="inline-flex items-center gap-1.5"><LifeBuoy className="h-4 w-4" />{tr('Support')}</span> },
   ]
@@ -376,8 +379,6 @@ export default function Settings() {
       {biz.isLoading && <Skeleton className="h-80 rounded-2xl" />}
       {biz.data && tab === 'shop' && <ShopTab key={dataKey} b={biz.data} canEdit={canEdit} />}
       {biz.data && tab === 'assistant' && <AssistantTab key={dataKey} b={biz.data} canEdit={canEdit} />}
-      {biz.data && tab === 'pacing' && <PacingTab key={dataKey} b={biz.data} canEdit={canEdit} />}
-      {tab === 'voice' && <Voice embedded />}
       {tab === 'support' && <Support />}
       {tab === 'team' && <TeamTab canEdit={canEdit} />}
       {biz.data && tab === 'numbers' && <NumbersTab b={biz.data} canEdit={canEdit} />}
