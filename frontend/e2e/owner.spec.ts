@@ -181,7 +181,7 @@ test.describe('owner app', () => {
     await page.getByRole('button', { name: 'Add product' }).first().click()
     const second = page.getByRole('complementary', { name: 'Add a product' })
     const box = second.getByRole('combobox', { name: 'Category' })
-    await box.fill(cat.toLowerCase().slice(0, -1))                                                    // lower case and one letter short
+    await box.fill(cat.replace('Prints', 'print'))                                                    // singular and lower case
     await expect(second.getByText(`You already have a category called “${cat}”.`)).toBeVisible()
     await second.getByRole('button', { name: `Use “${cat}”` }).click()
     await expect(box).toHaveValue(cat)
@@ -274,7 +274,7 @@ test.describe('owner app', () => {
     await expect(page.getByRole('dialog')).toHaveCount(0)                                            // beside the list, not over it
     await expect(panel.getByText('Offer is live')).toHaveCount(0)
     await panel.getByLabel('Offer name').fill(a)
-    await panel.getByPlaceholder('10').fill('10')
+    await panel.getByLabel('Percent off').fill('10')
     const target = panel.getByLabel('Applies to')
     await expect(target.locator('optgroup[label="A whole category"] option')).not.toHaveCount(0)    // categories can be picked, not only products
     await target.selectOption({ index: 1 })
@@ -283,7 +283,7 @@ test.describe('owner app', () => {
     await page.getByRole('button', { name: 'New offer' }).first().click()
     const second = page.getByRole('complementary', { name: 'New offer' })
     await second.getByLabel('Offer name').fill(b)
-    await second.getByPlaceholder('10').fill('5')
+    await second.getByLabel('Percent off').fill('5')
     await second.getByRole('button', { name: 'Save offer' }).click()
     await expect(page.getByText(b)).toBeVisible()
 

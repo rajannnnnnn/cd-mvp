@@ -40,7 +40,7 @@ export function CategoryField({ value, onChange, options, placeholder }: { value
               <span className="truncate font-semibold">{o}</span>{o === value.trim() && <Check className="h-4 w-4 text-brand" />}
             </li>))}
         </ul>)}
-      {hint && (
+      {hint && !(open && list.length > 0) && (      // while the list is open it already holds the match; the hint is for what the list cannot show
         <p className="mt-1.5 text-[13px] text-muted">{tr('You already have a category called “{name}”.', { name: hint })}{' '}
           <button type="button" className="font-bold text-brand-ink underline" onClick={() => pick(hint)}>{tr('Use “{name}”', { name: hint })}</button></p>)}
     </div>
