@@ -52,7 +52,6 @@ export default function Home() {
   const pipeline = useMemo(() => STAGES.map((s) => ({ stage: s, n: ov.data?.pipeline?.[s] ?? 0 })), [ov.data])
   const maxStage = Math.max(1, ...pipeline.map((p) => p.n))
 
-  const toggle = async (v: boolean) => { try { const b = await ok(api.POST('/api/v1/business/ai', { body: { enabled: v } })); qc.setQueryData(['business'], b); toast(v ? tr('AI assistant is ON') : tr('AI assistant paused')) } catch (e) { toast((e as Error).message, 'error') } }
 
   return (
     <div className="mx-auto max-w-[1180px] space-y-6 px-4 py-6 lg:px-8 lg:py-8">
@@ -63,14 +62,12 @@ export default function Home() {
           <h1 className="mt-1 text-[28px] font-extrabold leading-tight sm:text-[34px]">{t('dash.hello', 'Namaste')}{first ? `, ${first}` : ''} 👋</h1>
           <p className="mt-1 text-[15px] text-muted">{t('dash.subtitle', 'Here’s how your shop is doing on WhatsApp today.')}</p>
         </div>
-        <div className="flex items-center gap-4 rounded-2xl border border-line/70 bg-surface px-4 py-3 shadow-card">
-          <div className="flex items-center gap-3">
-            <span className={`relative grid h-10 w-10 place-items-center rounded-xl ${aiOn ? 'bg-brand-soft text-brand-ink' : 'bg-surface2 text-muted'}`}><Sparkles className="h-5 w-5" />{aiOn && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-surface bg-brand animate-pulseDot" />}</span>
-            <div><div className="text-sm font-bold">{aiOn ? t('ai.on', 'AI assistant is ON') : t('ai.paused', 'AI assistant paused')}</div><div className="text-xs text-muted">{aiOn ? tr('Answering customers on your number') : tr('Customers are not being answered')}</div></div>
-          </div>
-          <Switch size="lg" checked={aiOn} onChange={toggle} label={tr('AI assistant')} />
-        </div>
       </div>
+
+      {biz.data && !aiOn && (
+        <Link to="/settings" className="flex flex-wrap items-center gap-3 rounded-2xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm shadow-card">
+          <Sparkles className="h-5 w-5 shrink-0" /><span className="flex-1 font-semibold">{tr('The AI assistant is paused, so customers are not being answered.')}</span><span className="font-bold underline">{tr('Switch it on in Settings')}</span>
+        </Link>)}
 
       {ov.error && <ErrorNote error={ov.error} retry={() => ov.refetch()} />}
 

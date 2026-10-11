@@ -106,7 +106,7 @@ function DetailsStep({ onDone }: { onDone: () => void }) {
   return (
     <div>
       <h2 className="font-display text-[26px] font-extrabold leading-tight">{tr('Shop details')}</h2>
-      <p className="mt-1.5 text-[15px] text-muted">{tr('The assistant only states facts that are written here or in your catalog. Skip anything you’d rather answer yourself.')}</p>
+      <p className="mt-1.5 text-[15px] text-muted">{tr('The assistant only states facts that are written here or in your products. Skip anything you’d rather answer yourself.')}</p>
       <div className="mt-6 space-y-4">
         <Field label={tr('About your shop')} hint={tr('One or two lines in your own words')}><textarea className="textarea min-h-[70px]" value={about} onChange={(e) => setAbout(e.target.value)} placeholder={tr('e.g. Family-run saree shop since 1998. Silk, cotton and bridal collections.')} /></Field>
         <Field label={tr('Address')}><textarea className="textarea min-h-[70px]" value={address} onChange={(e) => setAddress(e.target.value)} placeholder={tr('Shop number, street, area, city, PIN')} /></Field>
@@ -143,7 +143,7 @@ function ProductsStep({ onDone, onBack }: { onDone: () => void; onBack: () => vo
   return (
     <div>
       <h2 className="font-display text-[26px] font-extrabold leading-tight">{tr('What do you sell?')}</h2>
-      <p className="mt-1.5 text-[15px] text-muted">{tr('Add a few products or services now; you can add the rest, with variants, from the catalog later.')}</p>
+      <p className="mt-1.5 text-[15px] text-muted">{tr('Add a few products or services now; you can add the rest, with variants, from the Products page later.')}</p>
       {items.length > 0 && (
         <ul className="mt-5 divide-y divide-line/60 rounded-2xl border border-line/70 bg-surface">
           {items.map((p) => <li key={p.id} className="flex items-center gap-3 px-4 py-3"><CheckCircle2 className="h-4 w-4 text-brand" /><span className="flex-1 font-semibold">{p.name}</span><span className="text-xs text-muted">{p.category ?? ''}</span></li>)}

@@ -4,11 +4,12 @@ import uuid
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from salesai.api.deps import RT, Owner, Tenant, tx
+from salesai.api.deps import RT, Owner, Tenant, client_ip, tx
 from salesai.api.errors import ApiError
+from salesai.api.routes.auth import OtpSent
 from salesai.db import jsonb, required
 from salesai.modules.auth import Principal
 from salesai.modules.catalog import repo
@@ -123,6 +124,7 @@ class BusinessOut(BaseModel):
 
 class AiToggle(BaseModel):
     enabled: bool
+    code: str = Field(min_length=1, max_length=12, description="The code sent to the signed-in number by POST /business/ai/code.")
 
 
 class TeamMemberOut(BaseModel):
@@ -192,8 +194,14 @@ async def patch_business(body: BusinessPatch, rt: RT, p: Owner) -> BusinessOut:
     return await _load(rt, p)
 
 
-@router.post("/business/ai", response_model=BusinessOut, summary="Pause or resume the AI for the whole business")
+@router.post("/business/ai/code", response_model=OtpSent, summary="Send a confirmation code to your own number before switching the AI")
+async def ai_code(rt: RT, p: Tenant, request: Request) -> Any:
+    return await rt.auth.request_otp(p.phone, client_ip(request))
+
+
+@router.post("/business/ai", response_model=BusinessOut, summary="Pause or resume the AI for the whole business (needs the confirmation code)")
 async def toggle_ai(body: AiToggle, rt: RT, p: Tenant) -> BusinessOut:
+    await rt.auth.confirm_code(p.phone, body.code)
     if body.enabled:
         await rt.billing.assert_can_run(p.bid)
     async with tx(rt, p) as c:

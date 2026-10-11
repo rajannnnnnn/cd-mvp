@@ -20,7 +20,7 @@ test.describe('number-centric authentication', () => {
   })
 
   test('the app is closed to anyone who is not signed in', async ({ page }) => {
-    for (const path of ['/app/home', '/app/chats', '/app/catalog', '/app/operator']) {
+    for (const path of ['/app/home', '/app/chats', '/app/products', '/app/operator']) {
       await page.goto(path)
       await expect(page).toHaveURL(/login/)
     }

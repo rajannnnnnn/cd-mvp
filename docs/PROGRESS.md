@@ -181,3 +181,9 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
   SaaS slice requested by the founder (milestone M15; ADRs 0018 and 0019): sign-up, onboarding, shop addresses, marketing pricing/ad/contact
   pages, billing, analytics, reports, operator billing console. A migration bug that only shows on databases with data (row-level security hid
   the rows being backfilled) was found on the dev database and is now guarded by `test_migrations.py`.
+  Later in the session, on founder request: the Products page (renamed from Catalog; route `/products`, `/catalog` redirects) got cards and grid views,
+  Edit / Delete / on-off on every item, tick-select with bulk on/off/delete each ending in a final confirmation, a docked editor that sits beside
+  the list instead of over it, and a category field that is typable *and* a dropdown of the shop's existing categories with a "did you mean"
+  hint for near-duplicates (`features/catalog/category.ts`, unit-tested). The assistant on/off switch was removed from the sidebar and Home and
+  now lives only in Settings → Assistant; changing it needs a code sent to the signed-in number (`POST /business/ai/code`, then `POST /business/ai`
+  with `code`; same one-time-code store as sign-in, used once; `OTP_ACCEPT_ANY` accepts any code in demos). Home shows a notice when it is paused.

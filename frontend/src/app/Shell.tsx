@@ -48,7 +48,7 @@ export default function Shell() {
     { to: '/chats', icon: MessageCircle, key: 'nav.chats', label: tr('Chats') },
     { to: '/inbox', icon: Inbox, key: 'nav.inbox', label: tr('For you'), badge: needs },
     { to: '/pipeline', icon: KanbanSquare, key: 'nav.pipeline', label: tr('Pipeline') },
-    { to: '/catalog', icon: Package, key: 'nav.catalog', label: tr('Catalog') },
+    { to: '/products', icon: Package, key: 'nav.products', label: tr('Products') },
     { to: '/offers', icon: Megaphone, key: 'nav.offers', label: tr('Offers') },
     { to: '/voice', icon: Mic2, key: 'nav.voice', label: tr('My voice') },
     { to: '/customers', icon: Users, key: 'nav.customers', label: tr('Customers') },
@@ -66,9 +66,6 @@ export default function Shell() {
     : bd.status === 'past_due' ? { tone: 'warn', text: tr('A payment is overdue.') }
     : bd.status === 'trialing' && (bd.trial_days_left ?? 99) <= 3 ? { tone: 'warn', text: tr('{n} days left in your free trial.', { n: bd.trial_days_left ?? 0 }) } : null
 
-  const toggleAi = async (v: boolean) => {
-    try { const b = await ok(api.POST('/api/v1/business/ai', { body: { enabled: v } })); qc.setQueryData(['business'], b); toast(v ? t('ai.on', 'AI assistant is ON') : t('ai.paused', 'AI assistant paused')) } catch (e) { toast((e as Error).message, 'error') }
-  }
   const flipTheme = () => { const n: Theme = theme === 'dark' ? 'light' : 'dark'; setTheme(n); setThemeState(n) }
 
   return (
@@ -80,7 +77,6 @@ export default function Shell() {
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0"><div className="truncate text-sm font-bold">{me?.business?.name ?? '—'}</div>
                 <div className="flex items-center gap-1.5 text-xs text-muted"><span className={cx('h-2 w-2 rounded-full', aiOn ? 'bg-brand animate-pulseDot' : 'bg-muted')} />{aiOn ? t('ai.on', 'AI assistant is ON') : t('ai.paused', 'AI assistant paused')}</div></div>
-              <Switch checked={aiOn} onChange={toggleAi} label={tr('AI assistant')} />
             </div>
           </div>)}
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto">
@@ -106,7 +102,6 @@ export default function Shell() {
           <div className="hidden flex-1 lg:block" />
           {me?.impersonated && <button className="badge badge-amber cursor-pointer hover:brightness-95" onClick={backToConsole}>{tr('Viewing as owner (support) · Back to console')}</button>}
           {isOwner && <span className={cx('hidden items-center gap-1.5 text-xs sm:flex', live ? 'text-brand-ink' : 'text-muted')} title={live ? tr('Live updates connected') : tr('Reconnecting…')}>{live ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}{live ? tr('Live') : tr('Offline')}</span>}
-          {isOwner && <div className="flex items-center gap-2 lg:hidden"><span className="text-xs font-semibold text-muted">{tr('AI')}</span><Switch checked={aiOn} onChange={toggleAi} label={tr('AI assistant')} /></div>}
           <button className="btn btn-ghost btn-icon" onClick={flipTheme} aria-label={tr('Theme')}>{theme === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}</button>
           <button className="lg:hidden" onClick={() => setMenu(true)} aria-label={tr('Account')}><Avatar name={me?.name ?? me?.phone} size={32} /></button>
         </header>

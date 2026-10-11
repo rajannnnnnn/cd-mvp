@@ -30,7 +30,7 @@ Process roles of the one image: `api`, `ingress`, `web` (both), `worker`, `sched
 ## Frontend (`frontend/src`)
 
 `site/` marketing page logic (hero, price-limits demo, EN/HI), `auth/` (login, token store), `api/` (generated typed client,
-SSE), `app/` (shell, routes), `features/` (onboarding wizard, billing, analytics and reports, dashboard, conversations, pipeline, inbox, catalog, offers, voice (owner style examples), customers,
+SSE), `app/` (shell, routes), `features/` (onboarding wizard, billing, analytics and reports, dashboard, conversations, pipeline, inbox, catalog (the Products page: cards/grid, per-item edit/delete/on-off, bulk actions, docked editor, category picker), offers, voice (owner style examples), customers,
 settings, playground, operator), `ui/` (design system), `i18n/`, `lib/`. Static pages at the root: `index.html`,
 `privacy.html`, `terms.html`, `data-deletion.html`; the app is `app/index.html` served under `/app`.
 

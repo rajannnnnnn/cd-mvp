@@ -60,7 +60,7 @@ function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }
   })
   return (
     <div className="space-y-5">
-      <Section title={tr('Your shop')} sub={tr('The assistant only states facts that are written here or in your catalog.')} footer={canEdit && <button className="btn btn-primary" disabled={save.isPending} onClick={submit}>{save.isPending && <Spinner />} {tr('Save changes')}</button>}>
+      <Section title={tr('Your shop')} sub={tr('The assistant only states facts that are written here or in your products.')} footer={canEdit && <button className="btn btn-primary" disabled={save.isPending} onClick={submit}>{save.isPending && <Spinner />} {tr('Save changes')}</button>}>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={tr('Shop name')}><input className="input" value={name} onChange={(e) => setName(e.target.value)} disabled={!canEdit} /></Field>
           <Field label={tr('Your web address')} hint={tr('Where you sign in to your shop. Changing it changes the link.')}>
@@ -96,6 +96,61 @@ function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }
 }
 
 /* ------------------------------------------------------------------ Assistant */
+/** The assistant's master switch. Changing it is deliberate: a code is sent to the signed-in number and must be entered first. */
+function AssistantSwitch({ b }: { b: Schemas['BusinessOut'] }) {
+  const toast = useToast(); const qc = useQueryClient()
+  const { me } = useAuth()
+  const [to, setTo] = useState<boolean | null>(null)
+  const [code, setCode] = useState('')
+  const [err, setErr] = useState<string | null>(null)
+  const dev = !!usePublicConfig().data?.simulator_enabled
+  const [baseline, setBaseline] = useState(0)
+  const send = useMutation({
+    mutationFn: async () => {
+      // development simulator: remember what is already in the phone's inbox so only the new code is filled in
+      if (dev && me?.phone) { try { const all = await ok(api.GET('/api/v1/sim/inbox', { params: { query: { phone: me.phone } } })); setBaseline(Math.max(0, ...all.filter((m) => m.template_name === 'otp_login').map((m) => m.id))) } catch { /* inbox unavailable */ } }
+      return ok(api.POST('/api/v1/business/ai/code'))
+    },
+    onError: (e) => setErr((e as Error).message),
+  })
+  const inbox = useQuery({
+    queryKey: ['sim-inbox', me?.phone], enabled: dev && to !== null && !!me?.phone && !send.isPending, refetchInterval: 1200, retry: false,
+    queryFn: () => ok(api.GET('/api/v1/sim/inbox', { params: { query: { phone: me!.phone } } })),
+  })
+  const latest = (inbox.data ?? []).filter((m) => m.template_name === 'otp_login' && m.id > baseline).at(-1)
+  useEffect(() => { const m = latest?.body?.match(/\b(\d{6})\b/); if (m && to !== null && !code) setCode(m[1]) }, [latest?.id])   // eslint-disable-line react-hooks/exhaustive-deps
+  const apply = useMutation({
+    mutationFn: (v: { enabled: boolean; code: string }) => ok(api.POST('/api/v1/business/ai', { body: v })),
+    onSuccess: (nb, v) => { qc.setQueryData(['business'], nb); toast(v.enabled ? tr('AI assistant is ON') : tr('AI assistant paused')); close() },
+    onError: (e) => setErr((e as Error).message),
+  })
+  const ask = (v: boolean) => { setTo(v); setCode(''); setErr(null); send.mutate() }
+  const close = () => { setTo(null); setCode(''); setErr(null) }
+  const on = b.ai_enabled
+  return (
+    <Section title={tr('Assistant on / off')} sub={tr('Switch the assistant off to stop it answering customers everywhere, or back on. Changing this needs a code sent to your own number.')}>
+      <div className="flex items-center justify-between gap-4 rounded-2xl border border-line/70 px-4 py-3.5">
+        <div className="flex items-center gap-3">
+          <span className={cx('h-2.5 w-2.5 rounded-full', on ? 'bg-brand animate-pulseDot' : 'bg-muted')} />
+          <div><div className="text-sm font-bold">{on ? tr('AI assistant is ON') : tr('AI assistant paused')}</div><div className="text-xs text-muted">{on ? tr('Answering customers on your number') : tr('Customers are not being answered')}</div></div>
+        </div>
+        <Switch size="lg" checked={on} onChange={ask} label={tr('AI assistant')} />
+      </div>
+      <Modal open={to !== null} onClose={close} title={to ? tr('Switch the assistant on?') : tr('Switch the assistant off?')}
+        footer={<><button className="btn btn-ghost" onClick={close}>{tr('Cancel')}</button>
+          <button className={cx('btn', to ? 'btn-primary' : 'btn-danger')} disabled={apply.isPending || code.trim().length < 4} onClick={() => { setErr(null); apply.mutate({ enabled: !!to, code: code.trim() }) }}>{apply.isPending && <Spinner />} {to ? tr('Confirm and switch on') : tr('Confirm and switch off')}</button></>}>
+        <p className="text-sm text-muted">{to ? tr('The assistant will start answering customers again.') : tr('The assistant will stop answering customers until you switch it back on. Chats still arrive; you can reply yourself.')}</p>
+        <p className="mt-3 text-sm">{tr('We sent a 6-digit code to your WhatsApp number {number}.', { number: me?.phone ? fmtPhone(me.phone) : tr('on this account') })}</p>
+        <Field label={tr('Confirmation code')} className="mt-3">
+          <input className="input tnum tracking-[0.3em]" inputMode="numeric" autoComplete="one-time-code" maxLength={8} autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} placeholder="••••••" />
+        </Field>
+        {err && <div role="alert" className="mt-3 rounded-xl border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-sm font-medium text-danger">{err}</div>}
+        <button className="btn btn-ghost btn-sm mt-2" disabled={send.isPending} onClick={() => { setErr(null); setCode(''); send.mutate() }}>{send.isPending && <Spinner />} {tr('Send the code again')}</button>
+      </Modal>
+    </Section>
+  )
+}
+
 function AssistantTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }) {
   const s = b.sales_settings as any; const c = b.conversation_settings as any
   const [honorific, setHonorific] = useState<string>(s.honorific ?? '')
@@ -110,6 +165,7 @@ function AssistantTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: bool
   const save = useSaveBusiness()
   return (
     <div className="space-y-5">
+      <AssistantSwitch b={b} />
       <Section title={tr('Selling style')} footer={canEdit && <button className="btn btn-primary" disabled={save.isPending} onClick={() => save.mutate({ sales_settings: { honorific: honorific.trim() || null, language_default: lang as any, proactiveness: pro as any, may_mention_offers: offers, handoff_value_threshold: thr || null } })}>{save.isPending && <Spinner />} {tr('Save')}</button>}>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={tr('How should the assistant address customers?')} hint={tr('Added after their name, e.g. “ji”')}><input className="input" value={honorific} onChange={(e) => setHonorific(e.target.value)} disabled={!canEdit} placeholder={tr('ji')} /></Field>
@@ -275,7 +331,7 @@ function DataSection() {
       <p className="mt-3 text-[13px] text-muted">{tr('The download never includes your lowest prices, access tokens or secrets.')}</p>
       <Modal open={open} onClose={() => setOpen(false)} title={tr('Delete this shop permanently?')}
         footer={<><button className="btn btn-outline" onClick={() => setOpen(false)}>{tr('Cancel')}</button><button className="btn btn-danger" disabled={typed !== name || erase.isPending} onClick={() => erase.mutate()}>{erase.isPending ? <Spinner /> : null} {tr('Delete everything')}</button></>}>
-        <p className="text-sm text-muted">{tr('This erases your catalog, prices, customers, conversations and team, with no way back. Download your data first if you may need it.')}</p>
+        <p className="text-sm text-muted">{tr('This erases your products, prices, customers, conversations and team, with no way back. Download your data first if you may need it.')}</p>
         <Field label={tr('Type “{name}” to confirm', { name })} className="mt-4"><input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus /></Field>
       </Modal>
     </Section>

@@ -321,8 +321,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Pause or resume the AI for the whole business */
+        /** Pause or resume the AI for the whole business (needs the confirmation code) */
         post: operations["toggle_ai_api_v1_business_ai_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/business/ai/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a confirmation code to your own number before switching the AI */
+        post: operations["ai_code_api_v1_business_ai_code_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1486,6 +1503,11 @@ export interface components {
     schemas: {
         /** AiToggle */
         AiToggle: {
+            /**
+             * Code
+             * @description The code sent to the signed-in number by POST /business/ai/code.
+             */
+            code: string;
             /** Enabled */
             enabled: boolean;
         };
@@ -4160,6 +4182,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BusinessOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ai_code_api_v1_business_ai_code_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OtpSent"];
                 };
             };
             /** @description Validation Error */

@@ -3,13 +3,21 @@
     "schemas": {
       "AiToggle": {
         "properties": {
+          "code": {
+            "description": "The code sent to the signed-in number by POST /business/ai/code.",
+            "maxLength": 12,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
           "enabled": {
             "title": "Enabled",
             "type": "boolean"
           }
         },
         "required": [
-          "enabled"
+          "enabled",
+          "code"
         ],
         "title": "AiToggle",
         "type": "object"
@@ -6803,7 +6811,56 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Pause or resume the AI for the whole business",
+        "summary": "Pause or resume the AI for the whole business (needs the confirmation code)",
+        "tags": [
+          "business"
+        ]
+      }
+    },
+    "/api/v1/business/ai/code": {
+      "post": {
+        "operationId": "ai_code_api_v1_business_ai_code_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OtpSent"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send a confirmation code to your own number before switching the AI",
         "tags": [
           "business"
         ]

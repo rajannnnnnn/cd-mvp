@@ -100,7 +100,7 @@ function Tenants() {
       {adding && <NewBusinessModal onClose={() => setAdding(false)} />}
       <Modal open={!!del} onClose={() => setDel(null)} title="Delete this business permanently?"
         footer={<><button className="btn btn-ghost" onClick={() => setDel(null)}>Cancel</button><button className="btn btn-danger" disabled={typed !== del?.name || remove.isPending} onClick={() => del && remove.mutate(del)}>{remove.isPending && <Spinner />} Delete everything</button></>}>
-        <p className="text-sm">This erases <b>{del?.name}</b> and all conversations, customers, catalog and prices, with no way back. Export the data first if it’s needed.</p>
+        <p className="text-sm">This erases <b>{del?.name}</b> and all conversations, customers, products and prices, with no way back. Export the data first if it’s needed.</p>
         <Field label={`Type “${del?.name}” to confirm`} className="mt-4"><input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus /></Field>
       </Modal>
     </div>

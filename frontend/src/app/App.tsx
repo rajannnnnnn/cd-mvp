@@ -13,7 +13,7 @@ const Login = lazy(() => import('@/auth/LoginPage'))
 const Home = lazy(() => import('@/features/dashboard/Home'))
 const Chats = lazy(() => import('@/features/conversations/Chats'))
 const Pipeline = lazy(() => import('@/features/pipeline/Pipeline'))
-const Catalog = lazy(() => import('@/features/catalog/Catalog'))
+const Products = lazy(() => import('@/features/catalog/Products'))
 const Offers = lazy(() => import('@/features/catalog/Offers'))
 const Voice = lazy(() => import('@/features/voice/Voice'))
 const Inbox = lazy(() => import('@/features/inbox/Inbox'))
@@ -107,7 +107,8 @@ export default function App() {
                     <Route path="chats" element={<Chats />} />
                     <Route path="chats/:id" element={<Chats />} />
                     <Route path="pipeline" element={<Pipeline />} />
-                    <Route path="catalog" element={<Catalog />} />
+                    <Route path="products" element={<Products />} />
+                    <Route path="catalog" element={<Navigate to="/products" replace />} />
                     <Route path="offers" element={<Offers />} />
                     <Route path="voice" element={<Voice />} />
                     <Route path="inbox" element={<Inbox />} />

@@ -168,7 +168,7 @@ export default function BillingPage() {
       {checkout && <Checkout invoice={checkout} mode={d?.payment_mode ?? 'test'} onClose={() => setCheckout(null)} />}
       <Modal open={cancel} onClose={() => setCancel(false)} title={d?.status === 'trialing' ? tr('End your free trial?') : tr('Cancel your plan?')}
         footer={<><button className="btn btn-outline" onClick={() => setCancel(false)}>{tr('Keep it')}</button><button className="btn btn-danger" disabled={stop.isPending} onClick={() => stop.mutate()}>{stop.isPending ? <Spinner /> : null}{d?.status === 'trialing' ? tr('End trial now') : tr('Cancel at period end')}</button></>}>
-        <p className="text-sm text-muted">{d?.status === 'trialing' ? tr('The assistant will stop answering customers right away. Your catalog, customers and settings stay as they are, and you can choose a plan later.') : tr('Your plan keeps working until the end of the period you paid for, then the assistant pauses. You can change your mind before then.')}</p>
+        <p className="text-sm text-muted">{d?.status === 'trialing' ? tr('The assistant will stop answering customers right away. Your products, customers and settings stay as they are, and you can choose a plan later.') : tr('Your plan keeps working until the end of the period you paid for, then the assistant pauses. You can change your mind before then.')}</p>
       </Modal>
     </div>
   )
