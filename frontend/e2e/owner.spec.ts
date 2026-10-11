@@ -146,13 +146,16 @@ test.describe('owner app', () => {
 
     // several products: tick, choose, and confirm once more
     const ticks = page.getByRole('checkbox', { name: /^Select (?!all)/ })
+    await expect(ticks).toHaveCount(0)                                                               // no ticks until Select is pressed
+    await page.getByRole('button', { name: 'Select', exact: true }).click()
     await ticks.nth(0).click(); await ticks.nth(1).click()
     await expect(page.getByText('2 selected')).toBeVisible()
     await page.getByRole('region', { name: 'Selected products' }).getByRole('button', { name: 'Switch off' }).click()
     await expect(page.getByRole('heading', { name: 'Switch off 2 products?' })).toBeVisible()
     await page.getByRole('button', { name: 'Yes, switch off 2' }).click()
     await expect(page.getByText('2 products updated')).toBeVisible()
-    await ticks.nth(0).click(); await ticks.nth(1).click()                                           // restore both
+    await page.getByRole('button', { name: 'Select', exact: true }).click()                         // the bulk change ended selection; start again to restore both
+    await ticks.nth(0).click(); await ticks.nth(1).click()
     await page.getByRole('region', { name: 'Selected products' }).getByRole('button', { name: 'Switch on' }).click()
     await page.getByRole('button', { name: 'Yes, switch on 2' }).click()
     await expect(page.getByText('2 products updated').first()).toBeVisible()
@@ -215,6 +218,7 @@ test.describe('owner app', () => {
 
     // delete in bulk, with a final confirmation, from the grid
     await page.getByRole('tab', { name: 'Grid' }).click()
+    await page.getByRole('button', { name: 'Select', exact: true }).click()
     await page.getByRole('checkbox', { name: `Select E2E Dupatta ${stamp}` }).click()
     await page.getByRole('region', { name: 'Selected products' }).getByRole('button', { name: 'Delete' }).click()
     await expect(page.getByRole('heading', { name: 'Delete 1 product?' })).toBeVisible()
@@ -301,6 +305,8 @@ test.describe('owner app', () => {
     await page.getByRole('complementary', { name: 'Edit offer' }).getByRole('button', { name: 'Cancel' }).click()
 
     await page.getByRole('tab', { name: 'Grid' }).click()                                              // grid view, tick both, delete in bulk
+    await expect(page.getByRole('checkbox')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Select', exact: true }).click()
     await page.getByRole('checkbox', { name: `Select ${a}` }).click()
     await page.getByRole('checkbox', { name: `Select ${b}` }).click()
     await page.getByRole('region', { name: 'Selected offers' }).getByRole('button', { name: 'Delete' }).click()

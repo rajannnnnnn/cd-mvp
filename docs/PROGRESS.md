@@ -195,4 +195,4 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
   (migration `0007_offer_category.sql`; the pricing role gets column-level SELECT on `products(id, business_id, category)` only).
   Settings → Support (ADR 0020, migration `0008_support.sql`): an owner or staff member opens a ticket in one step, support (operator console →
   Support) answers in the same thread, the owner can mark it sorted or reopen it by replying. Tests: `test_support.py`, `e2e/support.spec.ts`.
-
+  Products and Offers hide their tick boxes until the owner presses **Select**; **Done** (or finishing a bulk action) hides them again.

@@ -7,7 +7,7 @@ import { Badge, Confirm, EmptyState, ErrorNote, Field, Skeleton, Spinner, Switch
 import { cx, inr } from '@/lib/format'
 import { tr } from '@/i18n/tr'
 import { categoriesOf } from './category'
-import { DockPanel, Tick, useView, ViewToggle } from './shared'
+import { DockPanel, SelectToggle, Tick, useView, ViewToggle } from './shared'
 
 type Offer = Schemas['OfferOut']
 const KINDS: { value: Offer['kind']; label: string; icon: typeof Percent; help: string }[] = [
@@ -134,6 +134,8 @@ export default function Offers() {
   const [edit, setEdit] = useState<Offer | 'new' | null>(null)
   const [view, setView] = useView(VIEW_KEY)
   const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [selecting, setSelecting] = useState(false)                       // ticks only appear when the owner asks for them
+  const toggleSelecting = () => { setSelecting((v) => !v); setPicked(new Set()) }
   const [one, setOne] = useState<{ o: Offer; to: boolean } | null>(null)
   const [bulk, setBulk] = useState<boolean | null>(null)
   const [delOne, setDelOne] = useState<Offer | null>(null)
@@ -154,7 +156,7 @@ export default function Offers() {
     onSuccess: (_r, v) => {
       qc.invalidateQueries({ queryKey: ['offers'] })
       toast(v.list.length === 1 ? (v.active ? tr('Offer switched on') : tr('Offer switched off')) : tr('{n} offers updated', { n: v.list.length }))
-      setOne(null); setBulk(null); setPicked(new Set())
+      setOne(null); setBulk(null); setPicked(new Set()); setSelecting(false)
     },
     onError: (e) => { qc.invalidateQueries({ queryKey: ['offers'] }); toast((e as Error).message, 'error'); setOne(null); setBulk(null) },
   })
@@ -164,7 +166,7 @@ export default function Offers() {
       qc.invalidateQueries({ queryKey: ['offers'] })
       toast(ids.length === 1 ? tr('Offer deleted') : tr('{n} offers deleted', { n: ids.length }))
       if (editing && ids.includes(editing)) setEdit(null)
-      setDelOne(null); setBulkDel(false); setPicked(new Set())
+      setDelOne(null); setBulkDel(false); setPicked(new Set()); setSelecting(false)
     },
     onError: (e) => { qc.invalidateQueries({ queryKey: ['offers'] }); toast((e as Error).message, 'error'); setDelOne(null); setBulkDel(false) },
   })
@@ -192,10 +194,10 @@ export default function Offers() {
         <div className="min-w-0 flex-1 space-y-5">
           {items.length > 0 && (
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2 text-sm font-semibold"><Tick checked={allTicked} onChange={toggleAll} label={tr('Select all offers')} /><span className="cursor-pointer" onClick={() => toggleAll(!allTicked)}>{tr('Select all')}</span></div>
-              <div className="ml-auto"><ViewToggle value={view} onChange={setView} /></div>
+              {selecting && <div className="flex items-center gap-2 text-sm font-semibold"><Tick checked={allTicked} onChange={toggleAll} label={tr('Select all offers')} /><span className="cursor-pointer" onClick={() => toggleAll(!allTicked)}>{tr('Select all')}</span></div>}
+              <div className="ml-auto flex items-center gap-2"><SelectToggle selecting={selecting} onToggle={toggleSelecting} /><ViewToggle value={view} onChange={setView} /></div>
             </div>)}
-          {chosen.length > 0 && (
+          {selecting && chosen.length > 0 && (
             <div className="sticky top-[68px] z-20 flex flex-wrap items-center gap-2 rounded-2xl border border-brand/40 bg-brand-soft px-4 py-3 shadow-card" role="region" aria-label={tr('Selected offers')}>
               <b className="mr-1 text-sm">{tr('{n} selected', { n: chosen.length })}</b>
               <button className="btn btn-primary btn-sm" onClick={() => setBulk(true)}>{tr('Switch on')}</button>
@@ -212,10 +214,10 @@ export default function Offers() {
               {items.map((o) => {
                 const K = KINDS.find((k) => k.value === o.kind)!
                 return (
-                  <div key={o.id} onClick={() => setEdit(o)}
+                  <div key={o.id} onClick={() => (selecting ? toggleOne(o.id, !picked.has(o.id)) : setEdit(o))}
                     className={cx('card card-pad flex cursor-pointer flex-col transition hover:border-brand/40 hover:shadow-pop', picked.has(o.id) && 'border-brand ring-2 ring-brand/30', editing === o.id && 'border-brand bg-brand-soft/30', !o.active && 'opacity-80')}>
                     <div className="flex items-start gap-3">
-                      <Tick checked={picked.has(o.id)} onChange={(v) => toggleOne(o.id, v)} label={tr('Select {name}', { name: o.name })} />
+                      {selecting && <Tick checked={picked.has(o.id)} onChange={(v) => toggleOne(o.id, v)} label={tr('Select {name}', { name: o.name })} />}
                       <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-[rgb(150_92_0)]"><K.icon className="h-4 w-4" /></span>
                       <div className="min-w-0 flex-1"><div className="truncate font-display text-[17px] font-bold">{o.name}</div><div className="text-[13px] text-muted">{describe(o)}</div></div>
                       <span onClick={(e) => e.stopPropagation()}><Switch checked={!!o.active} onChange={(v) => setOne({ o, to: v })} label={tr('{name} is on', { name: o.name })} /></span>
@@ -232,12 +234,12 @@ export default function Offers() {
             <div className="card overflow-hidden"><div className="overflow-x-auto">
               <table className="w-full min-w-[820px] text-left text-sm">
                 <thead className="border-b border-line/70 bg-surface2/60 text-[11.5px] font-bold uppercase tracking-wide text-muted">
-                  <tr><th className="w-12 px-4 py-3"><Tick checked={allTicked} onChange={toggleAll} label={tr('Select all offers')} /></th><th className="px-3 py-3">{tr('Offer')}</th><th className="px-3 py-3">{tr('Deal')}</th><th className="px-3 py-3">{tr('Applies to')}</th><th className="px-3 py-3">{tr('Dates')}</th><th className="px-3 py-3 text-center">{tr('On')}</th><th className="px-3 py-3 text-right">{tr('Actions')}</th></tr>
+                  <tr>{selecting && <th className="w-12 px-4 py-3"><Tick checked={allTicked} onChange={toggleAll} label={tr('Select all offers')} /></th>}<th className="px-3 py-3">{tr('Offer')}</th><th className="px-3 py-3">{tr('Deal')}</th><th className="px-3 py-3">{tr('Applies to')}</th><th className="px-3 py-3">{tr('Dates')}</th><th className="px-3 py-3 text-center">{tr('On')}</th><th className="px-3 py-3 text-right">{tr('Actions')}</th></tr>
                 </thead>
                 <tbody className="divide-y divide-line/60">
                   {items.map((o) => (
-                    <tr key={o.id} onClick={() => setEdit(o)} className={cx('cursor-pointer hover:bg-surface2/50', picked.has(o.id) && 'bg-brand-soft/60', editing === o.id && 'bg-brand-soft/40', !o.active && 'opacity-80')}>
-                      <td className="px-4 py-3"><Tick checked={picked.has(o.id)} onChange={(v) => toggleOne(o.id, v)} label={tr('Select {name}', { name: o.name })} /></td>
+                    <tr key={o.id} onClick={() => (selecting ? toggleOne(o.id, !picked.has(o.id)) : setEdit(o))} className={cx('cursor-pointer hover:bg-surface2/50', picked.has(o.id) && 'bg-brand-soft/60', editing === o.id && 'bg-brand-soft/40', !o.active && 'opacity-80')}>
+                      {selecting && <td className="px-4 py-3"><Tick checked={picked.has(o.id)} onChange={(v) => toggleOne(o.id, v)} label={tr('Select {name}', { name: o.name })} /></td>}
                       <td className="px-3 py-3"><div className="font-bold">{o.name}</div><div className="mt-1 flex flex-wrap gap-1.5">{badges(o)}</div></td>
                       <td className="px-3 py-3 text-muted">{describe(o)}</td>
                       <td className="px-3 py-3 font-semibold">{appliesTo(o, products)}</td>

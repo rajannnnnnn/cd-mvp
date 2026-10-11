@@ -8,7 +8,7 @@ import { cx, inr } from '@/lib/format'
 import { blank, fromVariant, toPolicy, validate, type Draft } from './draft'
 import { tr } from '@/i18n/tr'
 import { CategoryField } from './CategoryField'
-import { DockPanel, Tick, useView, ViewToggle } from './shared'
+import { DockPanel, SelectToggle, Tick, useView, ViewToggle } from './shared'
 import { categoriesOf } from './category'
 
 type Product = Schemas['ProductOut']
@@ -218,6 +218,8 @@ export default function Products() {
   const [open, setOpen] = useState<Product | 'new' | null>(null)
   const [view, setView] = useView(VIEW_KEY)
   const [picked, setPicked] = useState<Set<string>>(new Set())
+  const [selecting, setSelecting] = useState(false)                       // ticks only appear when the owner asks for them
+  const toggleSelecting = () => { setSelecting((v) => !v); setPicked(new Set()) }
   const [one, setOne] = useState<{ p: Product; to: boolean } | null>(null)        // a single on/off waiting for confirmation
   const [bulk, setBulk] = useState<boolean | null>(null)                           // a bulk on/off waiting for the final confirmation
   const [delOne, setDelOne] = useState<Product | null>(null)                       // a single delete waiting for confirmation
@@ -236,7 +238,7 @@ export default function Products() {
     onSuccess: (_r, v) => {
       qc.invalidateQueries({ queryKey: ['products'] }); qc.invalidateQueries({ queryKey: ['onboarding'] })
       toast(v.ids.length === 1 ? (v.active ? tr('Product switched on') : tr('Product switched off')) : tr('{n} products updated', { n: v.ids.length }))
-      setOne(null); setBulk(null); setPicked(new Set())
+      setOne(null); setBulk(null); setPicked(new Set()); setSelecting(false)
     },
     onError: (e) => { qc.invalidateQueries({ queryKey: ['products'] }); toast((e as Error).message, 'error'); setOne(null); setBulk(null) },
   })
@@ -246,7 +248,7 @@ export default function Products() {
       qc.invalidateQueries({ queryKey: ['products'] }); qc.invalidateQueries({ queryKey: ['onboarding'] })
       toast(ids.length === 1 ? tr('Product deleted') : tr('{n} products deleted', { n: ids.length }))
       if (editing && ids.includes(editing)) setOpen(null)
-      setDelOne(null); setBulkDel(false); setPicked(new Set())
+      setDelOne(null); setBulkDel(false); setPicked(new Set()); setSelecting(false)
     },
     onError: (e) => { qc.invalidateQueries({ queryKey: ['products'] }); toast((e as Error).message, 'error'); setDelOne(null); setBulkDel(false) },
   })
@@ -287,10 +289,10 @@ export default function Products() {
           {(q.data?.items.length ?? 0) > 0 && (
             <div className="flex flex-wrap items-center gap-3">
               {(q.data?.items.length ?? 0) > 4 && <div className="relative min-w-[200px] max-w-sm flex-1"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input className="input pl-10" placeholder={tr('Search products')} value={search} onChange={(e) => setSearch(e.target.value)} /></div>}
-              <div className="flex items-center gap-2 text-sm font-semibold"><Tick checked={allTicked} onChange={toggleAll} label={tr('Select all products')} /><span className="cursor-pointer" onClick={() => toggleAll(!allTicked)}>{tr('Select all')}</span></div>
-              <div className="ml-auto"><ViewToggle value={view} onChange={setView} /></div>
+              {selecting && <div className="flex items-center gap-2 text-sm font-semibold"><Tick checked={allTicked} onChange={toggleAll} label={tr('Select all products')} /><span className="cursor-pointer" onClick={() => toggleAll(!allTicked)}>{tr('Select all')}</span></div>}
+              <div className="ml-auto flex items-center gap-2"><SelectToggle selecting={selecting} onToggle={toggleSelecting} /><ViewToggle value={view} onChange={setView} /></div>
             </div>)}
-          {chosen.length > 0 && (
+          {selecting && chosen.length > 0 && (
             <div className="sticky top-[68px] z-20 flex flex-wrap items-center gap-2 rounded-2xl border border-brand/40 bg-brand-soft px-4 py-3 shadow-card" role="region" aria-label={tr('Selected products')}>
               <b className="mr-1 text-sm">{tr('{n} selected', { n: chosen.length })}</b>
               <button className="btn btn-primary btn-sm" onClick={() => setBulk(true)}>{tr('Switch on')}</button>
@@ -308,10 +310,10 @@ export default function Products() {
                 const { def, vs } = summary(p)
                 const price = priceText(def)
                 return (
-                  <div key={p.id} onClick={() => setOpen(p)}
+                  <div key={p.id} onClick={() => (selecting ? toggleOne(p.id, !picked.has(p.id)) : setOpen(p))}
                     className={cx('card card-pad flex cursor-pointer flex-col transition hover:border-brand/40 hover:shadow-pop', picked.has(p.id) && 'border-brand ring-2 ring-brand/30', editing === p.id && 'border-brand bg-brand-soft/30', !p.active && 'opacity-80')}>
                     <div className="flex items-start gap-3">
-                      <Tick checked={picked.has(p.id)} onChange={(v) => toggleOne(p.id, v)} label={tr('Select {name}', { name: p.name })} />
+                      {selecting && <Tick checked={picked.has(p.id)} onChange={(v) => toggleOne(p.id, v)} label={tr('Select {name}', { name: p.name })} />}
                       <div className="min-w-0 flex-1"><div className="truncate font-display text-[17px] font-bold">{p.name}</div><div className="text-[13px] text-muted">{p.category ?? tr('Uncategorised')}{vs.length > 1 ? tr(' · {length} variants', { length: vs.length }) : ''}</div></div>
                       <span onClick={(e) => e.stopPropagation()}><Switch checked={p.active} onChange={(v) => setOne({ p, to: v })} label={tr('{name} is for sale', { name: p.name })} /></span>
                     </div>
@@ -327,14 +329,14 @@ export default function Products() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[820px] text-left text-sm">
                   <thead className="border-b border-line/70 bg-surface2/60 text-[11.5px] font-bold uppercase tracking-wide text-muted">
-                    <tr><th className="w-12 px-4 py-3"><Tick checked={allTicked} onChange={toggleAll} label={tr('Select all products')} /></th><th className="px-3 py-3">{tr('Product')}</th><th className="px-3 py-3">{tr('Category')}</th><th className="px-3 py-3">{tr('Price')}</th><th className="px-3 py-3">{tr('Status')}</th><th className="px-3 py-3 text-center">{tr('For sale')}</th><th className="px-3 py-3 text-right">{tr('Actions')}</th></tr>
+                    <tr>{selecting && <th className="w-12 px-4 py-3"><Tick checked={allTicked} onChange={toggleAll} label={tr('Select all products')} /></th>}<th className="px-3 py-3">{tr('Product')}</th><th className="px-3 py-3">{tr('Category')}</th><th className="px-3 py-3">{tr('Price')}</th><th className="px-3 py-3">{tr('Status')}</th><th className="px-3 py-3 text-center">{tr('For sale')}</th><th className="px-3 py-3 text-right">{tr('Actions')}</th></tr>
                   </thead>
                   <tbody className="divide-y divide-line/60">
                     {items.map((p) => {
                       const { def, vs } = summary(p)
                       return (
-                        <tr key={p.id} onClick={() => setOpen(p)} className={cx('cursor-pointer hover:bg-surface2/50', picked.has(p.id) && 'bg-brand-soft/60', editing === p.id && 'bg-brand-soft/40', !p.active && 'opacity-80')}>
-                          <td className="px-4 py-3"><Tick checked={picked.has(p.id)} onChange={(v) => toggleOne(p.id, v)} label={tr('Select {name}', { name: p.name })} /></td>
+                        <tr key={p.id} onClick={() => (selecting ? toggleOne(p.id, !picked.has(p.id)) : setOpen(p))} className={cx('cursor-pointer hover:bg-surface2/50', picked.has(p.id) && 'bg-brand-soft/60', editing === p.id && 'bg-brand-soft/40', !p.active && 'opacity-80')}>
+                          {selecting && <td className="px-4 py-3"><Tick checked={picked.has(p.id)} onChange={(v) => toggleOne(p.id, v)} label={tr('Select {name}', { name: p.name })} /></td>}
                           <td className="px-3 py-3"><div className="font-bold">{p.name}</div>{vs.length > 1 && <div className="text-xs text-muted">{tr('{n} variants', { n: vs.length })}</div>}</td>
                           <td className="px-3 py-3 text-muted">{p.category ?? '—'}</td>
                           <td className="tnum px-3 py-3 font-semibold">{priceText(def)}</td>

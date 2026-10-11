@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { Check, LayoutGrid, Rows3, X } from 'lucide-react'
+import { Check, CheckSquare, LayoutGrid, Rows3, X } from 'lucide-react'
 import { Segmented } from '@/ui'
 import { cx } from '@/lib/format'
 import { tr } from '@/i18n/tr'
@@ -16,6 +16,11 @@ export function ViewToggle({ value, onChange }: { value: View; onChange: (v: Vie
   return <Segmented value={value} onChange={onChange} options={[
     { value: 'cards', label: <span className="inline-flex items-center gap-1.5"><LayoutGrid className="h-4 w-4" />{tr('Cards')}</span> },
     { value: 'grid', label: <span className="inline-flex items-center gap-1.5"><Rows3 className="h-4 w-4" />{tr('Grid')}</span> }]} />
+}
+
+/** Ticks are hidden until you ask for them: "Select" turns selection on, "Done" turns it off and forgets the ticks. */
+export function SelectToggle({ selecting, onToggle }: { selecting: boolean; onToggle: () => void }) {
+  return <button type="button" className={cx('btn btn-sm', selecting ? 'btn-primary' : 'btn-outline')} aria-pressed={selecting} onClick={onToggle}><CheckSquare className="h-4 w-4" /> {selecting ? tr('Done') : tr('Select')}</button>
 }
 
 /** A tick box that is easy to hit on a phone and never opens the item underneath it. */
