@@ -116,14 +116,14 @@ async def list_offers(rt: RT, p: Tenant) -> Any:
 async def create_offer(body: OfferIn, rt: RT, p: Owner) -> Any:
     async with tx(rt, p) as c:
         oid = await repo.create_offer(c, p.bid, body, actor=p.account_id)
-        return next(o for o in await repo.list_offers(c) if o.id == oid)
+        return await repo.get_offer(c, oid)
 
 
 @router.put("/offers/{offer_id}", response_model=OfferOut)
 async def update_offer(offer_id: uuid.UUID, body: OfferIn, rt: RT, p: Owner) -> Any:
     async with tx(rt, p) as c:
         await repo.update_offer(c, p.bid, offer_id, body, actor=p.account_id)
-        return next(o for o in await repo.list_offers(c) if o.id == offer_id)
+        return await repo.get_offer(c, offer_id)
 
 
 @router.delete("/offers/{offer_id}", status_code=204)

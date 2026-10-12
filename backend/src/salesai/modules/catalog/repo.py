@@ -180,10 +180,20 @@ async def create_offer(c: Conn, bid: uuid.UUID, o: OfferIn, *, actor: uuid.UUID 
     return row["id"]
 
 
+_OFFER_COLS = ("id", "created_at", "name", "kind", "value", "free_item", "variant_id", "category", "conditions", "starts_at", "ends_at", "may_cross_floor", "active")
+
+
 async def list_offers(c: Conn) -> list[OfferOut]:
     rows = await (await c.execute("SELECT * FROM offers ORDER BY created_at DESC")).fetchall()
-    return [OfferOut(**{k: r[k] for k in ("id", "created_at", "name", "kind", "value", "free_item", "variant_id", "category", "conditions",
-                                          "starts_at", "ends_at", "may_cross_floor", "active")}) for r in rows]
+    return [OfferOut(**{k: r[k] for k in _OFFER_COLS}) for r in rows]
+
+
+async def get_offer(c: Conn, offer_id: uuid.UUID) -> OfferOut:
+    """One offer by id (so saving an offer does not have to read all of them back)."""
+    r = await (await c.execute("SELECT * FROM offers WHERE id=%s", (offer_id,))).fetchone()
+    if r is None:
+        raise LookupError("offer not found")
+    return OfferOut(**{k: r[k] for k in _OFFER_COLS})
 
 
 async def update_offer(c: Conn, bid: uuid.UUID, offer_id: uuid.UUID, o: OfferIn, *, actor: uuid.UUID | None = None) -> None:

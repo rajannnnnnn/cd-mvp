@@ -76,10 +76,11 @@ async def _kpis(c: Conn, tz: str, start: datetime, end: datetime) -> dict[str, A
     r = await (await c.execute(
         """WITH win AS (SELECT %(s)s::timestamptz AS s, %(e)s::timestamptz AS e),
            convs AS (SELECT DISTINCT conversation_id FROM messages, win WHERE direction='in' AND created_at >= win.s AND created_at < win.e),
+           first_in AS (SELECT DISTINCT ON (conversation_id) conversation_id, created_at FROM messages, win
+                        WHERE direction='in' AND created_at >= win.s AND created_at < win.e ORDER BY conversation_id, created_at),
            first_reply AS (
-             SELECT EXTRACT(EPOCH FROM (o.sent_at - i.created_at)) AS secs
-             FROM messages i, win JOIN LATERAL (SELECT sent_at FROM messages o WHERE o.conversation_id=i.conversation_id AND o.direction='out' AND o.sender='ai' AND o.sent_at > i.created_at ORDER BY o.sent_at LIMIT 1) o ON true
-             WHERE i.direction='in' AND i.created_at >= win.s AND i.created_at < win.e AND i.id = (SELECT id FROM messages x WHERE x.conversation_id=i.conversation_id AND x.direction='in' AND x.created_at >= win.s ORDER BY x.created_at LIMIT 1))
+             SELECT EXTRACT(EPOCH FROM (o.sent_at - f.created_at)) AS secs
+             FROM first_in f JOIN LATERAL (SELECT sent_at FROM messages o WHERE o.conversation_id=f.conversation_id AND o.direction='out' AND o.sender='ai' AND o.sent_at > f.created_at ORDER BY o.sent_at LIMIT 1) o ON true)
            SELECT
              (SELECT count(*) FROM convs) AS conversations,
              (SELECT count(*) FROM customers, win WHERE first_seen_at >= win.s AND first_seen_at < win.e) AS new_customers,
@@ -99,6 +100,24 @@ async def _kpis(c: Conn, tz: str, start: datetime, end: datetime) -> dict[str, A
             "messages_per_conversation": round(int(r["customer_messages"]) / convs, 1) if convs else 0.0}
 
 
+async def daily_series(c: Conn, tz: str, first: date, last: date) -> list[dict[str, Any]]:
+    """Per local calendar day, first..last inclusive: customers writing, customer messages, AI replies, commitments.
+    One range scan of the shop's messages grouped by day (it can use an index on business_id + created_at), not one scan per day per figure:
+    that form compared a computed date with each day and read the whole message history 30 times over."""
+    return await (await c.execute(
+        """WITH b AS (SELECT (%(a)s::date::timestamp AT TIME ZONE %(tz)s) AS s, ((%(z)s::date + 1)::timestamp AT TIME ZONE %(tz)s) AS e),
+                msg AS (SELECT (m.created_at AT TIME ZONE %(tz)s)::date AS d,
+                               count(DISTINCT m.conversation_id) FILTER (WHERE m.direction='in') AS conversations,
+                               count(*) FILTER (WHERE m.direction='in') AS customer_messages,
+                               count(*) FILTER (WHERE m.sender='ai' AND m.kind='text' AND m.status <> 'cancelled') AS ai_replies
+                        FROM messages m, b WHERE m.created_at >= b.s AND m.created_at < b.e GROUP BY 1),
+                dl AS (SELECT (x.created_at AT TIME ZONE %(tz)s)::date AS d, count(*) AS n FROM deals x, b WHERE x.created_at >= b.s AND x.created_at < b.e GROUP BY 1)
+           SELECT to_char(g::date, 'YYYY-MM-DD') AS date, COALESCE(msg.conversations, 0) AS conversations, COALESCE(msg.customer_messages, 0) AS customer_messages,
+                  COALESCE(msg.ai_replies, 0) AS ai_replies, COALESCE(dl.n, 0) AS deals
+           FROM generate_series(%(a)s::date, %(z)s::date, interval '1 day') g
+           LEFT JOIN msg ON msg.d = g::date LEFT JOIN dl ON dl.d = g::date ORDER BY g""", {"tz": tz, "a": first, "z": last})).fetchall()
+
+
 async def compute(c: Conn, tz: str, first: date, last: date) -> dict[str, Any]:
     """Local calendar days first..last inclusive, in the shop's timezone."""
     days = (last - first).days + 1
@@ -106,12 +125,7 @@ async def compute(c: Conn, tz: str, first: date, last: date) -> dict[str, Any]:
     e = (await (await c.execute("SELECT ((%s::date + 1)::timestamp AT TIME ZONE %s) AS t", (last, tz))).fetchone())["t"]
     ps = (await (await c.execute("SELECT ((%s::date - %s)::timestamp AT TIME ZONE %s) AS t", (first, days, tz))).fetchone())["t"]
     k, pk = await _kpis(c, tz, s, e), await _kpis(c, tz, ps, s)
-    series = await (await c.execute(
-        """SELECT to_char(d::date,'YYYY-MM-DD') AS date,
-             (SELECT count(DISTINCT m.conversation_id) FROM messages m WHERE m.direction='in' AND (m.created_at AT TIME ZONE %(tz)s)::date = d::date) AS conversations,
-             (SELECT count(*) FROM messages m WHERE m.sender='ai' AND m.kind='text' AND m.status <> 'cancelled' AND (m.created_at AT TIME ZONE %(tz)s)::date = d::date) AS ai_replies,
-             (SELECT count(*) FROM deals x WHERE (x.created_at AT TIME ZONE %(tz)s)::date = d::date) AS deals
-           FROM generate_series(%(a)s::date, %(b)s::date, interval '1 day') d ORDER BY d""", {"tz": tz, "a": first, "b": last})).fetchall()
+    series = [{k: r[k] for k in ('date', 'conversations', 'ai_replies', 'deals')} for r in await daily_series(c, tz, first, last)]
     funnel = await (await c.execute(
         "SELECT lead_stage AS label, count(*) AS n FROM conversations WHERE last_inbound_at >= %s AND last_inbound_at < %s GROUP BY lead_stage", (s, e))).fetchall()
     order = {"new": 0, "exploring": 1, "interested": 2, "negotiating": 3, "ready_to_buy": 4, "won": 5, "lost": 6}

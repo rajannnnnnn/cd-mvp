@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
 
 from salesai.api.deps import RT, Tenant, tx
+from salesai.api.routes.analytics import daily_series
 
 router = APIRouter(tags=["metrics"])
 
@@ -40,13 +42,8 @@ async def overview(rt: RT, p: Tenant, days: Annotated[int, Query(ge=1, le=60)] =
                  (SELECT count(*) FROM handoffs WHERE reason='complaint' AND created_at >= date_trunc('day', now() AT TIME ZONE %(tz)s) AT TIME ZONE %(tz)s) AS complaints,
                  (SELECT count(*) FROM handoffs WHERE status='open') AS open_handoffs,
                  (SELECT count(*) FROM knowledge_gaps WHERE status='open') AS open_gaps""", {"tz": tz})).fetchone()
-        series = await (await c.execute(
-            """SELECT to_char(d::date, 'YYYY-MM-DD') AS date,
-                 (SELECT count(DISTINCT m.conversation_id) FROM messages m WHERE m.direction='in' AND (m.created_at AT TIME ZONE %(tz)s)::date = d::date) AS conversations,
-                 (SELECT count(*) FROM messages m WHERE m.direction='in' AND (m.created_at AT TIME ZONE %(tz)s)::date = d::date) AS customer_messages,
-                 (SELECT count(*) FROM messages m WHERE m.sender='ai' AND m.kind='text' AND m.status <> 'cancelled' AND (m.created_at AT TIME ZONE %(tz)s)::date = d::date) AS ai_replies,
-                 (SELECT count(*) FROM deals x WHERE (x.created_at AT TIME ZONE %(tz)s)::date = d::date) AS deals
-               FROM generate_series((now() AT TIME ZONE %(tz)s)::date - (%(n)s - 1), (now() AT TIME ZONE %(tz)s)::date, interval '1 day') d ORDER BY d""", {"tz": tz, "n": days})).fetchall()
+        d0 = (await (await c.execute("SELECT (now() AT TIME ZONE %s)::date AS d", (tz,))).fetchone())["d"]
+        series = await daily_series(c, tz, d0 - timedelta(days=days - 1), d0)
         pipe = await (await c.execute("SELECT lead_stage, count(*) AS n FROM conversations GROUP BY lead_stage")).fetchall()
         ai = await (await c.execute(
             """SELECT count(*) AS turns, COALESCE(avg(latency_ms),0)::int AS avg_latency_ms, COALESCE(sum(cost_micros),0) AS cost_micros,
