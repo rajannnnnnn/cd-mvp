@@ -197,3 +197,4 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
   Support) answers in the same thread, the owner can mark it sorted or reopen it by replying. Tests: `test_support.py`, `e2e/support.spec.ts`.
   Products and Offers hide their tick boxes until the owner presses **Select**; **Done** (or finishing a bulk action) hides them again.
   Settings tabs are now Shop, Assistant (on/off, try it, selling style, when you step in, reply speed, optional My voice), Team, Numbers, Security, Support; old `?tab=voice` and `?tab=pacing` links land on Assistant.
+  Performance (docs/PERFORMANCE.md): per-action load test on 3M messages / 50 shops; found and fixed slow dashboard/analytics reads, 12 unindexed foreign keys (migrations 0009, 0010; guarded by a test) and an offer save that re-read every offer. ADR 0021 proposes grouping the tables into domains.
