@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { BellRing, Building2, LifeBuoy, Mic2, Clock, Laptop, Phone, Plus, ShieldCheck, Sliders, Smartphone, Trash2, Users, X } from 'lucide-react'
 import { api, ok, type Schemas } from '@/api/client'
@@ -6,7 +6,7 @@ import { useAuth } from '@/auth/AuthProvider'
 import { useBusiness, usePublicConfig } from '@/api/hooks'
 import { startEmbeddedSignup } from './signup'
 import { useT } from '@/i18n'
-import { Badge, Confirm, EmptyState, ErrorNote, Field, Modal, Segmented, Skeleton, Spinner, Switch, useToast } from '@/ui'
+import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, Modal, RequiredNote, Segmented, Skeleton, Spinner, Switch, useToast } from '@/ui'
 import { ago, cx, phone as fmtPhone } from '@/lib/format'
 import { tr } from '@/i18n/tr'
 import { currentSlug, shopUrl } from '@/lib/slug'
@@ -59,7 +59,16 @@ function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }
   const [facts, setFacts] = useState<string[]>(p.facts ?? [])
   const [hours, setHours] = useState(() => parseHours(p.hours))
   const save = useSaveBusiness()
-  const submit = () => save.mutate({
+  const [tried, setTried] = useState(false)
+  const shopForm = useRef<HTMLDivElement>(null)
+  const nameErr = name.trim() ? undefined : tr('Enter your shop name')
+  const slugErr = slug.length >= 2 ? undefined : tr('Choose a web address')
+  const submit = () => {
+    setTried(true)
+    if (nameErr || slugErr) { setTimeout(() => focusFirstInvalid(shopForm.current), 30); return }
+    send()
+  }
+  const send = () => save.mutate({
     name: name.trim() || undefined,
     slug: slug !== b.slug ? slug : undefined,
     profile: { address, phone: shopPhone, delivery, returns, payment_modes: pay, delivery_areas: areas, facts, hours: Object.fromEntries(DAYS.map(([k]) => [k, hours[k].open ? `${hours[k].from}-${hours[k].to}` : 'closed'])) },
@@ -67,9 +76,9 @@ function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }
   return (
     <div className="space-y-5">
       <Section title={tr('Your shop')} sub={tr('The assistant only states facts that are written here or in your products.')} footer={canEdit && <button className="btn btn-primary" disabled={save.isPending} onClick={submit}>{save.isPending && <Spinner />} {tr('Save changes')}</button>}>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr('Shop name')}><input className="input" value={name} onChange={(e) => setName(e.target.value)} disabled={!canEdit} /></Field>
-          <Field label={tr('Your web address')} hint={tr('Where you sign in to your shop. Changing it changes the link.')}>
+        <div className="grid gap-4 sm:grid-cols-2" ref={shopForm}>
+          <Field label={tr('Shop name')} required error={tried ? nameErr : undefined}><input className="input" value={name} onChange={(e) => setName(e.target.value)} disabled={!canEdit} /></Field>
+          <Field label={tr('Your web address')} hint={tr('Where you sign in to your shop. Changing it changes the link.')} required error={tried ? slugErr : undefined}>
             <div className="flex items-stretch overflow-hidden rounded-xl border border-line bg-surface focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/15"><span className="grid place-items-center border-r border-line bg-surface2 px-3 text-sm text-muted">{window.location.host}/app/</span>
               <input className="min-w-0 flex-1 bg-transparent px-3 py-3 font-semibold outline-none" value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))} disabled={!canEdit} aria-label={tr('Your web address')} /></div></Field>
           <Field label={tr('Shop phone')} hint={tr('Shown to customers who ask')}><input className="input" value={shopPhone} onChange={(e) => setShopPhone(e.target.value)} disabled={!canEdit} /></Field>
@@ -234,7 +243,10 @@ function TeamTab({ canEdit }: { canEdit: boolean }) {
   const [del, setDel] = useState<Schemas['TeamMemberOut'] | null>(null)
   const q = useQuery({ queryKey: ['team'], queryFn: () => ok(api.GET('/api/v1/team')) })
   const [nm, setNm] = useState(''); const [ph, setPh] = useState(''); const [role, setRole] = useState<'staff' | 'owner'>('staff')
-  const create = useMutation({ mutationFn: () => ok(api.POST('/api/v1/team', { body: { name: nm.trim(), phone: ph.trim(), role } })), onSuccess: () => { qc.invalidateQueries({ queryKey: ['team'] }); setAdd(false); setNm(''); setPh(''); toast(tr('Team member added')) }, onError: (e) => toast((e as Error).message, 'error') })
+  const [triedAdd, setTriedAdd] = useState(false)
+  const addForm = useRef<HTMLDivElement>(null)
+  const create = useMutation({ mutationFn: () => ok(api.POST('/api/v1/team', { body: { name: nm.trim(), phone: ph.trim(), role } })), onSuccess: () => { qc.invalidateQueries({ queryKey: ['team'] }); setAdd(false); setTriedAdd(false); setNm(''); setPh(''); toast(tr('Team member added')) }, onError: (e) => toast((e as Error).message, 'error') })
+  const addMember = () => { setTriedAdd(true); if (!nm.trim() || ph.replace(/\D/g, '').length < 10) { setTimeout(() => focusFirstInvalid(addForm.current), 30); return } create.mutate() }
   const patch = useMutation({ mutationFn: (v: { id: string; notify: boolean }) => ok(api.PATCH('/api/v1/team/{member_id}', { params: { path: { member_id: v.id } }, body: { notify: v.notify } })), onSuccess: () => qc.invalidateQueries({ queryKey: ['team'] }) })
   const remove = useMutation({ mutationFn: (id: string) => ok(api.DELETE('/api/v1/team/{member_id}', { params: { path: { member_id: id } } })), onSuccess: () => { qc.invalidateQueries({ queryKey: ['team'] }); setDel(null); toast(tr('Removed')) }, onError: (e) => toast((e as Error).message, 'error') })
   return (
@@ -251,8 +263,8 @@ function TeamTab({ canEdit }: { canEdit: boolean }) {
           </div>
         ))}
       </div>
-      <Modal open={add} onClose={() => setAdd(false)} title={tr('Add a team member')} footer={<><button className="btn btn-ghost" onClick={() => setAdd(false)}>{tr('Cancel')}</button><button className="btn btn-primary" disabled={!nm.trim() || ph.replace(/\D/g, '').length < 10 || create.isPending} onClick={() => create.mutate()}>{create.isPending && <Spinner />} {tr('Add')}</button></>}>
-        <div className="space-y-4"><Field label={tr('Name')}><input className="input" value={nm} onChange={(e) => setNm(e.target.value)} autoFocus /></Field><Field label={tr('WhatsApp number')} hint={tr('They’ll sign in with a code sent here')}><input className="input" inputMode="tel" value={ph} onChange={(e) => setPh(e.target.value)} placeholder="+91 98765 43210" /></Field>
+      <Modal open={add} onClose={() => setAdd(false)} title={tr('Add a team member')} footer={<><button className="btn btn-ghost" onClick={() => setAdd(false)}>{tr('Cancel')}</button><button className="btn btn-primary" disabled={create.isPending} onClick={addMember}>{create.isPending && <Spinner />} {tr('Add')}</button></>}>
+        <div className="space-y-4" ref={addForm}><RequiredNote /><Field label={tr('Name')} required error={triedAdd && !nm.trim() ? tr('Enter their name') : undefined}><input className="input" value={nm} onChange={(e) => setNm(e.target.value)} autoFocus /></Field><Field label={tr('WhatsApp number')} hint={tr('They’ll sign in with a code sent here')} required error={triedAdd && ph.replace(/\D/g, '').length < 10 ? tr('Enter a WhatsApp number with at least 10 digits') : undefined}><input className="input" inputMode="tel" value={ph} onChange={(e) => setPh(e.target.value)} placeholder="+91 98765 43210" /></Field>
           <Field label={tr('Role')}><Segmented value={role} onChange={setRole} options={[{ value: 'staff', label: tr('Staff') }, { value: 'owner', label: tr('Owner') }]} /></Field></div>
       </Modal>
       <Confirm open={!!del} title={tr('Remove {name}?', { name: del?.name })} body={tr('They will be signed out and can no longer open this shop.')} confirmLabel={tr('Remove')} danger busy={remove.isPending} onClose={() => setDel(null)} onConfirm={() => del && remove.mutate(del.id)} />

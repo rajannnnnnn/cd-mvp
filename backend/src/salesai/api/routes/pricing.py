@@ -7,16 +7,17 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from salesai.api.deps import RT, Owner
+from salesai.modules.catalog.models import Money
 from salesai.modules.pricing.engine import concession_levels, q2
 
 router = APIRouter(tags=["pricing"])
 
 
 class LadderIn(BaseModel):
-    list_price: Decimal = Field(gt=0, max_digits=12, decimal_places=2)
-    floor_price: Decimal = Field(ge=0, max_digits=12, decimal_places=2, repr=False)   # write-only: used, never echoed
+    list_price: Money = Field(gt=0, max_digits=12, decimal_places=2)
+    floor_price: Money = Field(gt=0, max_digits=12, decimal_places=2, repr=False)   # write-only: used, never echoed
     concession_steps: int = Field(ge=1, le=10)
-    round_to: Decimal = Field(default=Decimal("1"), gt=0, max_digits=12, decimal_places=2)
+    round_to: Money = Field(default=Decimal("1"), gt=0, max_digits=12, decimal_places=2)
 
 
 class LadderOut(BaseModel):

@@ -50,6 +50,7 @@
   .field-hint { @apply mt-1 text-xs text-muted; }
   .input, .select, .textarea { @apply w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/70 transition focus:border-brand focus:outline-none focus:ring-4 focus:ring-brand/15; min-height: 44px; }
   .textarea { min-height: 88px; resize: vertical; }
+  .input[aria-invalid='true'], .select[aria-invalid='true'], .textarea[aria-invalid='true'] { @apply border-danger focus:border-danger focus:ring-danger/15; }
   .input-error { @apply border-danger focus:border-danger focus:ring-danger/15; }
 
   /* ---- badges */

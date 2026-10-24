@@ -46,18 +46,44 @@ export function Switch({ checked, onChange, label, disabled, size = 'md' }: { ch
   )
 }
 
-export function Field({ label, hint, error, children, className }: { label?: string; hint?: string; error?: string | null; children: ReactNode; className?: string }) {
+interface FieldCtx { id: string; described?: string; invalid: boolean; required: boolean }
+const FieldContext = createContext<FieldCtx | null>(null)
+/** For input components placed inside a <Field>: the id, description, invalid and required attributes the field wants on its control. */
+export function useFieldProps(): Record<string, unknown> {
+  const c = useContext(FieldContext)
+  return c ? { id: c.id, 'aria-describedby': c.described, 'aria-invalid': c.invalid || undefined, 'aria-required': c.required || undefined } : {}
+}
+
+/** A labelled form field. `required` adds the red asterisk; `error` shows the message under the control and outlines it.
+ *  Children: a plain input, select or textarea, or a component marked `fieldControl` (it reads useFieldProps). */
+export function Field({ label, hint, error, required, children, className }: { label?: string; hint?: string; error?: string | null; required?: boolean; children: ReactNode; className?: string }) {
   const id = useId()
   // A single form control gets the label as its accessible name; composite content is a labelled group.
-  const control = isValidElement(children) && typeof children.type === 'string' && ['input', 'select', 'textarea'].includes(children.type)
+  const host = isValidElement(children) && typeof children.type === 'string' && ['input', 'select', 'textarea'].includes(children.type)
+  const custom = isValidElement(children) && typeof children.type !== 'string' && (children.type as { fieldControl?: boolean }).fieldControl === true
+  const control = host || custom
   const described = error ? `${id}-err` : hint ? `${id}-hint` : undefined
+  const ctx: FieldCtx = { id, described, invalid: !!error, required: !!required }
   return (
     <div className={className}>
-      {label && <label className="field-label" id={`${id}-label`} htmlFor={control ? id : undefined}>{label}</label>}
-      {control ? cloneElement(children as ReactElement<any>, { id, 'aria-describedby': described, 'aria-invalid': error ? true : undefined }) : <div role="group" aria-labelledby={label ? `${id}-label` : undefined}>{children}</div>}
-      {error ? <p id={`${id}-err`} className="mt-1 text-xs font-medium text-danger">{error}</p> : hint ? <p id={`${id}-hint`} className="field-hint">{hint}</p> : null}
+      {label && <label className="field-label" id={`${id}-label`} htmlFor={control ? id : undefined}>{label}{required && <span aria-hidden="true" className="ml-0.5 font-bold text-danger"> *</span>}</label>}
+      {host ? cloneElement(children as ReactElement<any>, { id, 'aria-describedby': described, 'aria-invalid': error ? true : undefined, 'aria-required': required || undefined })
+        : custom ? <FieldContext.Provider value={ctx}>{children}</FieldContext.Provider>
+        : <div role="group" aria-labelledby={label ? `${id}-label` : undefined} aria-required={required || undefined}>{children}</div>}
+      {error ? <p id={`${id}-err`} role="alert" className="mt-1 text-xs font-medium text-danger">{error}</p> : hint ? <p id={`${id}-hint`} className="field-hint">{hint}</p> : null}
     </div>
   )
+}
+
+/** The note at the top of a form that uses required markers. */
+export function RequiredNote() {
+  return <p className="text-xs text-muted"><span aria-hidden="true" className="font-bold text-danger">*</span> {tr('required')}</p>
+}
+
+/** Moves the keyboard focus to the first field marked invalid inside `root` and scrolls it into view. */
+export function focusFirstInvalid(root: ParentNode | null | undefined) {
+  const el = root?.querySelector<HTMLElement>('[aria-invalid="true"]')
+  if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.focus({ preventScroll: true }) }
 }
 
 export function Segmented<T extends string>({ value, onChange, options, className }: { value: T; onChange: (v: T) => void; options: { value: T; label: ReactNode }[]; className?: string }) {
