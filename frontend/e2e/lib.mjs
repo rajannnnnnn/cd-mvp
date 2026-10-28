@@ -25,4 +25,4 @@ export async function session(login) {
   writeFileSync(cache, JSON.stringify(tok))
   return { access: tok.access_token, refresh: tok.refresh_token, exp: Date.now() + 800000, businessId: tok.business_id, role: tok.role }
 }
-export const seedStorage = (t) => { localStorage.setItem('saathi.tokens.v1', JSON.stringify(t)); if (!localStorage.getItem('saathi.theme')) localStorage.setItem('saathi.theme', 'light') }
+export const seedStorage = (t) => { localStorage.setItem('chatdeal.tokens.v1', JSON.stringify(t)); if (!localStorage.getItem('chatdeal.theme')) localStorage.setItem('chatdeal.theme', 'light') }

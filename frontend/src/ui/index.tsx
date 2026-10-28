@@ -14,7 +14,7 @@ export function Logo({ size = 32, wordmark = true, light = false }: { size?: num
         <path d="M11 13.5A3.5 3.5 0 0 1 14.5 10h11A3.5 3.5 0 0 1 29 13.5v7a3.5 3.5 0 0 1-3.5 3.5H18l-5 4.2V24a3.5 3.5 0 0 1-2-3.1v-7.4Z" fill="#fff" />
         <path d="m15.2 17.4 2.6 2.6 5.2-5.4" fill="none" stroke="#067647" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      {wordmark && <span className={cx('font-display text-[19px] font-extrabold tracking-tight', light ? 'text-white' : 'text-ink')}>{tr('Saathi')}</span>}
+      {wordmark && <span className={cx('font-display text-[19px] font-extrabold tracking-tight', light ? 'text-white' : 'text-ink')}>{tr('ChatDeal')}</span>}
     </span>
   )
 }

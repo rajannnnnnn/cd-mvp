@@ -98,10 +98,10 @@ export default function LoginPage() {
               <div key={i} className="flex items-center gap-3"><span className="grid h-8 w-8 place-items-center rounded-lg bg-white/10"><I className="h-4 w-4 text-[#6ee7b7]" /></span>{s}</div>))}
           </div>
         </div>
-        <div className="relative flex items-center gap-6 text-xs text-white/55"><span>{tr('© Saathi')}</span><a className="hover:text-white" href="/privacy.html">{tr('Privacy')}</a><a className="hover:text-white" href="/terms.html">{tr('Terms')}</a><a className="ml-auto flex items-center gap-1 hover:text-white" href="/"><ArrowRight className="h-3 w-3 rotate-180" />{tr('Back to site')}</a></div>
+        <div className="relative flex items-center gap-6 text-xs text-white/55"><span>{tr('© ChatDeal')}</span><a className="hover:text-white" href="/privacy.html">{tr('Privacy')}</a><a className="hover:text-white" href="/terms.html">{tr('Terms')}</a><a className="ml-auto flex items-center gap-1 hover:text-white" href="/"><ArrowRight className="h-3 w-3 rotate-180" />{tr('Back to site')}</a></div>
         {/* phone */}
         <div className="absolute -right-10 top-1/2 hidden -translate-y-1/2 scale-[.82] xl:block">
-          <PhoneFrame title={tr('Saathi · Login code')} subtitle={tr('WhatsApp Business account · verified')}>
+          <PhoneFrame title={tr('ChatDeal · Login code')} subtitle={tr('WhatsApp Business account · verified')}>
             <div className="chat-bg flex flex-1 flex-col justify-end gap-2 p-3 pb-6">
               {step === 'code' && dev && latest ? (
                 <div className="bubble bubble-in animate-fadeUp !max-w-[92%] text-ink"><div className="mb-1 text-[11px] font-bold uppercase tracking-wide text-brand-ink">{tr('Authentication')}</div>{latest.body}<div className="bubble-meta">{tr('now')}</div></div>

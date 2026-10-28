@@ -34,8 +34,8 @@ function overageHtml(): string {
 }
 
 function sitePartials(): Plugin {
-  const brand = process.env.VITE_BRAND ?? 'Saathi'
-  const contact = process.env.VITE_CONTACT_EMAIL ?? 'hello@saathi.example'
+  const brand = process.env.VITE_BRAND ?? 'ChatDeal'
+  const contact = process.env.VITE_CONTACT_EMAIL ?? 'hello@chatdeal.example'
   const read = (f: string) => readFileSync(resolve(__dirname, 'src/site/partials', f), 'utf8')
   return {
     name: 'site-partials', enforce: 'pre',

@@ -30,7 +30,7 @@ function describe(o: Offer) {
 }
 
 type Product = Schemas['ProductOut']
-const VIEW_KEY = 'saathi.offers.view'
+const VIEW_KEY = 'chatdeal.offers.view'
 
 /** Where an offer applies, as one value for the picker: the whole shop, a category, or one product (variant). */
 const targetOf = (o: Offer | 'new') => (o === 'new' ? 'all' : o.variant_id ? `var:${o.variant_id}` : o.category ? `cat:${o.category}` : 'all')

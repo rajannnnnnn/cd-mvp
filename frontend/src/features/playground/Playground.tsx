@@ -9,7 +9,7 @@ import { clock, cx } from '@/lib/format'
 import { tr } from '@/i18n/tr'
 
 type Msg = Schemas['SimMessage']
-const LS = 'saathi.playground.customer'
+const LS = 'chatdeal.playground.customer'
 const randomPhone = () => `+91 9${String(Math.floor(Math.random() * 1e9)).padStart(9, '0').replace(/^(\d{4})(\d{5})$/, '$1$2')}`.slice(0, 16)
 const digits = (s: string) => s.replace(/\D/g, '')
 const asE164 = (s: string) => { const d = digits(s); return d.length === 10 ? `+91${d}` : `+${d}` }
@@ -116,7 +116,7 @@ export default function Playground() {
       </div>
       {nums.error && !(nums.error instanceof ApiError && nums.error.status === 404) && <ErrorNote error={nums.error} retry={() => nums.refetch()} />}
       {nums.isLoading && <Skeleton className="h-[640px] rounded-3xl" />}
-      {nums.data && !nums.data.length && <div className="card"><EmptyState icon={<Plug className="h-6 w-6" />} title={tr('No test number on this shop')} body={tr('Ask your Saathi contact to add one.')} /></div>}
+      {nums.data && !nums.data.length && <div className="card"><EmptyState icon={<Plug className="h-6 w-6" />} title={tr('No test number on this shop')} body={tr('Ask your ChatDeal contact to add one.')} /></div>}
       {biz && (
         <>
           <div className="card card-pad grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
@@ -136,7 +136,7 @@ export default function Playground() {
             </div>
             <div className="space-y-3">
               <div className="flex items-center justify-center gap-2 text-sm font-bold"><Eye className="h-4 w-4 text-brand" /> {tr('The owner’s phone ({name})', { name: me?.name?.split(' ')[0] ?? tr('you') })}</div>
-              <Handset title={tr('Saathi')} subtitle={tr('alerts for the owner')} phone={me?.phone ?? ''} business={bizPhone} tone="plain" onSend={sendOwner} placeholder={tr('Try "stop", "start" or "summary"')} />
+              <Handset title={tr('ChatDeal')} subtitle={tr('alerts for the owner')} phone={me?.phone ?? ''} business={bizPhone} tone="plain" onSend={sendOwner} placeholder={tr('Try "stop", "start" or "summary"')} />
               <p className="mx-auto max-w-[330px] text-center text-[12.5px] text-muted">{tr('Alerts, handoffs and daily summaries arrive here, and you can steer the assistant by replying.')}</p>
             </div>
           </div>

@@ -1,10 +1,10 @@
-# WhatsApp AI Sales Assistant (working name: "Saathi")
+# WhatsApp AI Sales Assistant ("ChatDeal")
 
 A multi-tenant SaaS for India. A small business connects its **own WhatsApp number**; an AI assistant answers customers
 in the owner's voice, quotes prices **only** within limits the owner sets, negotiates in small steps, captures orders and
 visits, and brings the owner in when it matters. The owner stays in control from WhatsApp or a web app.
 
-"Saathi" is a placeholder brand (one constant, `VITE_BRAND`; see `docs/RUNNING.md`). The product spec is decided; the
+The product name "ChatDeal" is one constant (`VITE_BRAND`; see `docs/RUNNING.md`). The product spec is decided; the
 engineering decisions are recorded as ADRs.
 
 ## Status at a glance (see `docs/PROGRESS.md` for the full picture)

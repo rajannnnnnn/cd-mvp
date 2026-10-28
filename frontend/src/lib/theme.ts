@@ -1,4 +1,4 @@
-const KEY = 'saathi.theme'
+const KEY = 'chatdeal.theme'
 export type Theme = 'light' | 'dark'
 export function initTheme() {
   const saved = (localStorage.getItem(KEY) as Theme | null) ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')

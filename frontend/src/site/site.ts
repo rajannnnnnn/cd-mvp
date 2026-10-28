@@ -5,13 +5,13 @@ import { HI } from './hi'
 import { ladderLevels, stepFor } from './ladder'
 
 type Lang = 'en' | 'hi'
-const LANG_KEY = 'saathi.lang'
+const LANG_KEY = 'chatdeal.lang'
 const $ = <T extends HTMLElement>(s: string, r: ParentNode = document) => r.querySelector<T>(s)
 const $$ = <T extends HTMLElement>(s: string, r: ParentNode = document) => Array.from(r.querySelectorAll<T>(s))
 const safe = <T>(f: () => T, d: T): T => { try { return f() } catch { return d } }
 
 /* ------------------------------------------------------------------ language */
-const brand = document.querySelector<HTMLMetaElement>('meta[name="brand"]')?.content ?? 'Saathi'
+const brand = document.querySelector<HTMLMetaElement>('meta[name="brand"]')?.content ?? 'ChatDeal'
 function applyLang(lang: Lang) {
   document.documentElement.lang = lang
   for (const el of $$('[data-i18n],[data-i18n-html]')) {
@@ -31,7 +31,7 @@ if (lang === 'hi') applyLang('hi')
 /* ------------------------------------------------------------------ theme + misc */
 $('#theme-toggle')?.addEventListener('click', () => {
   const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'
-  document.documentElement.dataset.theme = next; safe(() => localStorage.setItem('saathi.theme', next), undefined)
+  document.documentElement.dataset.theme = next; safe(() => localStorage.setItem('chatdeal.theme', next), undefined)
 })
 const yr = $('#year'); if (yr) yr.textContent = String(new Date().getFullYear())
 
@@ -135,8 +135,8 @@ initPricing()
 function captureSource() {
   const q = new URLSearchParams(location.search)
   const tag = [q.get('utm_source'), q.get('utm_campaign')].filter(Boolean).join('/') || q.get('src') || q.get('ref')
-  if (tag) safe(() => { localStorage.setItem('saathi.src', tag.slice(0, 80)); sessionStorage.setItem('saathi.src', tag.slice(0, 80)) }, undefined)
-  const stored = safe(() => localStorage.getItem('saathi.src'), null)
+  if (tag) safe(() => { localStorage.setItem('chatdeal.src', tag.slice(0, 80)); sessionStorage.setItem('chatdeal.src', tag.slice(0, 80)) }, undefined)
+  const stored = safe(() => localStorage.getItem('chatdeal.src'), null)
   for (const a of $$<HTMLAnchorElement>('a[data-cta]')) {
     const u = new URL(a.getAttribute('href') ?? '/app/login', location.origin)
     if (stored && !u.searchParams.has('src')) u.searchParams.set('src', stored)

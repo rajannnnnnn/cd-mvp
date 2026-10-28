@@ -29,7 +29,7 @@ Everything else about the product is real code, not mock-ups.
 - **Client-side-rendered app; static hosting is fine.** A marketing site comes first, then login.
 - **Voice notes are out of scope for now** (ADR 0015; the seam is kept).
 - **The frontend must be impressive and honest** for the co-founders, in English and Hindi, mobile first.
-- "Saathi" is a **placeholder brand** (`VITE_BRAND`); the founder has not chosen a name or legal entity.
+- The product is named **ChatDeal** (`VITE_BRAND`, renamed from the working name "Saathi" on the founder's instruction); the legal entity and domain are not chosen yet. Browser storage keys moved from `saathi.*` to `chatdeal.*` (everyone signs in once more). Infra identifiers (compose project `saathi`, image tags, Terraform names, `/opt/saathi`) are left as they are on purpose: renaming the compose project would orphan existing local database volumes.
 - No pull requests unless the founder asks.
 - **Full self-serve SaaS** (added 2026-10-04): marketing home, pricing and ad pages; sign-up and sign-in by mobile number with **any one-time code
   accepted for now** (the real OTP comes once the company exists); onboarding (business, products, WhatsApp, assistant preferences); shop
@@ -124,7 +124,7 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
 | Decision | Why it matters | Default if none |
 |---|---|---|
 | Confirm ADR 0006 (floor can surface as the final quoted price) or choose "stop above the floor" | Product behaviour and INV-1 interpretation | Keep as built |
-| Product name, domain, legal entity, contact address | Branding, legal pages, Meta account ownership | "Saathi", placeholder address |
+| Product name, domain, legal entity, contact address | Branding, legal pages, Meta account ownership | "ChatDeal"; domain and address still placeholders |
 | LLM vendor/model approval and an API key (paid) | Real evaluations, cost per conversation, pricing | Local stand-in only |
 | Meta developer account / test number / Tech Provider path | Real-world verification of the adapter | Simulated network only |
 | Pilot shops and categories (CR-5 excludes prohibited categories) | Seed data, evaluation scenarios | Demo shops |

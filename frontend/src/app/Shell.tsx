@@ -23,8 +23,8 @@ export default function Shell() {
   const nav = useNavigate()
   const backToConsole = async () => {
     try {
-      const stash = sessionStorage.getItem('saathi.operator.stash')
-      if (stash) { sessionStorage.removeItem('saathi.operator.stash'); qc.clear(); tokens.set(JSON.parse(stash)); await reload(); window.location.assign('/app/operator') } else await logout()
+      const stash = sessionStorage.getItem('chatdeal.operator.stash')
+      if (stash) { sessionStorage.removeItem('chatdeal.operator.stash'); qc.clear(); tokens.set(JSON.parse(stash)); await reload(); window.location.assign('/app/operator') } else await logout()
     } catch { await logout() }
   }
   const loc = useLocation()

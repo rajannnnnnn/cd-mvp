@@ -291,7 +291,7 @@ function NumbersTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolea
   const tone = (s: string) => (s === 'connected' || s === 'active' ? 'green' : s === 'disconnected' ? 'red' : 'amber') as 'green' | 'red' | 'amber'
   return (
     <Section title={tr('WhatsApp numbers')} sub={tr('Numbers the assistant answers on. Your own WhatsApp Business app keeps working alongside it.')}>
-      {!b.numbers.length && <EmptyState icon={<Phone className="h-6 w-6" />} title={tr('No number connected yet')} body={signup ? tr('Connect your WhatsApp Business number in a few taps.') : tr('Your Saathi contact will connect your WhatsApp number with you.')} />}
+      {!b.numbers.length && <EmptyState icon={<Phone className="h-6 w-6" />} title={tr('No number connected yet')} body={signup ? tr('Connect your WhatsApp Business number in a few taps.') : tr('Your ChatDeal contact will connect your WhatsApp number with you.')} />}
       {!!cfg.data?.simulator_enabled && canEdit && <div className="flex justify-end"><button className="btn btn-outline" onClick={async () => { try { await ok(api.POST('/api/v1/numbers/test')); await qc.invalidateQueries({ queryKey: ['business'] }); toast(tr('Test number added')) } catch (e) { toast((e as Error).message, 'error') } }}><Plus className="h-4 w-4" /> {tr('Add a test number')}</button></div>}
       {signup && canEdit && <div className="flex justify-end"><button className="btn btn-primary" disabled={connecting} onClick={connect}>{connecting ? <Spinner /> : <Plus className="h-4 w-4" />} {tr('Connect a WhatsApp number')}</button></div>}
       <div className="divide-y divide-line/60">

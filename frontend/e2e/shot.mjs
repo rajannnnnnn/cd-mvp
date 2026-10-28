@@ -15,7 +15,7 @@ if (login !== 'none') {
   await ctx.addInitScript(seedStorage, tok)
 }
 for (let i = 0; i < rest.length; i++) if (rest[i] === '--ls') { const [k, v] = rest[i + 1].split('='); await ctx.addInitScript(([k, v]) => localStorage.setItem(k, v), [k, v]) }
-if (dark) await ctx.addInitScript(() => localStorage.setItem('saathi.theme', 'dark'))
+if (dark) await ctx.addInitScript(() => localStorage.setItem('chatdeal.theme', 'dark'))
 await page.goto(base + path, { waitUntil: 'load' })
 await page.waitForTimeout(2200)
 for (let i = 0; i < rest.length; i++) if (rest[i] === '--click') { await page.getByText(rest[i + 1], { exact: false }).first().click(); await page.waitForTimeout(900) }

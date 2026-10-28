@@ -242,7 +242,7 @@ function ProductPanel({ product, categories, onClose }: { product: Product | 'ne
 }
 
 /* ------------------------------------------------------------ page */
-const VIEW_KEY = 'saathi.catalog.view'
+const VIEW_KEY = 'chatdeal.catalog.view'
 
 export default function Products() {
   const { t } = useT()

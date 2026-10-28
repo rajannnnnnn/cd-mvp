@@ -229,7 +229,7 @@ async def connect_number(body: ConnectIn, rt: RT, p: Owner) -> Any:
     await rt.billing.check_limit(p.bid, "numbers")
     s = rt.settings
     if not (s.meta_app_id and s.meta_config_id):
-        raise ApiError(503, "signup_unavailable", "Connecting a WhatsApp number is not switched on yet. Your Saathi contact can connect it for you.")
+        raise ApiError(503, "signup_unavailable", "Connecting a WhatsApp number is not switched on yet. Your ChatDeal contact can connect it for you.")
     try:
         res = await complete_signup(graph_base=s.meta_graph_base, version=s.meta_graph_version, app_id=s.meta_app_id,
                                     app_secret=s.meta_app_secret, code=body.code, waba_id=body.waba_id,
