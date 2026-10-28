@@ -98,17 +98,14 @@ test.describe('owner app', () => {
     void row
   })
 
-  test('settings: shop details and the reply-speed preset save', async ({ page }) => {
+  test('settings: shop details save and the assistant tab has no reply-speed control', async ({ page }) => {
     await page.goto(`${SHOP}/settings`)
     await page.getByLabel('Shop phone').fill('+91 99999 00002')
     await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page.getByText('Saved').first()).toBeVisible()
-    await page.getByRole('tab', { name: 'Assistant' }).click()                                      // speed and voice live under Assistant, not in tabs of their own
+    await page.getByRole('tab', { name: 'Assistant' }).click()                                      // my voice lives under Assistant, not in a tab of its own
     await expect(page.getByRole('tab', { name: /Speed|My voice/ })).toHaveCount(0)
-    const speed = page.locator('section', { has: page.getByRole('heading', { name: 'Reply speed' }) })
-    await speed.getByRole('button', { name: /Natural/ }).click()
-    await speed.getByRole('button', { name: 'Save', exact: true }).click()
-    await expect(page.getByText('Saved').first()).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Reply speed' })).toHaveCount(0)               // owners no longer tune pacing; the assistant uses its natural default
   })
 
   test('settings: the owner can download their data and is asked to type the shop name before deleting', async ({ page }) => {

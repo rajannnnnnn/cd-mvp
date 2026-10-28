@@ -196,7 +196,7 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
   Settings → Support (ADR 0020, migration `0008_support.sql`): an owner or staff member opens a ticket in one step, support (operator console →
   Support) answers in the same thread, the owner can mark it sorted or reopen it by replying. Tests: `test_support.py`, `e2e/support.spec.ts`.
   Products and Offers hide their tick boxes until the owner presses **Select**; **Done** (or finishing a bulk action) hides them again.
-  Settings tabs are now Shop, Assistant (on/off, try it, selling style, when you step in, reply speed, optional My voice), Team, Numbers, Security, Support; old `?tab=voice` and `?tab=pacing` links land on Assistant.
+  Settings tabs are now Shop, Assistant (on/off, try it, selling style, when you step in, optional My voice), Team, Numbers, Security, Support; old `?tab=voice` and `?tab=pacing` links land on Assistant.
   Performance (docs/PERFORMANCE.md): per-action load test on 3M messages / 50 shops; found and fixed slow dashboard/analytics reads, 12 unindexed foreign keys (migrations 0009, 0010; guarded by a test) and an offer save that re-read every offer. ADR 0021 proposes grouping the tables into domains.
   QA round (Jira DEAL-113 to DEAL-119; validation and plan in the session notes). Push A: DEAL-118 prices are plain numbers at every layer (input
   filtering in `lib/money.ts` and `ui/inputs.tsx`, strict API money type with field-named messages, `CHECK > 0` in migration 0011 added NOT VALID so an
@@ -204,3 +204,4 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
   the product, offer, sign-up, support, shop-settings and team forms, with inline errors and focus on the first missing field. Tests: `test_money_input.py`
   (including a property test), `lib/money.test.ts`, `e2e/forms.spec.ts`.
 
+- **Reply speed removed from Settings** (founder's instruction). Owners no longer choose Quick/Natural/Relaxed; the assistant keeps the stored `timing_params` (default natural pacing). The API field and the pacing engine (M8) are unchanged, so the control can return later without a rewrite.

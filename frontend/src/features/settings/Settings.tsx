@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BellRing, Building2, LifeBuoy, Mic2, Clock, Laptop, Phone, Plus, ShieldCheck, Sliders, Smartphone, Trash2, Users, X } from 'lucide-react'
+import { BellRing, Building2, LifeBuoy, Mic2, Laptop, Phone, Plus, ShieldCheck, Sliders, Smartphone, Trash2, Users, X } from 'lucide-react'
 import { api, ok, type Schemas } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
 import { useBusiness, usePublicConfig } from '@/api/hooks'
@@ -205,34 +205,8 @@ function AssistantTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: bool
           <Field label={tr('Daily summary at')}><select className="select" value={hour} onChange={(e) => setHour(e.target.value)} disabled={!canEdit}>{Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>)}</select></Field>
         </div>
       </Section>
-      <PacingTab b={b} canEdit={canEdit} />
       <section className="card card-pad"><Voice embedded /></section>
     </div>
-  )
-}
-
-/* ------------------------------------------------------------------ Pacing */
-const scale = (d: any, f: number) => ({ mu: +(d.mu + Math.log(f)).toFixed(3), sigma: d.sigma, min_ms: Math.max(1, Math.round(d.min_ms * f)), max_ms: Math.max(2, Math.round(d.max_ms * f)) })
-const BASE = { read_delay: { mu: 7.6, sigma: 0.5, min_ms: 800, max_ms: 6000 }, part_gap: { mu: 7.2, sigma: 0.5, min_ms: 600, max_ms: 4000 }, typing_ms_per_char: { mu: 3.9, sigma: 0.25, min_ms: 25, max_ms: 140 } }
-const PRESETS = [{ value: 'quick', label: 'Quick', f: 0.5, cap: 8000 }, { value: 'natural', label: 'Natural', f: 1, cap: 20000 }, { value: 'relaxed', label: 'Relaxed', f: 1.7, cap: 30000 }] as const
-function PacingTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }) {
-  const t = b.timing_params as any
-  const current = useMemo(() => { const r = (t.read_delay?.max_ms ?? 6000) / 6000; return r < 0.75 ? 'quick' : r > 1.35 ? 'relaxed' : 'natural' }, [t])
-  const [preset, setPreset] = useState<string>(current)
-  const save = useSaveBusiness()
-  const p = PRESETS.find((x) => x.value === preset)!
-  return (
-    <Section title={tr('Reply speed')} sub={tr('Customers are never answered instantly, like a person who reads, thinks and types. Pick how quickly your assistant replies.')}
-      footer={canEdit && <button className="btn btn-primary" disabled={save.isPending} onClick={() => save.mutate({ timing_params: { read_delay: scale(BASE.read_delay, p.f), part_gap: scale(BASE.part_gap, p.f), typing_ms_per_char: scale(BASE.typing_ms_per_char, p.f), max_total_delay_ms: p.cap } })}>{save.isPending && <Spinner />} {tr('Save')}</button>}>
-      <div className="grid gap-3 sm:grid-cols-3">
-        {PRESETS.map((x) => (
-          <button key={x.value} disabled={!canEdit} onClick={() => setPreset(x.value)} className={cx('rounded-2xl border p-4 text-left transition', preset === x.value ? 'border-brand bg-brand-soft' : 'border-line hover:bg-surface2')}>
-            <Clock className="h-5 w-5 text-brand-ink" /><div className="mt-2 font-bold">{tr(x.label)}</div><div className="text-[13px] text-muted">{x.value === 'quick' ? tr('Usually a few seconds') : x.value === 'natural' ? tr('Like a busy shopkeeper') : tr('Unhurried, thoughtful')}</div>
-          </button>
-        ))}
-      </div>
-      <p className="text-[13px] text-muted">{tr('The reply is also split into short messages and shown as “typing…” first. Urgent cases skip the wait.')}</p>
-    </Section>
   )
 }
 
