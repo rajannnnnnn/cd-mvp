@@ -8,6 +8,8 @@ test.describe('owner app', () => {
     await expect(page.getByText(/need you/i).first()).toBeVisible()
     await expect(page.getByText('Conversations').first()).toBeVisible()
     await expect(page.getByRole('switch', { name: 'AI assistant' })).toHaveCount(0)            // the master switch lives in Settings only
+    await expect(page.getByText('AI assistant is ON')).toHaveCount(0)                           // nothing is said while the assistant works …
+    await expect(page.getByText('AI assistant paused')).toHaveCount(0)
   })
 
   test('the AI switch lives in Settings and needs a code sent to the owner to pause or resume', async ({ page }) => {
@@ -30,6 +32,7 @@ test.describe('owner app', () => {
     await dialog.getByRole('button', { name: 'Confirm and switch off' }).click()
     await expect(sw).toHaveAttribute('aria-checked', 'false')
     await page.goto(`${SHOP}/home`)
+    await expect(page.getByText('AI assistant paused')).toBeVisible()                            // … and the menu speaks up only when it is off
     await expect(page.getByText('The AI assistant is paused')).toBeVisible()                     // home only says so, and points back to Settings
 
     await page.goto(`${SHOP}/settings`)
