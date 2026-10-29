@@ -101,26 +101,6 @@ class AuthService:
                     raise AuthError("delivery_failed", "We couldn't send the code to WhatsApp. Please try again.", 502)
         return {"status": "sent", "expires_in": self.s.otp_ttl_s}
 
-    async def confirm_code(self, phone: str, code: str) -> None:
-        """Step-up check for a signed-in person: the code just sent to their own number (see request_otp) must match. It is used once.
-        OTP_ACCEPT_ANY (never in production) accepts any non-empty code, as at sign-in."""
-        if not code.strip():
-            raise AuthError("invalid_code", "Enter the code.")
-        wrong = False
-        async with self.db.system_tx() as c:
-            if not self.s.otp_accept_any:
-                ch = await (await c.execute(
-                    """SELECT id, code_hash, attempts FROM otp_challenges
-                       WHERE phone=%s AND consumed_at IS NULL AND expires_at > now() ORDER BY created_at DESC LIMIT 1 FOR UPDATE""", (phone,))).fetchone()
-                if ch is None:
-                    raise AuthError("invalid_code", "That code is wrong or has expired.")
-                if ch["attempts"] >= self.s.otp_max_attempts:
-                    raise AuthError("locked", "Too many wrong attempts. Request a new code.", 429)
-                wrong = not crypto.constant_time_equal(ch["code_hash"], self._hash(phone, code.strip()))
-                await c.execute("UPDATE otp_challenges SET attempts = attempts + 1 WHERE id=%s" if wrong else "UPDATE otp_challenges SET consumed_at = now() WHERE id=%s", (ch["id"],))
-        if wrong:
-            raise AuthError("invalid_code", "That code is wrong or has expired.")
-
     async def verify_otp(self, raw_phone: str, code: str, ip: str | None, device: str | None, source: str | None = None) -> TokenPair | dict[str, Any]:
         """Exchange a code for a session. A number that has no account yet is signed up on the spot; one with no business gets a
         `setup` session that can only run onboarding. OTP_ACCEPT_ANY (never in production) skips the code check for demos."""

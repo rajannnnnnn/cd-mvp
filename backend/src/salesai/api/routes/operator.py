@@ -129,6 +129,8 @@ async def add_number(business_id: uuid.UUID, body: CloudNumberIn, rt: RT, p: Ope
 @router.patch("/businesses/{business_id}", status_code=204)
 async def patch_business(business_id: uuid.UUID, body: TenantPatch, rt: RT, p: Operator) -> None:
     d = body.model_dump(exclude_unset=True)
+    if d.get("ai_enabled"):
+        await rt.billing.assert_can_run(business_id)     # the assistant is the platform team's switch; an ended subscription still blocks it
     async with rt.db.tenant(business_id) as c:
         for k, v in d.items():
             if v is None:
