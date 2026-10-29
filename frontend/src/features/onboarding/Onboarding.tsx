@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, MessageCircle, PartyPopper, Phone, Plus, Rocket, Sparkles, Store, Tag, X } from 'lucide-react'
@@ -6,12 +6,13 @@ import { api, ok, type Schemas } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
 import { usePublicConfig } from '@/api/hooks'
 import { startEmbeddedSignup } from '@/features/settings/signup'
-import { blank, toPolicy, validate, type Draft } from '@/features/catalog/draft'
+import { blank, fieldErrors, toPolicy, type Draft } from '@/features/catalog/draft'
+import { MoneyInput } from '@/ui/inputs'
 import { CategoryField } from '@/features/catalog/CategoryField'
 import { categoriesOf } from '@/features/catalog/category'
 import { shopUrl } from '@/lib/slug'
 import { cx } from '@/lib/format'
-import { Field, Logo, Segmented, Spinner, Switch, useToast } from '@/ui'
+import { Field, focusFirstInvalid, Logo, RequiredNote, Segmented, Spinner, Switch, useToast } from '@/ui'
 import { tr } from '@/i18n/tr'
 
 type Onb = Schemas['OnboardingOut']
@@ -59,14 +60,23 @@ function BusinessStep() {
     },
     onError: (e) => toast((e as Error).message, 'error'),
   })
-  const valid = name.trim().length >= 2 && owner.trim().length >= 1
+  const [tried, setTried] = useState(false)
+  const form = useRef<HTMLFormElement>(null)
+  const errs = {
+    name: name.trim().length >= 2 ? undefined : tr('Enter your business name'),
+    owner: owner.trim().length >= 1 ? undefined : tr('Enter your name'),
+    slug: slug.length >= 2 ? undefined : tr('Choose a web address'),
+  }
+  const valid = !errs.name && !errs.owner && !errs.slug
+  const go = () => { setTried(true); if (!valid) { setTimeout(() => focusFirstInvalid(form.current), 30); return } create.mutate() }
   return (
-    <form onSubmit={(e) => { e.preventDefault(); if (valid) create.mutate() }}>
+    <form ref={form} onSubmit={(e) => { e.preventDefault(); go() }}>
       <h2 className="font-display text-[26px] font-extrabold leading-tight">{tr('Tell us about your business')}</h2>
       <p className="mt-1.5 text-[15px] text-muted">{tr('This takes about five minutes. You can change everything later.')}</p>
       <div className="mt-6 space-y-4">
-        <Field label={tr('Business name')} hint={tr('The name your customers know')}><input className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Sharma Sarees & Fabrics')} /></Field>
-        <Field label={tr('Your name')}><input className="input" value={owner} onChange={(e) => setOwner(e.target.value)} placeholder={tr('e.g. Meera Sharma')} /></Field>
+        <RequiredNote />
+        <Field label={tr('Business name')} hint={tr('The name your customers know')} required error={tried ? errs.name : undefined}><input className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Sharma Sarees & Fabrics')} /></Field>
+        <Field label={tr('Your name')} required error={tried ? errs.owner : undefined}><input className="input" value={owner} onChange={(e) => setOwner(e.target.value)} placeholder={tr('e.g. Meera Sharma')} /></Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={tr('What do you sell?')}><select className="select" value={category} onChange={(e) => setCategory(e.target.value)}><option value="">{tr('Choose…')}</option>{cats.data?.map((c) => <option key={c}>{c}</option>)}</select></Field>
           <Field label={tr('City')}><input className="input" value={city} onChange={(e) => setCity(e.target.value)} placeholder={tr('e.g. Pune')} /></Field>
@@ -74,7 +84,7 @@ function BusinessStep() {
         <Field label={tr('How do your customers talk?')} hint={tr('The assistant still follows each customer’s own language')}>
           <Segmented value={language} onChange={setLanguage} options={[{ value: 'hinglish', label: 'Hinglish' }, { value: 'hi', label: 'हिन्दी' }, { value: 'en', label: 'English' }]} />
         </Field>
-        <Field label={tr('Your web address')} hint={check && !check.available ? (check.reason ?? undefined) : undefined}>
+        <Field label={tr('Your web address')} hint={check && !check.available ? (check.reason ?? undefined) : undefined} required error={tried ? errs.slug : undefined}>
           <div className="flex items-stretch overflow-hidden rounded-xl border border-line bg-surface focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/15">
             <span className="grid place-items-center border-r border-line bg-surface2 px-3 text-sm text-muted">{window.location.host}/</span>
             <input className="min-w-0 flex-1 bg-transparent px-3 py-3 font-semibold outline-none" value={slug} onChange={(e) => { setSlugTouched(true); setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')) }} aria-label={tr('Your web address')} />
@@ -83,7 +93,7 @@ function BusinessStep() {
           {check && !check.available && <p className="mt-1.5 text-xs text-muted">{tr('We’ll use')} <b>{check.suggestion}</b> {tr('unless you change it.')}</p>}
         </Field>
       </div>
-      <Nav next={() => create.mutate()} nextDisabled={!valid} busy={create.isPending} nextLabel={tr('Create my shop')} />
+      <Nav next={go} busy={create.isPending} nextLabel={tr('Create my shop')} />
     </form>
   )
 }
@@ -131,14 +141,18 @@ function ProductsStep({ onDone, onBack }: { onDone: () => void; onBack: () => vo
   const [name, setName] = useState(''); const [category, setCategory] = useState('')
   const [d, setD] = useState<Draft>({ ...blank(true), negotiable: false })
   const set = (p: Partial<Draft>) => setD((x) => ({ ...x, ...p }))
+  const [tried, setTried] = useState(false)
+  const card = useRef<HTMLDivElement>(null)
+  const draft = { ...d, ai_may_negotiate: d.negotiable }
+  const found = fieldErrors(draft)
+  const nameErr = name.trim() ? undefined : tr('Give the product a name')
+  const problems = (nameErr ? 1 : 0) + Object.keys(found).length
+  const press = () => { setTried(true); if (problems > 0) { setTimeout(() => focusFirstInvalid(card.current), 30); return } add.mutate() }
   const add = useMutation({
     mutationFn: async () => {
-      if (!name.trim()) throw new Error(tr('Give the product a name'))
-      const draft = { ...d, ai_may_negotiate: d.negotiable }
-      const m = validate(draft); if (m) throw new Error(m)
       await ok(api.POST('/api/v1/products', { body: { name: name.trim(), category: category.trim() || null, description: null, active: true, attributes: {}, variants: [{ name: 'Standard', availability: d.availability as any, stock_qty: null, is_default: true, active: true, attributes: {}, policy: toPolicy(draft) }] } as any }))
     },
-    onSuccess: () => { setName(''); setD({ ...blank(true), negotiable: false }); qc.invalidateQueries({ queryKey: ['products'] }); qc.invalidateQueries({ queryKey: ['onboarding'] }); toast(tr('Product added')) },
+    onSuccess: () => { setTried(false); setName(''); setD({ ...blank(true), negotiable: false }); qc.invalidateQueries({ queryKey: ['products'] }); qc.invalidateQueries({ queryKey: ['onboarding'] }); toast(tr('Product added')) },
     onError: (e) => toast((e as Error).message, 'error'),
   })
   const items = list.data?.items ?? []
@@ -150,12 +164,12 @@ function ProductsStep({ onDone, onBack }: { onDone: () => void; onBack: () => vo
         <ul className="mt-5 divide-y divide-line/60 rounded-2xl border border-line/70 bg-surface">
           {items.map((p) => <li key={p.id} className="flex items-center gap-3 px-4 py-3"><CheckCircle2 className="h-4 w-4 text-brand" /><span className="flex-1 font-semibold">{p.name}</span><span className="text-xs text-muted">{p.category ?? ''}</span></li>)}
         </ul>)}
-      <div className="mt-5 rounded-2xl border border-line/70 bg-surface2/50 p-4">
-        <div className="mb-3 text-sm font-bold">{items.length ? tr('Add another') : tr('Add your first product')}</div>
+      <div className="mt-5 rounded-2xl border border-line/70 bg-surface2/50 p-4" ref={card}>
+        <div className="mb-3 flex items-center justify-between gap-3"><span className="text-sm font-bold">{items.length ? tr('Add another') : tr('Add your first product')}</span><RequiredNote /></div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={tr('Product or service name')}><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Banarasi Silk Saree')} /></Field>
+          <Field label={tr('Product or service name')} required error={tried ? nameErr : undefined}><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Banarasi Silk Saree')} /></Field>
           <Field label={tr('Category')} hint={tr('Optional')}><CategoryField value={category} onChange={setCategory} options={categoriesOf(items)} placeholder={tr('e.g. Sarees')} /></Field>
-          <Field label={tr('Price (₹)')}><input className="input" inputMode="decimal" value={d.list_price} onChange={(e) => set({ list_price: e.target.value.replace(/[^0-9.]/g, '') })} placeholder="1999" /></Field>
+          <Field label={tr('Price (₹)')} required error={tried ? found.list_price : undefined}><MoneyInput value={d.list_price} onChange={(v) => set({ list_price: v })} placeholder="1999" /></Field>
           <Field label={tr('Availability')}><select className="select" value={d.availability} onChange={(e) => set({ availability: e.target.value })}><option value="in_stock">{tr('In stock')}</option><option value="limited">{tr('Limited')}</option><option value="made_to_order">{tr('Made to order')}</option><option value="out_of_stock">{tr('Out of stock')}</option></select></Field>
         </div>
         <div className="mt-3 flex items-center gap-3 rounded-xl bg-surface p-3">
@@ -163,9 +177,9 @@ function ProductsStep({ onDone, onBack }: { onDone: () => void; onBack: () => vo
           <div className="flex-1 text-sm"><b>{tr('Customers may bargain')}</b><div className="text-xs text-muted">{tr('The assistant comes down in small steps, never below your lowest price.')}</div></div>
         </div>
         {d.negotiable && (
-          <Field className="mt-3" label={tr('Lowest price you’ll accept (₹)')} hint={tr('Private')}><input className="input" inputMode="decimal" value={d.floor_price} onChange={(e) => set({ floor_price: e.target.value.replace(/[^0-9.]/g, '') })} placeholder="1600" />
+          <Field className="mt-3" label={tr('Lowest price you’ll accept (₹)')} hint={tr('Private')} required error={tried ? found.floor_price : undefined}><MoneyInput value={d.floor_price} onChange={(v) => set({ floor_price: v })} placeholder="1600" />
             <p className="mt-1.5 text-xs text-muted">{tr('Your lowest price is stored separately and is never shown again, not even to you. The assistant can’t see it either; only the pricing engine can, and it never goes below it.')}</p></Field>)}
-        <button type="button" className="btn btn-outline mt-4" disabled={add.isPending} onClick={() => add.mutate()}>{add.isPending ? <Spinner /> : <Plus className="h-4 w-4" />} {tr('Add product')}</button>
+        <button type="button" className="btn btn-outline mt-4" disabled={add.isPending} onClick={press}>{add.isPending ? <Spinner /> : <Plus className="h-4 w-4" />} {tr('Add product')}</button>
       </div>
       <Nav back={onBack} next={onDone} nextDisabled={items.length === 0} />
       {items.length === 0 && <p className="mt-2 text-right text-xs text-muted">{tr('Add at least one product or service to continue.')}</p>}

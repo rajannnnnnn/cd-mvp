@@ -4,8 +4,8 @@ WORKDIR /web
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-ARG VITE_BRAND=Saathi
-ARG VITE_CONTACT_EMAIL=hello@saathi.example
+ARG VITE_BRAND=ChatDeal
+ARG VITE_CONTACT_EMAIL=hello@chatdeal.example
 ENV VITE_BRAND=$VITE_BRAND VITE_CONTACT_EMAIL=$VITE_CONTACT_EMAIL
 RUN npm run build
 

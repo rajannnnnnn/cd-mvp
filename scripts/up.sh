@@ -42,10 +42,38 @@ ALLOW_IPS="${ALLOW_IPS:-0.0.0.0/0 ::/0}"
 ENV
   echo "created deploy/.env with fresh secrets"
 fi
-docker compose up -d --build
-if [ "${1:-}" = "--demo" ]; then docker compose --profile demo run --rm seed; fi
-echo
+export BUILDKIT_PROGRESS=plain COMPOSE_PROGRESS=plain      # show each download/build step instead of a silent spinner
 WEB_PORT=$(grep "^WEB_PORT=" "$ENVF" | cut -d= -f2)
-echo "Open http://localhost:${WEB_PORT:-8080}   (app: /app)"
-echo "Demo logins (the login code appears in the simulated WhatsApp inbox on the sign-in page):"
-echo "  owner     +91 99999 00001   operator  +91 99999 00000"
+step() { printf '\n[%s] %s\n' "$1" "$2"; }
+fail() { printf '\nFAILED: %s\n--- containers ---\n' "$1"; docker compose ps -a; echo "--- last log lines (send these to your engineer) ---"; docker compose logs --tail 40; exit 1; }
+
+step 1/4 "Checking Docker is running"
+docker info >/dev/null 2>&1 || fail 'Docker is not running. Start Docker, wait until it is ready, then run this again.'
+echo "Docker is running."
+
+step 2/4 "Downloading and building everything (first run takes 5-15 minutes; lines below are progress, not errors)"
+docker compose up -d --build || fail 'Docker could not build or start the services (see the lines above; "no space left" means free about 10 GB).'
+
+step 3/4 "Waiting for the app to answer"
+ready=0
+for i in $(seq 1 60); do
+  if curl -fsS -m 3 "http://localhost:${WEB_PORT:-8080}/api/v1/public/config" >/dev/null 2>&1; then ready=1; break; fi
+  echo "  waiting ($i/60)... services: $(docker compose ps --format '{{.Service}}={{.State}}' | tr '\n' ' ')"
+  sleep 3
+done
+[ "$ready" = 1 ] || fail 'The app did not answer within 3 minutes.'
+echo "The app is answering."
+
+if [ "${1:-}" = "--demo" ]; then
+  step 4/4 "Loading the demo shops and conversations (about a minute)"
+  docker compose --profile demo run --rm seed || fail 'Loading the demo data failed (the app itself is running).'
+else
+  step 4/4 "Skipping demo data (add --demo to load it)"
+fi
+
+echo
+echo "READY"
+echo "  Open  http://localhost:${WEB_PORT:-8080}      (the product is at /app)"
+echo "  Sign in as the owner +91 99999 00001 (the login code fills in by itself), operator +91 99999 00000."
+echo "  Any new mobile number signs up with any 6-digit code."
+echo "  Live logs:  cd deploy && docker compose logs -f --tail 20        Stop:  scripts/up.sh --down"

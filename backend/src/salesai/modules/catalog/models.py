@@ -3,16 +3,36 @@ useful error before the database refuses. Floor prices are WRITE-ONLY (INV-1): t
 models only and never on any output model."""
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Literal, Self
+from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator, model_validator
 
 Disclosure = Literal["fixed", "range", "starts_from", "after_qualifying", "on_request"]
 Availability = Literal["in_stock", "limited", "made_to_order", "out_of_stock"]
-Money = Decimal
+_MONEY = re.compile(r"^[0-9]{1,10}(\.[0-9]{1,2})?$")
+
+
+def _plain_money(v: Any) -> Any:
+    """A price is a plain number: digits and at most one decimal point with up to two places. Anything a person could mistype or paste
+    (letters, 1,200, 1e3, spaces, signs, NaN) is refused here, so it never reaches the pricing engine or the database."""
+    if v is None or isinstance(v, Decimal):
+        return v
+    if isinstance(v, bool):
+        raise ValueError("must be a number such as 1200 or 1200.50")
+    if isinstance(v, int):
+        v = str(v)
+    elif isinstance(v, float):
+        v = repr(v)
+    if isinstance(v, str) and _MONEY.fullmatch(v):
+        return Decimal(v)
+    raise ValueError("must be a number such as 1200 or 1200.50 (digits and one decimal point only)")
+
+
+Money = Annotated[Decimal, BeforeValidator(_plain_money)]
 
 
 class RequirementIn(BaseModel):
@@ -24,16 +44,16 @@ class PolicyIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     disclosure: Disclosure
     currency: str = Field(default="INR", pattern="^[A-Z]{3}$")
-    list_price: Money | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
-    range_min: Money | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
-    range_max: Money | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    list_price: Money | None = Field(default=None, gt=0, max_digits=12, decimal_places=2)
+    range_min: Money | None = Field(default=None, gt=0, max_digits=12, decimal_places=2)
+    range_max: Money | None = Field(default=None, gt=0, max_digits=12, decimal_places=2)
     negotiable: bool = False
     ai_may_negotiate: bool = False
     concession_steps: int = Field(default=0, ge=0, le=10)
     concession_requires: list[RequirementIn] = []
     round_to: Money = Field(default=Decimal("1"), gt=0, max_digits=12, decimal_places=2)
     # WRITE-ONLY. Never returned by any endpoint, never logged.
-    floor_price: Money | None = Field(default=None, ge=0, max_digits=12, decimal_places=2, repr=False)
+    floor_price: Money | None = Field(default=None, gt=0, max_digits=12, decimal_places=2, repr=False)
     clear_floor: bool = False
 
     @model_validator(mode="after")
@@ -133,7 +153,7 @@ class OfferIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=160)
     kind: Literal["percent", "flat", "bundle", "free_item"]
-    value: Money | None = Field(default=None, ge=0, max_digits=12, decimal_places=2)
+    value: Money | None = Field(default=None, gt=0, max_digits=12, decimal_places=2)
     free_item: str | None = Field(default=None, max_length=200)
     variant_id: uuid.UUID | None = None
     category: str | None = Field(default=None, max_length=80, description="Applies to every product in this category. Not together with variant_id.")

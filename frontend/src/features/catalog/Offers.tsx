@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Gift, Megaphone, Pencil, Percent, Plus, Tag, Trash2 } from 'lucide-react'
 import { api, ok, type Schemas } from '@/api/client'
 import { useT } from '@/i18n'
-import { Badge, Confirm, EmptyState, ErrorNote, Field, Skeleton, Spinner, Switch, useToast } from '@/ui'
+import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, RequiredNote, Skeleton, Spinner, Switch, useToast } from '@/ui'
+import { MoneyInput, PercentInput, WholeInput } from '@/ui/inputs'
+import { cleanNumber, MONEY, moneyError, PERCENT, percentError } from '@/lib/money'
 import { cx, inr } from '@/lib/format'
 import { tr } from '@/i18n/tr'
 import { categoriesOf } from './category'
@@ -28,7 +30,7 @@ function describe(o: Offer) {
 }
 
 type Product = Schemas['ProductOut']
-const VIEW_KEY = 'saathi.offers.view'
+const VIEW_KEY = 'chatdeal.offers.view'
 
 /** Where an offer applies, as one value for the picker: the whole shop, a category, or one product (variant). */
 const targetOf = (o: Offer | 'new') => (o === 'new' ? 'all' : o.variant_id ? `var:${o.variant_id}` : o.category ? `cat:${o.category}` : 'all')
@@ -67,12 +69,23 @@ function OfferPanel({ offer, products, onClose }: { offer: Offer | 'new'; produc
   // an offer saved for a category or product that no longer exists still shows what it was
   const known = target === 'all' || (target.startsWith('cat:') && categories.includes(target.slice(4))) || variants.some((v) => `var:${v.id}` === target)
 
+  const [tried, setTried] = useState(false)                       // after the first Save press every problem is shown, and cleared live as it is fixed
+  const body = useRef<HTMLDivElement>(null)
+  const found = {
+    name: name.trim() ? undefined : 'Give the offer a name',
+    value: kind === 'free_item' ? undefined : (kind === 'percent' ? percentError(value) : moneyError(value, 'Amount')) ?? undefined,
+    free: kind === 'free_item' && !freeItem.trim() ? 'Say what is free' : undefined,
+  }
+  const problems = Object.values(found).filter(Boolean).length
+  const shown = tried ? found : { name: undefined, value: undefined, free: undefined }
+  const submit = () => {
+    setTried(true); setErr(null)
+    if (problems > 0) { setErr(problems === 1 ? tr('Please fix the highlighted field.') : tr('Please fix the {n} highlighted fields.', { n: problems })); setTimeout(() => focusFirstInvalid(body.current), 30); return }
+    save.mutate()
+  }
+
   const save = useMutation({
     mutationFn: () => {
-      if (!name.trim()) throw new Error('Give the offer a name')
-      if (kind !== 'free_item' && !value) throw new Error('Enter the amount')
-      if (kind === 'percent' && (+value <= 0 || +value > 90)) throw new Error('Percent must be between 1 and 90')
-      if (kind === 'free_item' && !freeItem.trim()) throw new Error('Say what is free')
       const body: Schemas['OfferIn'] = {
         name: name.trim(), kind, value: kind === 'free_item' ? null : value, free_item: kind === 'free_item' ? freeItem.trim() : null,
         variant_id: target.startsWith('var:') ? target.slice(4) : null, category: target.startsWith('cat:') ? target.slice(4) : null,
@@ -82,7 +95,7 @@ function OfferPanel({ offer, products, onClose }: { offer: Offer | 'new'; produc
       return isNew ? ok(api.POST('/api/v1/offers', { body })) : ok(api.PUT('/api/v1/offers/{offer_id}', { params: { path: { offer_id: offer.id } }, body }))
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['offers'] }); toast(isNew ? tr('Offer created') : tr('Offer saved')); onClose() },
-    onError: (e) => setErr((e as Error).message),
+    onError: (e) => { setErr((e as Error).message); setTimeout(() => focusFirstInvalid(body.current), 30) },
   })
   const del = useMutation({
     mutationFn: () => ok(api.DELETE('/api/v1/offers/{offer_id}', { params: { path: { offer_id: (offer as Offer).id } } })),
@@ -93,20 +106,23 @@ function OfferPanel({ offer, products, onClose }: { offer: Offer | 'new'; produc
     <DockPanel title={isNew ? tr('New offer') : tr('Edit offer')} onClose={onClose} footer={<>
       {!isNew && <button className="btn btn-ghost mr-auto text-danger" onClick={() => setConfirmDel(true)}><Trash2 className="h-4 w-4" /> {tr('Delete')}</button>}
       <button className="btn btn-ghost" onClick={onClose}>{tr('Cancel')}</button>
-      <button className="btn btn-primary" disabled={save.isPending} onClick={() => { setErr(null); save.mutate() }}>{save.isPending && <Spinner />} {tr('Save offer')}</button></>}>
-      <div className="space-y-4">
+      <button className="btn btn-primary" disabled={save.isPending} onClick={submit}>{save.isPending && <Spinner />} {tr('Save offer')}</button></>}>
+      <div className="space-y-4" ref={body}>
+        <RequiredNote />
         {err && <div className="rounded-xl border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-sm font-medium text-danger">{err}</div>}
-        <Field label={tr('Offer name')} hint={tr('Customers may see this')}><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Festive 10% off')} autoFocus={isNew} /></Field>
+        <Field label={tr('Offer name')} hint={tr('Customers may see this')} required error={shown.name}><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Festive 10% off')} autoFocus={isNew} /></Field>
         <div className="grid grid-cols-2 gap-2">
           {KINDS.map((k) => (
-            <button key={k.value} type="button" onClick={() => setKind(k.value)} className={`rounded-xl border p-3 text-left transition ${kind === k.value ? 'border-brand bg-brand-soft' : 'border-line hover:bg-surface2'}`}>
+            <button key={k.value} type="button" onClick={() => { setKind(k.value); setValue((v) => cleanNumber(v, k.value === 'percent' ? PERCENT : MONEY)) }} className={`rounded-xl border p-3 text-left transition ${kind === k.value ? 'border-brand bg-brand-soft' : 'border-line hover:bg-surface2'}`}>
               <k.icon className="h-4 w-4 text-brand-ink" /><div className="mt-1.5 text-sm font-bold">{tr(k.label)}</div><div className="text-[12px] text-muted">{tr(k.help)}</div>
             </button>
           ))}
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          {kind === 'free_item' ? <Field label={tr('What’s free?')}><input className="input" value={freeItem} onChange={(e) => setFreeItem(e.target.value)} placeholder={tr('e.g. matching dupatta')} /></Field>
-            : <Field label={kind === 'percent' ? tr('Percent off') : tr('Amount (₹)')}><input className="input" inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} placeholder={kind === 'percent' ? '10' : '200'} /></Field>}
+          {kind === 'free_item' ? <Field label={tr('What’s free?')} required error={shown.free}><input className="input" value={freeItem} onChange={(e) => setFreeItem(e.target.value)} placeholder={tr('e.g. matching dupatta')} /></Field>
+            : <Field label={kind === 'percent' ? tr('Percent off') : tr('Amount (₹)')} required error={shown.value}>
+              {kind === 'percent' ? <PercentInput value={value} onChange={setValue} placeholder="10" /> : <MoneyInput value={value} onChange={setValue} placeholder="200" />}
+            </Field>}
           <Field label={tr('Applies to')}>
             <select className="select" value={target} onChange={(e) => setTarget(e.target.value)}>
               <option value="all">{tr('Everything')}</option>
@@ -115,7 +131,7 @@ function OfferPanel({ offer, products, onClose }: { offer: Offer | 'new'; produc
               {variants.length > 0 && <optgroup label={tr('One product')}>{variants.map((v) => <option key={v.id} value={`var:${v.id}`}>{v.label}</option>)}</optgroup>}
             </select>
           </Field>
-          <Field label={tr('Only when buying at least')} hint={tr('Optional')}><input className="input" inputMode="numeric" value={minQty} onChange={(e) => setMinQty(e.target.value.replace(/\D/g, ''))} placeholder="e.g. 2" /></Field>
+          <Field label={tr('Only when buying at least')} hint={tr('Optional')}><WholeInput value={minQty} onChange={setMinQty} digits={4} placeholder="e.g. 2" /></Field>
           <div className="flex items-end"><label className="flex min-h-[44px] w-full items-center justify-between rounded-xl border border-line px-3.5 text-sm font-semibold">{tr('First order only')}<Switch checked={firstOrder} onChange={setFirstOrder} label={tr('First order only')} /></label></div>
           <Field label={tr('Starts')} hint={tr('Optional')}><input type="date" className="input" value={starts} onChange={(e) => setStarts(e.target.value)} /></Field>
           <Field label={tr('Ends')} hint={tr('Optional')}><input type="date" className="input" value={ends} onChange={(e) => setEnds(e.target.value)} /></Field>

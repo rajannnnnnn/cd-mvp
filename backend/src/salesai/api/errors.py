@@ -25,6 +25,31 @@ def body(code: str, message: str, details: Any = None) -> dict[str, Any]:
     return {"error": {"code": code, "message": message, "details": details}}
 
 
+_LABELS = {"list_price": "Price", "range_min": "Lowest in range", "range_max": "Highest in range", "floor_price": "Lowest price", "value": "Amount",
+           "name": "Name", "round_to": "Round to", "stock_qty": "Stock count", "concession_steps": "Steps down", "phone": "Phone number", "subject": "Title",
+           "message": "Message", "body": "Message", "owner_name": "Your name", "slug": "Shop address", "code": "Code"}
+_PLAIN = {"Input should be greater than 0": "must be more than 0", "Input should be greater than or equal to 0": "can't be negative",
+          "Field required": "is required", "Decimal input should have no more than 2 decimal places": "can have at most 2 decimal places"}
+
+
+def _label(loc: Any) -> str:
+    leaf = str(loc[-1]) if loc else "Value"
+    return _LABELS.get(leaf, leaf.replace("_", " ").capitalize())
+
+
+def _plain(msg: str, kind: str) -> str:
+    msg = msg.removeprefix("Value error, ")
+    if msg in _PLAIN:
+        return _PLAIN[msg]
+    if "no more than" in msg and "digits" in msg:
+        return "is too large"
+    if kind in ("decimal_parsing", "decimal_type", "int_parsing", "int_type"):
+        return "must be a number such as 1200 or 1200.50"
+    if kind == "string_too_short":
+        return "can't be empty"
+    return msg[:1].lower() + msg[1:] if msg else "is not valid"
+
+
 def install(app: FastAPI) -> None:
     @app.exception_handler(ApiError)
     async def _api(_: Request, e: ApiError) -> JSONResponse:
@@ -40,8 +65,15 @@ def install(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def _val(_: Request, e: RequestValidationError) -> JSONResponse:
-        details = [{"field": ".".join(str(p) for p in x["loc"][1:]), "message": x["msg"]} for x in e.errors()]
-        return JSONResponse(body("validation_error", "Some fields are invalid.", details), status_code=422)
+        details = [{"field": ".".join(str(p) for p in x["loc"][1:]), "label": _label(x["loc"]), "message": _plain(x["msg"], x.get("type", ""))} for x in e.errors()]
+        if not details:
+            message = "Some fields are invalid."
+        elif len(details) == 1:
+            message = f"{details[0]['label']} {details[0]['message']}"
+        else:
+            more = f" (and {len(details) - 3} more)" if len(details) > 3 else ""
+            message = "Please fix: " + "; ".join(f"{d['label']} {d['message']}" for d in details[:3]) + more
+        return JSONResponse(body("validation_error", message, details), status_code=422)
 
     @app.exception_handler(LookupError)
     async def _lookup(_: Request, e: LookupError) -> JSONResponse:

@@ -29,7 +29,7 @@ Everything else about the product is real code, not mock-ups.
 - **Client-side-rendered app; static hosting is fine.** A marketing site comes first, then login.
 - **Voice notes are out of scope for now** (ADR 0015; the seam is kept).
 - **The frontend must be impressive and honest** for the co-founders, in English and Hindi, mobile first.
-- "Saathi" is a **placeholder brand** (`VITE_BRAND`); the founder has not chosen a name or legal entity.
+- The product is named **ChatDeal** (`VITE_BRAND`, renamed from the working name "Saathi" on the founder's instruction); the legal entity and domain are not chosen yet. Browser storage keys moved from `saathi.*` to `chatdeal.*` (everyone signs in once more). Infra identifiers (compose project `saathi`, image tags, Terraform names, `/opt/saathi`) are left as they are on purpose: renaming the compose project would orphan existing local database volumes.
 - No pull requests unless the founder asks.
 - **Full self-serve SaaS** (added 2026-10-04): marketing home, pricing and ad pages; sign-up and sign-in by mobile number with **any one-time code
   accepted for now** (the real OTP comes once the company exists); onboarding (business, products, WhatsApp, assistant preferences); shop
@@ -124,7 +124,7 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
 | Decision | Why it matters | Default if none |
 |---|---|---|
 | Confirm ADR 0006 (floor can surface as the final quoted price) or choose "stop above the floor" | Product behaviour and INV-1 interpretation | Keep as built |
-| Product name, domain, legal entity, contact address | Branding, legal pages, Meta account ownership | "Saathi", placeholder address |
+| Product name, domain, legal entity, contact address | Branding, legal pages, Meta account ownership | "ChatDeal"; domain and address still placeholders |
 | LLM vendor/model approval and an API key (paid) | Real evaluations, cost per conversation, pricing | Local stand-in only |
 | Meta developer account / test number / Tech Provider path | Real-world verification of the adapter | Simulated network only |
 | Pilot shops and categories (CR-5 excludes prohibited categories) | Seed data, evaluation scenarios | Demo shops |
@@ -196,5 +196,15 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
   Settings → Support (ADR 0020, migration `0008_support.sql`): an owner or staff member opens a ticket in one step, support (operator console →
   Support) answers in the same thread, the owner can mark it sorted or reopen it by replying. Tests: `test_support.py`, `e2e/support.spec.ts`.
   Products and Offers hide their tick boxes until the owner presses **Select**; **Done** (or finishing a bulk action) hides them again.
-  Settings tabs are now Shop, Assistant (on/off, try it, selling style, when you step in, reply speed, optional My voice), Team, Numbers, Security, Support; old `?tab=voice` and `?tab=pacing` links land on Assistant.
+  Settings tabs are now Shop, Assistant (on/off, try it, selling style, when you step in, optional My voice), Team, Numbers, Security, Support; old `?tab=voice` and `?tab=pacing` links land on Assistant.
   Performance (docs/PERFORMANCE.md): per-action load test on 3M messages / 50 shops; found and fixed slow dashboard/analytics reads, 12 unindexed foreign keys (migrations 0009, 0010; guarded by a test) and an offer save that re-read every offer. ADR 0021 proposes grouping the tables into domains.
+  QA round (Jira DEAL-113 to DEAL-119; validation and plan in the session notes). Push A: DEAL-118 prices are plain numbers at every layer (input
+  filtering in `lib/money.ts` and `ui/inputs.tsx`, strict API money type with field-named messages, `CHECK > 0` in migration 0011 added NOT VALID so an
+  existing zero price cannot block the upgrade; find and fix such rows, then VALIDATE). DEAL-113 mandatory fields carry a red `*` (`Field required`) in
+  the product, offer, sign-up, support, shop-settings and team forms, with inline errors and focus on the first missing field. Tests: `test_money_input.py`
+  (including a property test), `lib/money.test.ts`, `e2e/forms.spec.ts`.
+
+- **Reply speed removed from Settings** (founder's instruction). Owners no longer choose Quick/Natural/Relaxed; the assistant keeps the stored `timing_params` (default natural pacing). The API field and the pacing engine (M8) are unchanged, so the control can return later without a rewrite.
+
+- **The assistant on/off switch is no longer the shop's** (founder's instruction). Owners and staff have no toggle in the app: Settings → Assistant lost the switch and its code step, `POST /business/ai` and `POST /business/ai/code` are gone (404), and `confirm_code` was removed with them. The platform team switches it in the operator console (`PATCH /operator/businesses/{id}` with `ai_enabled`; switching on is still refused for an ended subscription). When it is off, the menu says "AI assistant paused" and Home points to Support ("Contact support"); while it is on nothing is shown. Billing still pauses it automatically (trial end, cancellation). **Open question for the founder:** the owner's WhatsApp `stop` / `start` commands (PRD FR-CV-10) still work, because they are PRD behaviour; say if they should go too. Tests: `test_the_assistant_switch_belongs_to_the_platform_team_not_the_shop` (backend) and the owner browser spec; `test_api.py` and `test_billing.py` were re-run after the change, the full backend suite was not.
+

@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, CheckCircle2, LifeBuoy } from 'lucide-react'
 import { api, ok } from '@/api/client'
-import { Field, EmptyState, ErrorNote, Skeleton, Spinner, useToast } from '@/ui'
+import { EmptyState, ErrorNote, Field, focusFirstInvalid, RequiredNote, Skeleton, Spinner, useToast } from '@/ui'
 import { ago, cx } from '@/lib/format'
 import { tr } from '@/i18n/tr'
 import { CATEGORY_LABEL, StatusBadge, Thread } from './Thread'
@@ -20,7 +20,7 @@ export default function Support() {
 
   const create = useMutation({
     mutationFn: () => ok(api.POST('/api/v1/support/tickets', { body: { subject: subject.trim(), category, message: message.trim() } })),
-    onSuccess: (t) => { qc.invalidateQueries({ queryKey: ['support'] }); toast(tr('Ticket #{n} opened. Support has it now.', { n: t.number })); setSubject(''); setMessage(''); setCategory('question'); setErr(null); setOpenId(t.id) },
+    onSuccess: (t) => { qc.invalidateQueries({ queryKey: ['support'] }); toast(tr('Ticket #{n} opened. Support has it now.', { n: t.number })); setTried(false); setSubject(''); setMessage(''); setCategory('question'); setErr(null); setOpenId(t.id) },
     onError: (e) => setErr((e as Error).message),
   })
   const reply = useMutation({
@@ -31,8 +31,12 @@ export default function Support() {
     mutationFn: () => ok(api.POST('/api/v1/support/tickets/{ticket_id}/resolve', { params: { path: { ticket_id: openId! } } })),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['support'] }); toast(tr('Marked as sorted')) }, onError: (e) => toast((e as Error).message, 'error'),
   })
+  const [tried, setTried] = useState(false)
+  const form = useRef<HTMLElement>(null)
+  const errs = { subject: subject.trim() ? undefined : tr('Add a short title'), message: message.trim() ? undefined : tr('Tell us what happened') }
   const submit = () => {
-    if (!subject.trim() || !message.trim()) { setErr(tr('Add a short title and tell us what happened.')); return }
+    setTried(true)
+    if (errs.subject || errs.message) { setErr(null); setTimeout(() => focusFirstInvalid(form.current), 30); return }
     setErr(null); create.mutate()
   }
 
@@ -55,7 +59,7 @@ export default function Support() {
 
   return (
     <div className="space-y-5">
-      <section className="card card-pad space-y-4">
+      <section className="card card-pad space-y-4" ref={form}>
         <div><h2 className="font-display text-lg font-bold">{tr('Get help')}</h2><p className="text-sm text-muted">{tr('Tell us what you need. Your ticket opens the moment you send it and support replies right here.')}</p></div>
         {err && <div role="alert" className="rounded-xl border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-sm font-medium text-danger">{err}</div>}
         <Field label={tr('What do you need help with?')}>
@@ -63,8 +67,9 @@ export default function Support() {
             {(Object.keys(CATEGORY_LABEL) as Category[]).map((c) => <button key={c} type="button" role="radio" aria-checked={category === c} onClick={() => setCategory(c)} className={cx('chip', category === c && 'chip-active')}>{tr(CATEGORY_LABEL[c])}</button>)}
           </div>
         </Field>
-        <Field label={tr('Title')}><input className="input" maxLength={160} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={tr('e.g. Customers are not getting replies')} /></Field>
-        <Field label={tr('Tell us more')}><textarea className="textarea min-h-[110px]" maxLength={4000} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={tr('What happened, what you expected, and when it started.')} /></Field>
+        <RequiredNote />
+        <Field label={tr('Title')} required error={tried ? errs.subject : undefined}><input className="input" maxLength={160} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={tr('e.g. Customers are not getting replies')} /></Field>
+        <Field label={tr('Tell us more')} required error={tried ? errs.message : undefined}><textarea className="textarea min-h-[110px]" maxLength={4000} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={tr('What happened, what you expected, and when it started.')} /></Field>
         <div className="flex justify-end"><button className="btn btn-primary" disabled={create.isPending} onClick={submit}>{create.isPending ? <Spinner /> : <LifeBuoy className="h-4 w-4" />} {tr('Open a ticket')}</button></div>
       </section>
 

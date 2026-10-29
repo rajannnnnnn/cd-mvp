@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, ChevronRight, LayoutGrid, Lock, Package, Pencil, Plus, Rows3, Search, ShieldCheck, Trash2, TrendingDown, X } from 'lucide-react'
-import { api, ok, type Schemas } from '@/api/client'
+import { api, ApiError, ok, type Schemas } from '@/api/client'
 import { useT } from '@/i18n'
-import { Badge, Confirm, EmptyState, ErrorNote, Field, Segmented, Skeleton, Spinner, Switch, useToast } from '@/ui'
+import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, RequiredNote, Segmented, Skeleton, Spinner, Switch, useToast } from '@/ui'
+import { MoneyInput, WholeInput } from '@/ui/inputs'
 import { cx, inr } from '@/lib/format'
-import { blank, fromVariant, toPolicy, validate, type Draft } from './draft'
+import { blank, fieldErrors, fromVariant, toPolicy, type Draft, type DraftField } from './draft'
 import { tr } from '@/i18n/tr'
 import { CategoryField } from './CategoryField'
 import { DockPanel, SelectToggle, Tick, useView, ViewToggle } from './shared'
@@ -64,26 +65,37 @@ function LadderPreview({ d }: { d: Draft }) {
 }
 
 /* ------------------------------------------------------------ variant editor */
-function VariantEditor({ d, kind, set, onRemove, canRemove, single }: { d: Draft; kind: Disclosure; set: (p: Partial<Draft>) => void; onRemove?: () => void; canRemove: boolean; single: boolean }) {
+/** The lowest-price box: either the saved-privately badge with a Change button, or a number box (inside a Field, so label, * and error attach to the input). */
+function FloorInput({ d, set }: { d: Draft; set: (p: Partial<Draft>) => void }) {
+  const saved = d.floor_set && !d.clear_floor && !d.floor_edit
+  return saved ? (
+    <div className="flex items-center gap-2"><span className="flex flex-1 items-center gap-2 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm font-semibold text-brand-ink"><ShieldCheck className="h-4 w-4" /> {tr('Saved privately')}</span><button className="btn btn-outline btn-sm" type="button" onClick={() => set({ floor_edit: true })}>{tr('Change')}</button></div>
+  ) : (
+    <div className="flex items-center gap-2"><MoneyInput value={d.floor_price} onChange={(v) => set({ floor_price: v })} placeholder="e.g. 6900" />{d.floor_set && <button className="btn btn-ghost btn-sm" type="button" onClick={() => set({ floor_edit: false, floor_price: '' })}>{tr('Keep old')}</button>}</div>
+  )
+}
+FloorInput.fieldControl = true
+
+function VariantEditor({ d, kind, set, onRemove, canRemove, single, errors }: { d: Draft; kind: Disclosure; set: (p: Partial<Draft>) => void; onRemove?: () => void; canRemove: boolean; single: boolean; errors: Partial<Record<DraftField, string>> }) {
   const avail = d.availability === 'out_of_stock' ? [...AVAIL, { value: 'out_of_stock', label: 'Out of stock' }] : AVAIL
   return (
     <div className="rounded-2xl border border-line/80 bg-surface p-4">
       <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">{!single && <Field label={tr('Variant name')}><input className="input" value={d.name} onChange={(e) => set({ name: e.target.value })} placeholder={tr('e.g. Red, 6 metre, 128 GB')} /></Field>}</div>
+        <div className="min-w-0 flex-1">{!single && <Field label={tr('Variant name')} required error={errors.name}><input className="input" value={d.name} onChange={(e) => set({ name: e.target.value })} placeholder={tr('e.g. Red, 6 metre, 128 GB')} /></Field>}</div>
         {canRemove && <button className="btn btn-ghost btn-icon mt-6 text-danger" onClick={onRemove} aria-label={tr('Remove variant')}><Trash2 className="h-4 w-4" /></button>}
       </div>
       <div className={cx('grid gap-3 sm:grid-cols-2', !single && 'mt-3')}>
         <Field label={tr('Availability')}><select className="select" value={d.availability} onChange={(e) => set({ availability: e.target.value })}>{avail.map((a) => <option key={a.value} value={a.value}>{tr(a.label)}</option>)}</select></Field>
-        <Field label={tr('Stock count')} hint={tr('Optional')}><input className="input" inputMode="numeric" value={d.stock_qty} onChange={(e) => set({ stock_qty: e.target.value.replace(/\D/g, '') })} placeholder="e.g. 12" /></Field>
+        <Field label={tr('Stock count')} hint={tr('Optional')}><WholeInput value={d.stock_qty} onChange={(v) => set({ stock_qty: v })} placeholder="e.g. 12" /></Field>
       </div>
 
       {kind !== 'on_request' && (
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {kind === 'range' && <>
-            <Field label={tr('Lowest in range (₹)')}><input className="input" inputMode="decimal" value={d.range_min} onChange={(e) => set({ range_min: e.target.value })} /></Field>
-            <Field label={tr('Highest in range (₹)')}><input className="input" inputMode="decimal" value={d.range_max} onChange={(e) => set({ range_max: e.target.value })} /></Field>
+            <Field label={tr('Lowest in range (₹)')} required error={errors.range_min}><MoneyInput value={d.range_min} onChange={(v) => set({ range_min: v })} /></Field>
+            <Field label={tr('Highest in range (₹)')} required error={errors.range_max}><MoneyInput value={d.range_max} onChange={(v) => set({ range_max: v })} /></Field>
           </>}
-          {(kind !== 'range' || d.negotiable) && <Field label={kind === 'starts_from' ? tr('Starting price (₹)') : kind === 'range' ? tr('Price to start bargaining from (₹)') : tr('Price (₹)')}><input className="input" inputMode="decimal" value={d.list_price} onChange={(e) => set({ list_price: e.target.value })} placeholder="e.g. 7650" /></Field>}
+          {(kind !== 'range' || d.negotiable) && <Field label={kind === 'starts_from' ? tr('Starting price (₹)') : kind === 'range' ? tr('Price to start bargaining from (₹)') : tr('Price (₹)')} required error={errors.list_price}><MoneyInput value={d.list_price} onChange={(v) => set({ list_price: v })} placeholder="e.g. 7650" /></Field>}
         </div>)}
 
       {kind !== 'on_request' && (
@@ -100,12 +112,8 @@ function VariantEditor({ d, kind, set, onRemove, canRemove, single }: { d: Draft
               </div>
               {d.ai_may_negotiate && <>
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <Field label={tr('Lowest price you’ll accept (₹)')} hint={tr('Private')} className="sm:col-span-2">
-                    {d.floor_set && !d.clear_floor && !d.floor_price ? (
-                      <div className="flex items-center gap-2"><span className="flex flex-1 items-center gap-2 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm font-semibold text-brand-ink"><ShieldCheck className="h-4 w-4" /> {tr('Saved privately')}</span><button className="btn btn-outline btn-sm" type="button" onClick={() => set({ floor_set: true, floor_price: ' ' })}>{tr('Change')}</button></div>
-                    ) : (
-                      <div className="flex items-center gap-2"><input className="input" inputMode="decimal" value={d.floor_price.trim()} onChange={(e) => set({ floor_price: e.target.value })} placeholder="e.g. 6900" autoComplete="off" />{d.floor_set && <button className="btn btn-ghost btn-sm" type="button" onClick={() => set({ floor_price: '' })}>{tr('Keep old')}</button>}</div>
-                    )}
+                  <Field label={tr('Lowest price you’ll accept (₹)')} hint={tr('Private')} className="sm:col-span-2" required={!(d.floor_set && !d.clear_floor)} error={errors.floor_price}>
+                    <FloorInput d={d} set={set} />
                   </Field>
                   <Field label={tr('Steps down')}><select className="select" value={d.concession_steps} onChange={(e) => set({ concession_steps: e.target.value })}>{[1, 2, 3, 4, 5].map((n) => <option key={n}>{n}</option>)}</select></Field>
                 </div>
@@ -142,16 +150,27 @@ function ProductPanel({ product, categories, onClose }: { product: Product | 'ne
   const setKind = (k: Disclosure) => { setKindState(k); setVs((a) => a.map((x) => ({ ...x, disclosure: k }))) }
   const [removed, setRemoved] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [tried, setTried] = useState(false)                         // after the first Save press every problem is shown, and cleared live as it is fixed
+  const [serverErr, setServerErr] = useState<Record<string, string>>({})
+  const body = useRef<HTMLDivElement>(null)
   const [confirmDel, setConfirmDel] = useState(false)
   const setV = (i: number, p: Partial<Draft>) => setVs((a) => a.map((x, j) => (j === i ? { ...x, ...p } : x)))
   const multi = vs.length > 1
   const cat = () => { const c = category.trim().replace(/\s+/g, ' '); return categories.find((x) => x.toLowerCase() === c.toLowerCase()) ?? c }   // reuse the spelling you already have
 
+  const all = vs.map((v) => ({ ...v, disclosure: kind }))
+  const nameErr = !name.trim() ? 'Give the product a name' : undefined
+  const found = all.map((v) => fieldErrors(v, multi))
+  const count = (nameErr ? 1 : 0) + found.reduce((n, e) => n + Object.keys(e).length, 0)
+  const varErr = (i: number): Partial<Record<DraftField, string>> => ({ ...(tried ? found[i] : {}), ...Object.fromEntries(Object.entries(serverErr).filter(([k]) => k.startsWith(`${i}.`) || !k.includes('.')).map(([k, m]) => [k.split('.').pop(), m])) })
+  const submit = () => {
+    setTried(true); setError(null); setServerErr({})
+    if (count > 0) { setError(count === 1 ? tr('Please fix the highlighted field.') : tr('Please fix the {n} highlighted fields.', { n: count })); setTimeout(() => focusFirstInvalid(body.current), 30); return }
+    save.mutate()
+  }
+
   const save = useMutation({
     mutationFn: async () => {
-      if (!name.trim()) throw new Error('Give the product a name')
-      const all = vs.map((v) => ({ ...v, disclosure: kind }))
-      for (const v of all) { const m = validate(v); if (m) throw new Error(m) }
       const vars = all.map((v, i) => ({ ...v, name: multi ? v.name : v.name || 'Standard', is_default: v.is_default || (i === 0 && !all.some((x) => x.is_default)) }))
       if (isNew) {
         const body = { name: name.trim(), category: cat() || null, description: description.trim() || null, active, variants: vars.map((v) => ({ name: v.name.trim(), availability: v.availability as any, stock_qty: v.stock_qty ? +v.stock_qty : null, is_default: v.is_default, active: v.active, policy: toPolicy(v), attributes: {} })) }
@@ -171,7 +190,20 @@ function ProductPanel({ product, categories, onClose }: { product: Product | 'ne
       for (const id of removed) await ok(api.PATCH('/api/v1/variants/{variant_id}', { params: { path: { variant_id: id } }, body: { active: false } }))
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); toast(isNew ? tr('Product added') : tr('Saved')); onClose() },
-    onError: (e) => setError((e as Error).message),
+    onError: (e) => {
+      setError((e as Error).message)
+      if (e instanceof ApiError && Array.isArray(e.details)) {           // the server names the field: put the message under it
+        const m: Record<string, string> = {}
+        for (const d of e.details as { field: string; label?: string; message: string }[]) {
+          const leaf = d.field.split('.').pop() ?? ''
+          const idx = /variants\.(\d+)\./.exec(d.field)?.[1]
+          if (['list_price', 'range_min', 'range_max', 'floor_price'].includes(leaf)) {
+            for (const i of idx !== undefined ? [Number(idx)] : vs.map((_, j) => j)) m[`${i}.${leaf}`] = `${d.label ?? leaf} ${d.message}`
+          }
+        }
+        setServerErr(m); setTimeout(() => focusFirstInvalid(body.current), 30)
+      }
+    },
   })
   const del = useMutation({
     mutationFn: () => ok(api.DELETE('/api/v1/products/{product_id}', { params: { path: { product_id: (product as Product).id } } })),
@@ -183,10 +215,11 @@ function ProductPanel({ product, categories, onClose }: { product: Product | 'ne
     <DockPanel title={title} onClose={onClose} footer={<>
       {!isNew && <button className="btn btn-ghost mr-auto text-danger" onClick={() => setConfirmDel(true)}><Trash2 className="h-4 w-4" /> {tr('Delete')}</button>}
       <button className="btn btn-ghost" onClick={onClose}>{tr('Cancel')}</button>
-      <button className="btn btn-primary" disabled={save.isPending} onClick={() => { setError(null); save.mutate() }}>{save.isPending && <Spinner />} {isNew ? tr('Add product') : tr('Save changes')}</button></>}>
-      <div className="space-y-4">
+      <button className="btn btn-primary" disabled={save.isPending} onClick={submit}>{save.isPending && <Spinner />} {isNew ? tr('Add product') : tr('Save changes')}</button></>}>
+      <div className="space-y-4" ref={body}>
+        <RequiredNote />
         {error && <div className="rounded-xl border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-sm font-medium text-danger">{error}</div>}
-        <Field label={tr('Product name')}><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Banarasi Silk Saree')} autoFocus={isNew} /></Field>
+        <Field label={tr('Product name')} required error={tried ? nameErr : undefined}><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Banarasi Silk Saree')} autoFocus={isNew} /></Field>
         <Field label={tr('Category')} hint={tr('Type a new one or pick yours')}><CategoryField value={category} onChange={setCategory} options={categories} placeholder={tr('e.g. Sarees')} /></Field>
         <Field label={tr('Description')} hint={tr('What the assistant can say about it')}><textarea className="textarea min-h-[84px]" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={tr('Fabric, sizes, delivery time, care…')} /></Field>
 
@@ -197,7 +230,7 @@ function ProductPanel({ product, categories, onClose }: { product: Product | 'ne
           </div></div>
         {multi && <div className="flex items-center justify-between"><h3 className="font-display text-base font-bold">{tr('Variants')}</h3></div>}
         {vs.map((v, i) => (
-          <VariantEditor key={v.id ?? `n${i}`} d={v} kind={kind} single={!multi} set={(p) => setV(i, p)} canRemove={multi}
+          <VariantEditor key={v.id ?? `n${i}`} d={v} kind={kind} single={!multi} set={(p) => setV(i, p)} canRemove={multi} errors={varErr(i)}
             onRemove={() => { if (v.id) setRemoved((r) => [...r, v.id!]); setVs((a) => a.filter((_, j) => j !== i)) }} />
         ))}
         <button type="button" className="btn btn-soft btn-sm" onClick={() => setVs((a) => [...a, { ...blank(false), disclosure: kind }])}><Plus className="h-3.5 w-3.5" /> {tr('Add a variant (size, colour…)')}</button>
@@ -209,7 +242,7 @@ function ProductPanel({ product, categories, onClose }: { product: Product | 'ne
 }
 
 /* ------------------------------------------------------------ page */
-const VIEW_KEY = 'saathi.catalog.view'
+const VIEW_KEY = 'chatdeal.catalog.view'
 
 export default function Products() {
   const { t } = useT()

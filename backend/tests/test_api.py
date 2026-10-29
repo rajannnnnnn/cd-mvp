@@ -28,14 +28,9 @@ def hdr(tokens: dict) -> dict:
     return {"Authorization": f"Bearer {tokens['access_token']}"}
 
 
-async def set_ai(client, tokens: dict, phone: str, enabled: bool, code: str | None = None):
-    """Switch the assistant the way the app does: ask for a code on your own number, then send it with the change."""
-    r = await client.post(f"{V1}/business/ai/code", headers=hdr(tokens))
-    assert r.status_code == 200, r.text
-    if code is None:
-        inbox = (await client.get(f"{V1}/sim/inbox", params={"phone": phone})).json()
-        code = re.search(r"\b(\d{6})\b", [m for m in inbox if m["template_name"] == "otp_login"][-1]["body"]).group(1)
-    return await client.post(f"{V1}/business/ai", headers=hdr(tokens), json={"enabled": enabled, "code": code})
+async def set_ai(client, op: dict, business_id, enabled: bool):
+    """Switch the assistant the only way there is: the platform team's operator console (the shop owner has no switch)."""
+    return await client.patch(f"{V1}/operator/businesses/{business_id}", headers=hdr(op), json={"ai_enabled": enabled})
 
 
 async def owner(world, client, name="Sharma Sarees", **kw):
@@ -151,7 +146,7 @@ async def test_staff_can_work_conversations_but_not_pricing_or_team(world, clien
     assert (await client.post(f"{V1}/team", headers=hdr(staff), json={"phone": "+919876500002", "name": "x"})).status_code == 403
     assert (await client.patch(f"{V1}/business", headers=hdr(staff), json={"name": "x"})).status_code == 403
     assert (await client.patch(f"{V1}/variants/{prod['variants'][0]['id']}", headers=hdr(staff), json={"stock_qty": 1})).status_code == 204   # stock updates are staff work
-    assert (await set_ai(client, staff, "+919876500001", False)).status_code == 200
+    assert (await client.post(f"{V1}/business/ai", headers=hdr(staff), json={"enabled": False, "code": "123456"})).status_code in (404, 405)   # nobody in the shop has an AI switch
 
 
 async def test_team_rules(world, client):
@@ -311,7 +306,9 @@ async def test_metrics_overview(world, client):
 
 async def test_pause_and_resume_whole_business(world, client):
     shop, tok = await owner(world, client)
-    assert (await set_ai(client, tok, shop.owner_phone, False)).json()["ai_enabled"] is False
+    op = await operator_token(world, client)
+    assert (await set_ai(client, op, shop.business_id, False)).status_code == 204
+    assert (await client.get(f"{V1}/business", headers=hdr(tok))).json()["ai_enabled"] is False
     await world.customer_says(shop, "+919811100006", "hi")
     await world.drain_for(1.0)
     assert not [m for m in await world.sim_thread("+919811100006", shop.business_phone) if m["direction"] == "to_user"]
@@ -453,19 +450,16 @@ async def test_support_sessions_cannot_delete_a_business(world, client):
     assert (await client.get(f"{V1}/business/export", headers=hdr(imp))).status_code == 200      # support may view; it cannot erase
 
 
-async def test_switching_the_assistant_needs_a_code_sent_to_your_own_number(world, client):
+async def test_the_assistant_switch_belongs_to_the_platform_team_not_the_shop(world, client):
     shop, tok = await owner(world, client)
-    r = await client.post(f"{V1}/business/ai", headers=hdr(tok), json={"enabled": False})
-    assert r.status_code == 422                                                                  # no code at all
-    await client.post(f"{V1}/business/ai/code", headers=hdr(tok))
-    r = await client.post(f"{V1}/business/ai", headers=hdr(tok), json={"enabled": False, "code": "000000"})
-    assert r.status_code == 401 and r.json()["error"]["code"] == "invalid_code", r.text
-    assert (await client.get(f"{V1}/business", headers=hdr(tok))).json()["ai_enabled"] is True   # wrong code changed nothing
-    ok = await set_ai(client, tok, shop.owner_phone, False)
-    assert ok.status_code == 200 and ok.json()["ai_enabled"] is False
-    inbox = (await client.get(f"{V1}/sim/inbox", params={"phone": shop.owner_phone})).json()
-    code = re.search(r"\b(\d{6})\b", [m for m in inbox if m["template_name"] == "otp_login"][-1]["body"]).group(1)
-    again = await client.post(f"{V1}/business/ai", headers=hdr(tok), json={"enabled": True, "code": code})
-    assert again.status_code == 401                                                              # a code works once
+    for path in ("/business/ai", "/business/ai/code"):                                           # there is no such door for the owner
+        assert (await client.post(f"{V1}{path}", headers=hdr(tok), json={"enabled": False, "code": "123456"})).status_code in (404, 405)
+    r = await client.patch(f"{V1}/business", headers=hdr(tok), json={"ai_enabled": False})
+    assert r.status_code == 422                                                                  # the business settings do not accept it either
+    assert (await client.patch(f"{V1}/operator/businesses/{shop.business_id}", headers=hdr(tok), json={"ai_enabled": False})).status_code == 403
+    assert (await client.get(f"{V1}/business", headers=hdr(tok))).json()["ai_enabled"] is True   # nothing the owner can do changed it
+    op = await operator_token(world, client)
+    assert (await set_ai(client, op, shop.business_id, False)).status_code == 204
     assert (await client.get(f"{V1}/business", headers=hdr(tok))).json()["ai_enabled"] is False
-    assert (await client.post(f"{V1}/business/ai/code")).status_code == 401                      # and only for a signed-in person
+    assert (await set_ai(client, op, shop.business_id, True)).status_code == 204
+    assert (await client.get(f"{V1}/business", headers=hdr(tok))).json()["ai_enabled"] is True

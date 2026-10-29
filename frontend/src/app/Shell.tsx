@@ -23,8 +23,8 @@ export default function Shell() {
   const nav = useNavigate()
   const backToConsole = async () => {
     try {
-      const stash = sessionStorage.getItem('saathi.operator.stash')
-      if (stash) { sessionStorage.removeItem('saathi.operator.stash'); qc.clear(); tokens.set(JSON.parse(stash)); await reload(); window.location.assign('/app/operator') } else await logout()
+      const stash = sessionStorage.getItem('chatdeal.operator.stash')
+      if (stash) { sessionStorage.removeItem('chatdeal.operator.stash'); qc.clear(); tokens.set(JSON.parse(stash)); await reload(); window.location.assign('/app/operator') } else await logout()
     } catch { await logout() }
   }
   const loc = useLocation()
@@ -57,7 +57,7 @@ export default function Shell() {
   const sibling = (i: Item) => !!i.also?.some((p) => loc.pathname === p || loc.pathname.startsWith(`${p}/`))     // pages that live under this menu entry
   const visible = items.filter((i) => (!i.dev || cfg.data?.simulator_enabled) && (!i.owner || role === 'owner'))
   const mobile = isOwner ? visible.slice(0, 4) : visible
-  const aiOn = biz.data?.ai_enabled ?? false
+  const aiPaused = biz.data ? !biz.data.ai_enabled : false      // say nothing while the assistant works; only speak up when it is off
   const bd = bill.data
   const banner = !bd ? null : bd.state === 'trial_ended' || bd.state === 'canceled' ? { tone: 'bad', text: tr('Your plan has ended and the assistant is paused.') }
     : bd.status === 'past_due' ? { tone: 'warn', text: tr('A payment is overdue.') }
@@ -73,7 +73,7 @@ export default function Shell() {
           <div className="mx-1 mb-3 rounded-2xl border border-line/70 bg-surface2/60 p-3">
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0"><div className="truncate text-sm font-bold">{me?.business?.name ?? '—'}</div>
-                <div className="flex items-center gap-1.5 text-xs text-muted"><span className={cx('h-2 w-2 rounded-full', aiOn ? 'bg-brand animate-pulseDot' : 'bg-muted')} />{aiOn ? t('ai.on', 'AI assistant is ON') : t('ai.paused', 'AI assistant paused')}</div></div>
+                {aiPaused && <div className="flex items-center gap-1.5 text-xs text-muted"><span className="h-2 w-2 rounded-full bg-muted" />{t('ai.paused', 'AI assistant paused')}</div>}</div>
             </div>
           </div>)}
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto">

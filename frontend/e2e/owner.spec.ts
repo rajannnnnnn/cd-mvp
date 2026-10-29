@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { login, OWNER, SHOP } from './helpers'
+import { login, OPERATOR, OWNER, SHOP } from './helpers'
 
 test.describe('owner app', () => {
   test.beforeEach(async ({ page }) => { await login(page, OWNER) })
@@ -8,36 +8,38 @@ test.describe('owner app', () => {
     await expect(page.getByText(/need you/i).first()).toBeVisible()
     await expect(page.getByText('Conversations').first()).toBeVisible()
     await expect(page.getByRole('switch', { name: 'AI assistant' })).toHaveCount(0)            // the master switch lives in Settings only
+    await expect(page.getByText('AI assistant is ON')).toHaveCount(0)                           // nothing is said while the assistant works …
+    await expect(page.getByText('AI assistant paused')).toHaveCount(0)
   })
 
-  test('the AI switch lives in Settings and needs a code sent to the owner to pause or resume', async ({ page }) => {
+  test('the shop has no assistant switch; only the platform team can pause it, and the owner is told to contact support', async ({ page, request }) => {
     await page.goto(`${SHOP}/settings`)
     await page.getByRole('tab', { name: 'Assistant' }).click()
-    const sw = page.getByRole('switch', { name: 'AI assistant' })
-    await expect(sw).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByRole('switch', { name: 'AI assistant' })).toHaveCount(0)               // no toggle anywhere for the customer
+    await expect(page.getByRole('heading', { name: 'Assistant on / off' })).toHaveCount(0)
 
-    await sw.click()                                                                              // asking sends the code …
-    const dialog = page.getByRole('dialog')
-    await expect(dialog.getByRole('heading', { name: 'Switch the assistant off?' })).toBeVisible()
-    const code = dialog.getByLabel('Confirmation code')
-    await code.fill('000000')                                                                     // … a wrong one changes nothing
-    await dialog.getByRole('button', { name: 'Confirm and switch off' }).click()
-    await expect(dialog.getByRole('alert')).toBeVisible()
-    await expect(sw).toHaveAttribute('aria-checked', 'true')
-    await page.waitForTimeout(1500)                                                               // codes are rate-spaced (OTP_MIN_INTERVAL_S)
-    await dialog.getByRole('button', { name: 'Send the code again' }).click()
-    await expect(code).toHaveValue(/\d{6}/, { timeout: 15_000 })                                  // dev: the simulated WhatsApp fills the new code in
-    await dialog.getByRole('button', { name: 'Confirm and switch off' }).click()
-    await expect(sw).toHaveAttribute('aria-checked', 'false')
+    const api = 'http://127.0.0.1:8000/api/v1'                                                    // the platform team's console, driven through its API
+    const opPhone = OPERATOR
+    await request.post(`${api}/auth/otp/request`, { data: { phone: opPhone } })
+    await page.waitForTimeout(800)
+    const inbox = await (await request.get(`${api}/sim/inbox`, { params: { phone: opPhone } })).json()
+    const code = /\b(\d{6})\b/.exec(inbox.filter((m: any) => m.template_name === 'otp_login').sort((a: any, b: any) => a.id - b.id).at(-1).body)![1]
+    const tok = await (await request.post(`${api}/auth/otp/verify`, { data: { phone: opPhone, code } })).json()
+    const auth = { Authorization: `Bearer ${tok.access_token}` }
+    const shops = await (await request.get(`${api}/operator/businesses`, { headers: auth })).json()
+    const id = shops.find((t: any) => t.name === 'Sharma Sarees & Fabrics').id
+    try {
+      expect((await request.patch(`${api}/operator/businesses/${id}`, { headers: auth, data: { ai_enabled: false } })).status()).toBe(204)
+      await page.goto(`${SHOP}/home`)
+      await expect(page.getByText('AI assistant paused')).toBeVisible()                           // the menu speaks up only when it is off …
+      await expect(page.getByText('The AI assistant is paused')).toBeVisible()
+      await page.getByRole('link', { name: /Contact support/ }).click()                           // … and points to support, not to a switch
+      await expect(page).toHaveURL(/settings\?tab=support/)
+    } finally {
+      await request.patch(`${api}/operator/businesses/${id}`, { headers: auth, data: { ai_enabled: true } })
+    }
     await page.goto(`${SHOP}/home`)
-    await expect(page.getByText('The AI assistant is paused')).toBeVisible()                     // home only says so, and points back to Settings
-
-    await page.goto(`${SHOP}/settings`)
-    await page.getByRole('tab', { name: 'Assistant' }).click()
-    await page.getByRole('switch', { name: 'AI assistant' }).click()
-    await expect(code).toHaveValue(/\d{6}/, { timeout: 15_000 })
-    await page.getByRole('dialog').getByRole('button', { name: 'Confirm and switch on' }).click()
-    await expect(page.getByRole('switch', { name: 'AI assistant' })).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByText('AI assistant paused')).toHaveCount(0)
   })
 
   test('a conversation opens with its history, lead details and negotiation', async ({ page }) => {
@@ -98,17 +100,14 @@ test.describe('owner app', () => {
     void row
   })
 
-  test('settings: shop details and the reply-speed preset save', async ({ page }) => {
+  test('settings: shop details save and the assistant tab has no reply-speed control', async ({ page }) => {
     await page.goto(`${SHOP}/settings`)
     await page.getByLabel('Shop phone').fill('+91 99999 00002')
     await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page.getByText('Saved').first()).toBeVisible()
-    await page.getByRole('tab', { name: 'Assistant' }).click()                                      // speed and voice live under Assistant, not in tabs of their own
+    await page.getByRole('tab', { name: 'Assistant' }).click()                                      // my voice lives under Assistant, not in a tab of its own
     await expect(page.getByRole('tab', { name: /Speed|My voice/ })).toHaveCount(0)
-    const speed = page.locator('section', { has: page.getByRole('heading', { name: 'Reply speed' }) })
-    await speed.getByRole('button', { name: /Natural/ }).click()
-    await speed.getByRole('button', { name: 'Save', exact: true }).click()
-    await expect(page.getByText('Saved').first()).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Reply speed' })).toHaveCount(0)               // owners no longer tune pacing; the assistant uses its natural default
   })
 
   test('settings: the owner can download their data and is asked to type the shop name before deleting', async ({ page }) => {

@@ -126,8 +126,8 @@ async def test_trial_end_pauses_the_assistant_and_paying_brings_it_back(world, c
     assert (await client.get(f"{V1}/business", headers=hdr(owner))).json()["ai_enabled"] is False
     b = (await client.get(f"{V1}/billing", headers=hdr(owner))).json()
     assert b["state"] == "trial_ended" and b["assistant_paused_by_billing"] is True
-    phone = (await client.get(f"{V1}/auth/me", headers=hdr(owner))).json()["phone"]
-    r = await set_ai(client, owner, phone, True)
+    bid = (await client.get(f"{V1}/business", headers=hdr(owner))).json()["id"]
+    r = await set_ai(client, await operator_token(world, client), bid, True)                 # even the platform team cannot switch it on for an ended subscription
     assert r.status_code == 402 and r.json()["error"]["code"] == "subscription_inactive"
 
     inv = (await client.post(f"{V1}/billing/subscribe", headers=hdr(owner), json={"plan": "growth", "interval": "month"})).json()["invoice"]

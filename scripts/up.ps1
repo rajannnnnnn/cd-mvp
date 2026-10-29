@@ -47,9 +47,46 @@ if (-not (Test-Path $envFile)) {
   Write-Host 'created deploy\.env with fresh secrets'
 }
 
+$ErrorActionPreference = 'Continue'      # from here on we check docker's exit code ourselves, so a docker message is not turned into a crash
+# ---- start-up with a visible story: every step prints what it is doing, and a failure prints what to do next ----
+$env:BUILDKIT_PROGRESS = 'plain'; $env:COMPOSE_PROGRESS = 'plain'      # show each download/build step instead of a silent spinner
+$web = ((Get-Content $envFile | Where-Object { $_ -like 'WEB_PORT=*' }) -replace 'WEB_PORT=', '').Trim()
+function Step([string]$n, [string]$m) { Write-Host ''; Write-Host "[$n] $m" -ForegroundColor Cyan }
+function Fail([string]$m) {
+  Write-Host ''; Write-Host "FAILED: $m" -ForegroundColor Red
+  Write-Host '--- containers ---'; docker compose ps -a
+  Write-Host '--- last log lines (send these to your engineer) ---'; docker compose logs --tail 40
+  exit 1
+}
+
+Step '1/4' 'Checking Docker is running'
+docker info *> $null
+if ($LASTEXITCODE -ne 0) { Fail 'Docker is not running. Open Docker Desktop, wait until it says "running", then run this again.' }
+Write-Host 'Docker is running.'
+
+Step '2/4' 'Downloading and building everything (first run takes 5-15 minutes; lines below are progress, not errors)'
 docker compose up -d --build
-if ($Demo) { docker compose --profile demo run --rm seed }
+if ($LASTEXITCODE -ne 0) { Fail 'Docker could not build or start the services (see the lines above; "no space left" means free about 10 GB).' }
+
+Step '3/4' 'Waiting for the app to answer'
+$ready = $false
+for ($i = 1; $i -le 60; $i++) {
+  try { $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 "http://localhost:$web/api/v1/public/config"; if ($r.StatusCode -eq 200) { $ready = $true; break } } catch { }
+  Write-Host "  waiting ($i/60)... services: $((docker compose ps --format '{{.Service}}={{.State}}') -join ' ')"
+  Start-Sleep -Seconds 3
+}
+if (-not $ready) { Fail 'The app did not answer within 3 minutes.' }
+Write-Host 'The app is answering.'
+
+if ($Demo) {
+  Step '4/4' 'Loading the demo shops and conversations (about a minute)'
+  docker compose --profile demo run --rm seed
+  if ($LASTEXITCODE -ne 0) { Fail 'Loading the demo data failed (the app itself is running).' }
+} else { Step '4/4' 'Skipping demo data (add -Demo to load it)' }
+
 Write-Host ''
-$webPort = ((Get-Content $envFile | Where-Object { $_ -like 'WEB_PORT=*' }) -replace 'WEB_PORT=', '')
-Write-Host "Open http://localhost:$webPort   (app: http://localhost:$webPort/app)"
-Write-Host 'Demo: any new mobile number signs up with any 6-digit code. Owner +91 99999 00001, operator +91 99999 00000.'
+Write-Host 'READY' -ForegroundColor Green
+Write-Host "  Open  http://localhost:$web      (the product is at http://localhost:$web/app)"
+Write-Host '  Sign in as the owner +91 99999 00001 (the login code fills in by itself), operator +91 99999 00000.'
+Write-Host '  Any new mobile number signs up with any 6-digit code.'
+Write-Host '  Live logs:  cd deploy ; docker compose logs -f --tail 20        Stop:  scripts\up.ps1 -Down'

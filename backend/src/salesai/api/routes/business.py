@@ -4,12 +4,11 @@ import uuid
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Query, Request, Response
+from fastapi import APIRouter, Query, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from salesai.api.deps import RT, Owner, Tenant, client_ip, tx
+from salesai.api.deps import RT, Owner, Tenant, tx
 from salesai.api.errors import ApiError
-from salesai.api.routes.auth import OtpSent
 from salesai.db import jsonb, required
 from salesai.modules.auth import Principal
 from salesai.modules.catalog import repo
@@ -122,11 +121,6 @@ class BusinessOut(BaseModel):
     numbers: list[NumberOut]
 
 
-class AiToggle(BaseModel):
-    enabled: bool
-    code: str = Field(min_length=1, max_length=12, description="The code sent to the signed-in number by POST /business/ai/code.")
-
-
 class TeamMemberOut(BaseModel):
     id: uuid.UUID
     name: str
@@ -194,22 +188,6 @@ async def patch_business(body: BusinessPatch, rt: RT, p: Owner) -> BusinessOut:
     return await _load(rt, p)
 
 
-@router.post("/business/ai/code", response_model=OtpSent, summary="Send a confirmation code to your own number before switching the AI")
-async def ai_code(rt: RT, p: Tenant, request: Request) -> Any:
-    return await rt.auth.request_otp(p.phone, client_ip(request))
-
-
-@router.post("/business/ai", response_model=BusinessOut, summary="Pause or resume the AI for the whole business (needs the confirmation code)")
-async def toggle_ai(body: AiToggle, rt: RT, p: Tenant) -> BusinessOut:
-    await rt.auth.confirm_code(p.phone, body.code)
-    if body.enabled:
-        await rt.billing.assert_can_run(p.bid)
-    async with tx(rt, p) as c:
-        await c.execute("UPDATE businesses SET ai_enabled=%s WHERE id=%s", (body.enabled, p.bid))
-        await repo.audit(c, p.bid, p.account_id, p.role, "ai.resumed" if body.enabled else "ai.paused", "business", str(p.bid))
-    return await _load(rt, p)
-
-
 @router.get("/numbers", response_model=list[NumberOut])
 async def numbers(rt: RT, p: Tenant) -> Any:
     return (await _load(rt, p)).numbers
@@ -229,7 +207,7 @@ async def connect_number(body: ConnectIn, rt: RT, p: Owner) -> Any:
     await rt.billing.check_limit(p.bid, "numbers")
     s = rt.settings
     if not (s.meta_app_id and s.meta_config_id):
-        raise ApiError(503, "signup_unavailable", "Connecting a WhatsApp number is not switched on yet. Your Saathi contact can connect it for you.")
+        raise ApiError(503, "signup_unavailable", "Connecting a WhatsApp number is not switched on yet. Your ChatDeal contact can connect it for you.")
     try:
         res = await complete_signup(graph_base=s.meta_graph_base, version=s.meta_graph_version, app_id=s.meta_app_id,
                                     app_secret=s.meta_app_secret, code=body.code, waba_id=body.waba_id,

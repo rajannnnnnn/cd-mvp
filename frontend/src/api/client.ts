@@ -24,7 +24,7 @@ async function refreshOnce(staleRefresh: string): Promise<boolean> {
       return true
     }
     const locks = (navigator as any).locks
-    return locks ? locks.request('saathi-refresh', doRefresh) : doRefresh()
+    return locks ? locks.request('chatdeal-refresh', doRefresh) : doRefresh()
   }
   refreshing = run().finally(() => { refreshing = null })
   return refreshing

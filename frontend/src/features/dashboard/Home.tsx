@@ -65,8 +65,8 @@ export default function Home() {
       </div>
 
       {biz.data && !aiOn && (
-        <Link to="/settings" className="flex flex-wrap items-center gap-3 rounded-2xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm shadow-card">
-          <Sparkles className="h-5 w-5 shrink-0" /><span className="flex-1 font-semibold">{tr('The AI assistant is paused, so customers are not being answered.')}</span><span className="font-bold underline">{tr('Switch it on in Settings')}</span>
+        <Link to="/settings?tab=support" className="flex flex-wrap items-center gap-3 rounded-2xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm shadow-card">
+          <Sparkles className="h-5 w-5 shrink-0" /><span className="flex-1 font-semibold">{tr('The AI assistant is paused, so customers are not being answered.')}</span><span className="font-bold underline">{tr('Contact support')}</span>
         </Link>)}
 
       {ov.error && <ErrorNote error={ov.error} retry={() => ov.refetch()} />}

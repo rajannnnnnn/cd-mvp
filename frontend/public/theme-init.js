@@ -1,1 +1,1 @@
-try { var t = localStorage.getItem('saathi.theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); document.documentElement.dataset.theme = t } catch (e) {}
+try { var t = localStorage.getItem('chatdeal.theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); document.documentElement.dataset.theme = t } catch (e) {}

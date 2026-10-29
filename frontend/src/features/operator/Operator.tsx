@@ -9,7 +9,7 @@ import { Badge, Confirm, EmptyState, ErrorNote, Field, Modal, Segmented, Skeleto
 import { ago, cx, inr, phone as fmtPhone } from '@/lib/format'
 import { StatusBadge, Thread } from '@/features/support/Thread'
 
-export const STASH_KEY = 'saathi.operator.stash'
+export const STASH_KEY = 'chatdeal.operator.stash'
 type Tab = 'tenants' | 'alerts' | 'queues' | 'webhooks' | 'turns' | 'costs' | 'billing' | 'support'
 const sevTone = (s: string) => (s === 'critical' || s === 'error' ? 'red' : s === 'warning' ? 'amber' : 'blue') as 'red' | 'amber' | 'blue'
 

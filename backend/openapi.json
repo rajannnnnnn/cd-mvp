@@ -2340,7 +2340,7 @@
           "floor_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
+                "exclusiveMinimum": 0.0,
                 "type": "number"
               },
               {
@@ -3020,12 +3020,18 @@
           "value": {
             "anyOf": [
               {
-                "minimum": 0.0,
-                "type": "number"
-              },
-              {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
-                "type": "string"
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  }
+                ],
+                "decimal_places": 2,
+                "gt": 0,
+                "max_digits": 12
               },
               {
                 "type": "null"
@@ -3150,7 +3156,10 @@
           "value": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
+                "decimal_places": 2,
+                "gt": 0,
+                "max_digits": 12,
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -3819,12 +3828,18 @@
           "floor_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
-                "type": "number"
-              },
-              {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
-                "type": "string"
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  }
+                ],
+                "decimal_places": 2,
+                "gt": 0,
+                "max_digits": 12
               },
               {
                 "type": "null"
@@ -3835,12 +3850,18 @@
           "list_price": {
             "anyOf": [
               {
-                "minimum": 0.0,
-                "type": "number"
-              },
-              {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
-                "type": "string"
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  }
+                ],
+                "decimal_places": 2,
+                "gt": 0,
+                "max_digits": 12
               },
               {
                 "type": "null"
@@ -3856,12 +3877,18 @@
           "range_max": {
             "anyOf": [
               {
-                "minimum": 0.0,
-                "type": "number"
-              },
-              {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
-                "type": "string"
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  }
+                ],
+                "decimal_places": 2,
+                "gt": 0,
+                "max_digits": 12
               },
               {
                 "type": "null"
@@ -3872,12 +3899,18 @@
           "range_min": {
             "anyOf": [
               {
-                "minimum": 0.0,
-                "type": "number"
-              },
-              {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
-                "type": "string"
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                    "type": "string"
+                  }
+                ],
+                "decimal_places": 2,
+                "gt": 0,
+                "max_digits": 12
               },
               {
                 "type": "null"

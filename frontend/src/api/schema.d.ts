@@ -2708,7 +2708,7 @@ export interface components {
             /** Starts At */
             starts_at?: string | null;
             /** Value */
-            value?: number | string | null;
+            value?: (number | string) | null;
             /** Variant Id */
             variant_id?: string | null;
         };
@@ -3051,18 +3051,18 @@ export interface components {
              */
             disclosure: "fixed" | "range" | "starts_from" | "after_qualifying" | "on_request";
             /** Floor Price */
-            floor_price?: number | string | null;
+            floor_price?: (number | string) | null;
             /** List Price */
-            list_price?: number | string | null;
+            list_price?: (number | string) | null;
             /**
              * Negotiable
              * @default false
              */
             negotiable: boolean;
             /** Range Max */
-            range_max?: number | string | null;
+            range_max?: (number | string) | null;
             /** Range Min */
-            range_min?: number | string | null;
+            range_min?: (number | string) | null;
             /**
              * Round To
              * @default 1

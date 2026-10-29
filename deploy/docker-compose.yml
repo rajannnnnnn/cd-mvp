@@ -107,7 +107,7 @@ services:
     environment: *backend-env
 
   web:
-    build: { context: ../frontend, args: { VITE_BRAND: "${BRAND:-Saathi}", VITE_CONTACT_EMAIL: "${CONTACT_EMAIL:-hello@saathi.example}" } }
+    build: { context: ../frontend, args: { VITE_BRAND: "${BRAND:-ChatDeal}", VITE_CONTACT_EMAIL: "${CONTACT_EMAIL:-hello@chatdeal.example}" } }
     image: saathi-web:local
     restart: unless-stopped
     environment:
