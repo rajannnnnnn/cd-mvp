@@ -18,7 +18,17 @@ work chunk. Never commit `.env` files, `DockerInstaller.exe`, or other binaries.
   `docs/WHATSAPP_GO_LIVE.md`, and helper scripts `scripts/stack.ps1`, `scripts/demo.ps1`, `scripts/dev-frontend.ps1`.
 - The full backend suite was **not run** in the last session: this machine had no Docker daemon, Postgres or `uv`.
 
-## Next steps (from ADR 0020 and PROGRESS.md)
+## Update 2026-10-31 (evening)
+- ADR 0020 follow-ups 1-4 are built and committed (`cfd8d42`, `154e822`). Their 28 tests pass; ruff, mypy and `check_boundaries.py` are clean.
+- **The full backend suite has NOT completed.** The run was stopped by the system for low memory. Re-run it when memory is free:
+  `cd backend; $env:TEST_PG_SUPERUSER_URL='postgresql://postgres@127.0.0.1:55432/postgres'; python -m pytest -q`
+  (Postgres is the `cd-test-pg` Docker container; this PC has no `psql`, so put a `psql` shim that runs `docker exec cd-test-pg psql` on PATH.)
+  Python venv: `C:\Users\user\.venvs\salesai` (created with pip, not uv). Use `PYTHONUTF8=1` for `scripts/check_boundaries.py`.
+- Not pushed: GitHub sign-in is needed once (`git push -u origin backup/propelry-wip`).
+- Next component: the agent (M7). Needs an Anthropic API key to run the evaluations on a real model.
+- `deploy/gateway/.env.example`: a blank value followed by `# comment` becomes the comment text in compose; move comments to their own lines.
+
+## Next steps (from ADR 0020 and PROGRESS.md) — items 1-4 below are now done
 1. Raw webhook log fidelity: exact bytes, signature header, keep bad-signature requests, `RAW_WEBHOOK_RETENTION_DAYS`
    (tests first; `test_gateway_raw_log.py` exists).
 2. Per-role secrets: only `send` needs `MASTER_KEY`.
