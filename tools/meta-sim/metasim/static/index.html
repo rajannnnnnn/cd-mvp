@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meta simulator</title>
+<style>
+:root{--bg:#f0f2f5;--panel:#fff;--ink:#111b21;--muted:#667781;--line:#e9edef;--me:#d9fdd3;--them:#fff;--chat:#efeae2;--accent:#00a884;--blue:#53bdeb;--bad:#d93025;--warn:#b26a00;--code:#f6f8fa}
+@media (prefers-color-scheme:dark){:root{--bg:#0b141a;--panel:#111b21;--ink:#e9edef;--muted:#8696a0;--line:#222d34;--me:#005c4b;--them:#202c33;--chat:#0b141a;--accent:#00a884;--blue:#53bdeb;--bad:#f28b82;--warn:#fdd663;--code:#0d1b22}}
+*{box-sizing:border-box}html,body{height:100%;margin:0}body{font:14px/1.4 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+header{display:flex;align-items:center;gap:12px;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:15px;margin:0;font-weight:600}.pill{font-size:12px;padding:2px 8px;border-radius:99px;background:var(--code);color:var(--muted)}
+.pill.ok{color:var(--accent)}.pill.bad{color:var(--bad)}
+main{display:grid;grid-template-columns:270px minmax(360px,1fr) 380px;height:calc(100% - 45px)}
+@media (max-width:1000px){main{grid-template-columns:1fr;grid-auto-rows:minmax(360px,auto);height:auto}}
+section{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.hd{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center}
+select,input,button,textarea{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+button{cursor:pointer}button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}button:disabled{opacity:.5;cursor:default}
+.list{overflow:auto;flex:1}.contact{display:flex;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer}.contact.sel{background:var(--code)}
+.av{width:38px;height:38px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:600;flex:none}
+.contact .t{min-width:0;flex:1}.contact .n{font-weight:600}.contact .l{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+#chat{background:var(--chat);overflow:auto;flex:1;padding:12px 8%;display:flex;flex-direction:column;gap:4px}
+.b{max-width:75%;padding:6px 9px;border-radius:8px;background:var(--them);box-shadow:0 1px 1px rgba(0,0,0,.12);word-wrap:break-word;white-space:pre-wrap}
+.b.me{align-self:flex-end;background:var(--me)}.b.them{align-self:flex-start}
+.b .meta{font-size:11px;color:var(--muted);margin-top:2px;display:flex;gap:6px;justify-content:flex-end;align-items:center}
+.tick{letter-spacing:-3px}.tick.read{color:var(--blue)}.fail{color:var(--bad)}.tag{background:var(--code);border-radius:4px;padding:0 4px}
+.lat{align-self:flex-start;font-size:11px;color:var(--muted);margin:-2px 0 4px 4px}.sep{align-self:center;font-size:11px;color:var(--muted);background:var(--panel);border-radius:6px;padding:1px 8px;margin:6px 0}
+.composer{display:flex;gap:6px;padding:8px;border-top:1px solid var(--line);background:var(--panel);flex-wrap:wrap}.composer input{flex:1;min-width:140px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.seg button{border:0;border-radius:0}.seg button.on{background:var(--accent);color:#fff}
+.tabs{display:flex;border-bottom:1px solid var(--line)}.tabs button{flex:1;border:0;border-radius:0;background:none;padding:9px;color:var(--muted)}.tabs button.on{color:var(--ink);border-bottom:2px solid var(--accent)}
+.pane{overflow:auto;flex:1;padding:8px}.ev{border:1px solid var(--line);border-radius:8px;margin-bottom:6px;overflow:hidden}.ev>div{padding:5px 8px;display:flex;gap:8px;cursor:pointer;align-items:center}
+.ev .d{font-size:11px;font-weight:700;padding:0 6px;border-radius:4px;background:var(--code)}.ev pre{margin:0;padding:8px;background:var(--code);font-size:11px;overflow:auto;max-height:260px;display:none}.ev.open pre{display:block}
+table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:4px 6px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--muted);font-weight:600}
+label.f{display:flex;flex-direction:column;gap:2px;margin-bottom:8px;font-size:12px;color:var(--muted)}label.f input{color:var(--ink)}.row{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.hint{font-size:12px;color:var(--muted)}h3{margin:12px 0 6px;font-size:13px}
+</style>
+</head>
+<body>
+<header><h1>Meta simulator</h1><span id="live" class="pill">connecting…</span><span id="hook" class="pill"></span><span class="hint" id="graph"></span>
+  <span style="flex:1"></span><button id="reset">Clear conversation</button></header>
+<main>
+  <section>
+    <div class="hd"><select id="biz" style="flex:1"></select></div>
+    <div class="list" id="contacts"></div>
+    <div class="hd"><input id="newwa" placeholder="new customer number" style="flex:1"><button id="addc">Add</button></div>
+  </section>
+  <section>
+    <div class="hd"><div class="av" id="cav">?</div><div style="flex:1"><div id="cname" style="font-weight:600">Pick a customer</div><div class="hint" id="cstat"></div></div>
+      <div class="seg" id="role"><button data-r="customer" class="on" title="You are the customer's phone">Customer</button><button data-r="owner" title="You are the owner using the WhatsApp Business app (coexistence echo)">Owner (Business app)</button></div></div>
+    <div id="chat"></div>
+    <div class="composer"><input id="msg" placeholder="Type a message" autocomplete="off"><button class="primary" id="send">Send</button>
+      <button id="voice" title="Send a voice note">🎤</button><button id="photo" title="Send a photo">📷</button><button id="frag" title="Send three fragments 2 s apart">3 fragments</button></div>
+  </section>
+  <section style="border-right:0">
+    <div class="tabs" id="tabs"><button class="on" data-p="wire">Wire log</button><button data-p="timing">Timing</button><button data-p="set">Settings</button></div>
+    <div class="pane" id="p-wire"></div><div class="pane" id="p-timing" hidden></div><div class="pane" id="p-set" hidden></div>
+  </section>
+</main>
+<script>
+const S={biz:[],customers:{},msgs:new Map(),wire:[],settings:{},typing:{},pnid:null,cust:null,role:'customer',tab:'wire'};
+const $=s=>document.querySelector(s), el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
+const api=(p,b)=>fetch('/sim/api/'+p,b===undefined?{}:{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json());
+const fmt=t=>new Date(t*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+const sec=(a,b)=>((b-a)).toFixed(1)+' s';
+
+async function load(){
+  const st=await api('state'); S.biz=st.businesses; S.customers=st.customers; S.wire=st.wire.slice().reverse(); S.settings=st.settings;
+  S.typing=Object.fromEntries(Object.entries(st.typing).map(([k,v])=>[k,v])); S.msgs=new Map(st.messages.map(m=>[m.id,m]));
+  if(!S.pnid||!S.biz.find(b=>b.pnid===S.pnid)) S.pnid=(S.biz.find(b=>b.kind==='business')||S.biz[0]).pnid;
+  $('#graph').textContent='Graph base for the product: '+location.origin; renderAll();
+}
+function connect(){
+  const es=new EventSource('/sim/api/events');
+  es.onopen=()=>{$('#live').textContent='live';$('#live').className='pill ok'};
+  es.onerror=()=>{$('#live').textContent='reconnecting…';$('#live').className='pill bad'};
+  es.onmessage=e=>{const {type,data}=JSON.parse(e.data);
+    if(type==='message'){S.msgs.set(data.id,data);renderChat();renderContacts();renderTiming()}
+    else if(type==='wire'){S.wire.unshift(data);S.wire.length=Math.min(S.wire.length,300);renderWire()}
+    else if(type==='customers'){S.customers=data;renderContacts()}
+    else if(type==='businesses'){S.biz=data;renderBiz()}
+    else if(type==='settings'){S.settings=data;renderSettings()}
+    else if(type==='typing'){S.typing[data.pnid+'|'+data.customer]=data.until;renderChat()}
+    else if(type==='reset'){S.msgs.clear();S.wire=[];renderAll()}};
+}
+function thread(){return [...S.msgs.values()].filter(m=>m.pnid===S.pnid&&m.customer===S.cust).sort((a,b)=>a.ts-b.ts)}
+function renderBiz(){const s=$('#biz');s.innerHTML='';S.biz.forEach(b=>{const o=el('option',null,`${b.name} · ${b.display}${b.kind==='platform'?' (platform sender)':''}`);o.value=b.pnid;s.appendChild(o)});s.value=S.pnid}
+function renderContacts(){
+  const box=$('#contacts');box.innerHTML='';
+  Object.entries(S.customers).forEach(([wa,name])=>{
+    const ms=[...S.msgs.values()].filter(m=>m.pnid===S.pnid&&m.customer===wa).sort((a,b)=>a.ts-b.ts), last=ms[ms.length-1];
+    const c=el('div','contact'+(wa===S.cust?' sel':''));c.appendChild(el('div','av',(name||'?')[0].toUpperCase()));
+    const t=el('div','t');t.appendChild(el('div','n',name===wa?'+'+wa:name+'  +'+wa));t.appendChild(el('div','l',last?((last.direction==='in'?'':'↩ ')+last.text):'no messages'));c.appendChild(t);
+    c.onclick=()=>{S.cust=wa;renderContacts();renderChat()};box.appendChild(c)})}
+function tick(m,customerView){
+  if(m.status==='failed')return el('span','fail','✗ '+(m.error||'failed'));
+  const x=el('span','tick '+(m.status==='read'?'read':''),['delivered','read'].includes(m.status)?'✓✓':'✓');return x}
+function renderChat(){
+  const box=$('#chat');box.innerHTML='';
+  if(!S.cust){$('#cname').textContent='Pick a customer';$('#cstat').textContent='';return}
+  const name=S.customers[S.cust];$('#cname').textContent=name+'  +'+S.cust;$('#cav').textContent=(name||'?')[0].toUpperCase();
+  const typing=S.typing[S.pnid+'|'+S.cust];$('#cstat').textContent=(typing&&typing*1000>Date.now())?'business is typing…':'';
+  const ms=thread();let lastIn=null,prev=0;
+  ms.forEach(m=>{
+    if(m.ts-prev>600){box.appendChild(el('div','sep',new Date(m.ts*1000).toLocaleString()))}prev=m.ts;
+    const mine=S.role==='customer'?m.direction==='in':m.direction!=='in';
+    const b=el('div','b '+(mine?'me':'them'));b.appendChild(el('div',null,m.text));
+    const meta=el('div','meta');
+    if(m.direction==='echo')meta.appendChild(el('span','tag','Business app'));
+    if(m.direction==='in'&&m.t_ack_ms!=null)meta.appendChild(el('span',null,'ack '+m.t_ack_ms+' ms'));
+    if(m.direction!=='in')meta.appendChild(el('span',null,m.status));
+    meta.appendChild(el('span',null,fmt(m.ts)));
+    if(m.direction==='in'&&S.role==='customer'||m.direction!=='in'&&S.role==='owner')meta.appendChild(tick(m));
+    b.appendChild(meta);box.appendChild(b);
+    if(m.direction==='in')lastIn=m;
+    else if(lastIn&&m.direction==='out'){box.appendChild(el('div','lat',`reply latency ${sec(lastIn.ts,m.ts)} after the customer's last message`));lastIn=null}
+  });
+  box.scrollTop=box.scrollHeight}
+function renderWire(){
+  const p=$('#p-wire');p.innerHTML='';
+  S.wire.forEach(e=>{const w=el('div','ev');const h=el('div');
+    const lab={webhook_out:'⇢ WEBHOOK',api_in:'⇠ API',api_out:'↩ API REPLY',webhook_verify:'GET VERIFY'}[e.dir]||e.dir;
+    h.appendChild(el('span','d',lab));h.appendChild(el('span',null,e.label||e.path||''));
+    const code=e.status??e.error;h.appendChild(el('span',e.status===200?'':'fail',String(code??'')));if(e.ms!=null)h.appendChild(el('span','hint',e.ms+' ms'));
+    h.appendChild(el('span','hint',fmt(e.t)));const pre=el('pre',null,JSON.stringify(e.body,null,2));h.onclick=()=>w.classList.toggle('open');w.append(h,pre);p.appendChild(w)})}
+function renderTiming(){
+  const p=$('#p-timing');p.innerHTML='';
+  const ins=[...S.msgs.values()].filter(m=>m.direction==='in'&&m.pnid===S.pnid).sort((a,b)=>b.ts-a.ts).slice(0,40);
+  const t=el('table');t.innerHTML='<tr><th>Customer message</th><th>Ack</th><th>First reply</th><th>Read by biz</th></tr>';
+  ins.forEach(m=>{const r=[...S.msgs.values()].filter(x=>x.direction==='out'&&x.pnid===m.pnid&&x.customer===m.customer&&x.ts>m.ts).sort((a,b)=>a.ts-b.ts)[0];
+    const tr=el('tr');[m.text.slice(0,24),m.t_ack_ms!=null?m.t_ack_ms+' ms':'…',r?sec(m.ts,r.ts):'—',m.marks.read?sec(m.ts,m.marks.read):'—'].forEach(x=>tr.appendChild(el('td',null,x)));t.appendChild(tr)});
+  p.appendChild(el('div','hint','"First reply" is wall-clock from the customer\'s message to the product\'s first accepted API send, so it includes end-of-turn waiting, the model and human-like delays.'));p.appendChild(t)}
+function field(label,key,type='text'){const l=el('label','f',label);const i=el('input');i.type=type;i.value=S.settings[key]??'';i.onchange=()=>api('settings',{[key]:type==='number'?+i.value:i.value});l.appendChild(i);return l}
+function check(label,key){const l=el('label','row');const i=el('input');i.type='checkbox';i.checked=!!S.settings[key];i.onchange=()=>api('settings',{[key]:i.checked});l.append(i,document.createTextNode(label));return l}
+function range(label,key){const l=el('label','f',label+' (ms, min–max)');const r=el('div','row');const a=el('input'),b=el('input');a.type=b.type='number';a.style.width=b.style.width='90px';
+  [a.value,b.value]=S.settings[key]||[0,0];const go=()=>api('settings',{[key]:[+a.value,+b.value]});a.onchange=b.onchange=go;r.append(a,b);l.appendChild(r);return l}
+function renderSettings(){
+  const p=$('#p-set');p.innerHTML='';
+  p.appendChild(el('h3',null,'Product connection'));p.appendChild(field('Product webhook URL','webhook_url'));p.appendChild(field('App secret (signs webhooks)','app_secret'));p.appendChild(field('Verify token','verify_token'));
+  const v=el('button',null,'Verify webhook (like Meta\'s dashboard)');v.onclick=async()=>{const r=await api('webhook/verify',{});const h=$('#hook');h.textContent=r.ok?'webhook verified':'verify failed: '+(r.status||r.error);h.className='pill '+(r.ok?'ok':'bad')};p.appendChild(v);
+  p.appendChild(el('h3',null,'Delivery behaviour'));p.appendChild(check('Customer has read receipts on','read_receipts'));p.appendChild(check('Customer phone is offline (never delivered)','phone_offline'));p.appendChild(check('Enforce the 24-hour window (error 131047)','enforce_window'));
+  p.appendChild(range('Sent after','sent_ms'));p.appendChild(range('Delivered after','delivered_ms'));p.appendChild(range('Read after','read_ms'));
+  p.appendChild(el('h3',null,'Inject a failure into the next send'));const row=el('div','row');const sel=el('select');
+  [[131049,'131049 not delivered (async)'],[131026,'131026 undeliverable (async)'],[130429,'130429 rate limit'],[131056,'131056 pair rate limit'],[190,'190 token expired'],[131031,'131031 account locked']].forEach(([c,t])=>{const o=el('option',null,t);o.value=c;sel.appendChild(o)});
+  const add=el('button',null,'Queue');add.onclick=()=>api('settings',{fail_next:[...(S.settings.fail_next||[]),+sel.value]});row.append(sel,add);p.appendChild(row);p.appendChild(el('div','hint','Queued: '+((S.settings.fail_next||[]).join(', ')||'none')));
+  p.appendChild(el('h3',null,'Account events'));const r2=el('div','row');['PARTNER_REMOVED','ACCOUNT_RECONNECTED'].forEach(ev=>{const b=el('button',null,ev);b.onclick=()=>api('account-event',{pnid:S.pnid,event:ev});r2.appendChild(b)});p.appendChild(r2);
+  p.appendChild(el('h3',null,'Business numbers'));S.biz.forEach(b=>{const d=el('div','hint',`${b.name} ${b.display}\n  phone_number_id: ${b.pnid}\n  waba_id: ${b.waba_id}\n  access token: ${b.token}`);d.style.whiteSpace='pre-wrap';d.style.marginBottom='8px';p.appendChild(d)})}
+function renderAll(){renderBiz();renderContacts();renderChat();renderWire();renderTiming();renderSettings()}
+async function send(kind){
+  if(!S.cust)return;const text=$('#msg').value.trim();if(kind==='text'&&!text)return;$('#msg').value='';
+  if(S.role==='owner'){await api('owner/send',{pnid:S.pnid,customer:S.cust,text});return}
+  await api('customer/send',{pnid:S.pnid,customer:S.cust,kind,text:kind==='text'?text:(kind==='audio'?'🎤 voice note':'📷 photo')})}
+$('#send').onclick=()=>send('text');$('#msg').onkeydown=e=>{if(e.key==='Enter')send('text')};$('#voice').onclick=()=>send('audio');$('#photo').onclick=()=>send('image');
+$('#frag').onclick=()=>{if(S.cust&&S.role==='customer')api('script',{steps:[{pnid:S.pnid,customer:S.cust,text:'red saree',wait_ms:2000},{pnid:S.pnid,customer:S.cust,text:'for my sister wedding',wait_ms:2000},{pnid:S.pnid,customer:S.cust,text:'price?',wait_ms:0}]})};
+$('#biz').onchange=e=>{S.pnid=e.target.value;renderContacts();renderChat();renderTiming()};
+$('#addc').onclick=async()=>{const v=$('#newwa').value.trim();if(v){await api('customers',{wa_id:v});$('#newwa').value=''}};
+$('#reset').onclick=()=>api('reset',{});
+$('#role').onclick=e=>{const r=e.target.dataset.r;if(!r)return;S.role=r;[...$('#role').children].forEach(b=>b.classList.toggle('on',b.dataset.r===r));renderChat()};
+$('#tabs').onclick=e=>{const p=e.target.dataset.p;if(!p)return;[...$('#tabs').children].forEach(b=>b.classList.toggle('on',b.dataset.p===p));['wire','timing','set'].forEach(x=>$('#p-'+x).hidden=x!==p)};
+setInterval(()=>{if(S.cust){const t=S.typing[S.pnid+'|'+S.cust];$('#cstat').textContent=(t&&t*1000>Date.now())?'business is typing…':''}},1000);
+load().then(connect);
+</script>
+</body>
+</html>
