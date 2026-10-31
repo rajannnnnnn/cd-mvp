@@ -88,7 +88,14 @@ export default defineConfig({
       },
     },
   },
-  server: { port: 5173, host: true },
+  // Dev: same-origin proxy to the backend, like Caddy does in the container. Override the target with API_PROXY / INGRESS_PROXY.
+  server: {
+    port: 5173, host: true,
+    proxy: {
+      '/api': { target: process.env.API_PROXY ?? 'http://localhost:8000', changeOrigin: true },
+      '/webhooks': { target: process.env.INGRESS_PROXY ?? 'http://localhost:8001', changeOrigin: true },
+    },
+  },
   preview: { port: 4173, host: true },
   test: { environment: 'node', include: ['src/**/*.test.ts'] },
 })

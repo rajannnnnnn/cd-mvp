@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { BarChart3, Building2, ChevronDown, CreditCard, FileText, Home, Inbox, KanbanSquare, LogOut, Megaphone, MessageCircle, Mic2, Moon, MoreHorizontal, Package, Play, Settings, ShieldCheck, Sun, Users, Wifi, WifiOff } from 'lucide-react'
+import { BarChart3, Building2, ChevronDown, CreditCard, FileText, Home, Inbox, KanbanSquare, LogOut, Megaphone, MessageCircle, Mic2, Moon, MoreHorizontal, Package, Play, Settings, ShieldCheck, Sun, Users } from 'lucide-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { useT } from '@/i18n'
 import { Avatar, Logo, Switch, Modal, useToast } from '@/ui'
@@ -34,12 +34,11 @@ export default function Shell() {
   const biz = useBusiness(isOwner)
   const ov = useOverview(14, isOwner)
   const bill = useBilling(role === 'owner')
-  const [live, setLive] = useState(false)
   const [theme, setThemeState] = useState<Theme>(currentTheme())
   const [more, setMore] = useState(false)
   const [menu, setMenu] = useState(false)
 
-  useEffect(() => (isOwner ? startLive(qc, setLive) : undefined), [qc, isOwner])
+  useEffect(() => (isOwner ? startLive(qc) : undefined), [qc, isOwner])
   useEffect(() => { setMore(false); setMenu(false) }, [loc.pathname])
 
   const needs = (ov.data?.today.open_handoffs ?? 0) + (ov.data?.today.pending_deals ?? 0)
@@ -83,23 +82,23 @@ export default function Shell() {
               {!!i.badge && <span className="grid min-w-5 place-items-center rounded-full bg-danger px-1.5 text-[11px] font-bold text-white">{i.badge}</span>}
             </NavLink>))}
         </nav>
-        <div className="mt-2 border-t border-line/70 pt-3">
-          <button className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-surface2" onClick={() => setMenu(true)}>
+        <div className="mt-2 flex items-center gap-1 border-t border-line/70 pt-3">
+          <button className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-surface2" onClick={() => setMenu(true)}>
             <Avatar name={me?.name ?? me?.phone} size={34} />
             <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{me?.name ?? tr('You')}</div><div className="truncate text-xs text-muted">{me?.phone}</div></div>
             <ChevronDown className="h-4 w-4 text-muted" />
           </button>
+          <button className="btn btn-ghost btn-icon shrink-0" onClick={flipTheme} aria-label={tr('Theme')}>{theme === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}</button>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-col pb-[76px] lg:pb-0">
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-line/70 bg-bg/85 px-4 py-2.5 backdrop-blur lg:px-8">
+        <header className={cx('sticky top-0 z-30 flex items-center gap-3 border-b border-line/70 bg-bg/85 px-4 py-2.5 backdrop-blur lg:px-8', !me?.impersonated && 'lg:hidden')}>
           <div className="lg:hidden"><Logo size={28} wordmark={false} /></div>
           <div className="min-w-0 flex-1 lg:hidden"><div className="truncate text-sm font-bold">{me?.business?.name ?? t('nav.operator', 'Operator console')}</div></div>
           <div className="hidden flex-1 lg:block" />
           {me?.impersonated && <button className="badge badge-amber cursor-pointer hover:brightness-95" onClick={backToConsole}>{tr('Viewing as owner (support) · Back to console')}</button>}
-          {isOwner && <span className={cx('hidden items-center gap-1.5 text-xs sm:flex', live ? 'text-brand-ink' : 'text-muted')} title={live ? tr('Live updates connected') : tr('Reconnecting…')}>{live ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}{live ? tr('Live') : tr('Offline')}</span>}
-          <button className="btn btn-ghost btn-icon" onClick={flipTheme} aria-label={tr('Theme')}>{theme === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}</button>
+          <button className="btn btn-ghost btn-icon lg:hidden" onClick={flipTheme} aria-label={tr('Theme')}>{theme === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}</button>
           <button className="lg:hidden" onClick={() => setMenu(true)} aria-label={tr('Account')}><Avatar name={me?.name ?? me?.phone} size={32} /></button>
         </header>
         {banner && <Link to="/billing" className={cx('block px-4 py-2 text-center text-[13px] font-semibold lg:px-8', banner.tone === 'bad' ? 'bg-danger text-white' : 'bg-accent-soft text-[rgb(150_92_0)]')}>{banner.text} <span className="underline">{tr('Open billing')}</span></Link>}

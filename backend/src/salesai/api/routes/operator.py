@@ -223,9 +223,13 @@ class WebhookOut(BaseModel):
 @router.get("/webhooks", response_model=list[WebhookOut], summary="Raw webhook log (FR-OP-3)")
 async def webhooks(rt: RT, p: Operator, limit: Annotated[int, Query(ge=1, le=100)] = 50) -> Any:
     async with rt.db.system_tx() as c:
-        rows = await (await c.execute("SELECT id, received_at, processed_at, error, payload FROM webhook_events ORDER BY id DESC LIMIT %s", (limit,))).fetchall()
+        rows = await (await c.execute("SELECT id, received_at, processed_at, error, payload, signature_valid FROM webhook_events ORDER BY id DESC LIMIT %s", (limit,))).fetchall()
     out = []
     for r in rows:
+        if r["payload"] is None:
+            out.append({"id": r["id"], "received_at": r["received_at"], "processed_at": r["processed_at"], "error": r["error"],
+                        "summary": "unreadable body" if r["signature_valid"] else "rejected: bad signature"})
+            continue
         ch = (r["payload"].get("entry") or [{}])[0].get("changes") or [{}]
         v = ch[0].get("value", {})
         kinds = [k for k in ("messages", "statuses", "message_echoes") if v.get(k)] or [ch[0].get("field", "?")]

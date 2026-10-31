@@ -48,19 +48,21 @@ async def test_reprocessing_the_same_webhook_job_has_no_side_effects(world):
     assert (await world.conv(shop, "+919800000003"))["version"] == 1
 
 
-async def test_bad_signature_is_rejected_and_not_stored(world):
+async def test_bad_signature_is_rejected_and_never_processed(world):
+    """Rejected with 401, kept only as evidence (flagged invalid, see test_gateway_raw_log.py), never queued or routed."""
     shop = await world.make_shop()
     payload = build_message_payload(shop.phone_number_id, shop.business_phone, "+919800000004", "x")
     raw = json.dumps(payload).encode()
-    async with world.rt.db.system_tx() as c:
-        before = (await (await c.execute("SELECT count(*) AS n FROM webhook_events")).fetchone())["n"]
     from salesai.modules.channels.ingress import accept_webhook
     for sig in (None, "sha256=deadbeef", sign("wrong-secret", raw)):
         code, _ = await accept_webhook(world.rt.db, world.s.meta_app_secret, raw, sig)
         assert code == 401
     async with world.rt.db.system_tx() as c:
-        after = (await (await c.execute("SELECT count(*) AS n FROM webhook_events")).fetchone())["n"]
-    assert before == after
+        queued = await (await c.execute(
+            "SELECT count(*) AS n FROM outbox o JOIN webhook_events w ON (o.payload->>'webhook_event_id')::bigint = w.id "
+            "WHERE o.event_type='webhook.received' AND NOT w.signature_valid")).fetchone()
+    assert queued["n"] == 0
+    assert await world.q(shop, "SELECT 1 FROM messages") == []
 
 
 async def test_non_meta_payload_shape_is_rejected(world):

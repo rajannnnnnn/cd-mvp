@@ -9,5 +9,5 @@ output "url" {
 
 output "watch_the_setup" {
   description = "Only works if you gave ssh_key_name."
-  value       = "ssh ubuntu@${aws_instance.demo.public_ip} 'sudo tail -f /var/log/saathi-setup.log'"
+  value       = "ssh ubuntu@${aws_instance.demo.public_ip} 'sudo tail -f /var/log/chatdeal-setup.log'"
 }

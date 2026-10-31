@@ -28,7 +28,8 @@ async def verify(request: Request, rt: RT) -> Response:
 @webhooks.post("/webhooks/whatsapp", include_in_schema=False)
 async def receive(request: Request, rt: RT) -> Response:
     raw = await request.body()
-    status, body = await accept_webhook(rt.db, rt.settings.meta_app_secret, raw, request.headers.get("x-hub-signature-256"))
+    status, body = await accept_webhook(rt.db, rt.settings.meta_app_secret, raw, request.headers.get("x-hub-signature-256"),
+                                       invalid_max_bytes=rt.settings.invalid_webhook_max_bytes)
     from fastapi.responses import JSONResponse
     return JSONResponse(body, status_code=status)
 

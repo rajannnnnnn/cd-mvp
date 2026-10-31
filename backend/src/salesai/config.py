@@ -103,6 +103,11 @@ class Settings(BaseSettings):
     default_owner_pause_minutes: int = 120
     max_ai_turns_per_conversation_10min: int = 30   # flood guard: beyond this the AI stops replying in that chat for a while
 
+    # --- channel gateway raw webhook log (ADR 0020)
+    raw_webhook_retention_days: int = Field(30, ge=1)          # verified requests
+    invalid_webhook_retention_days: int = Field(3, ge=1)       # requests that failed signature verification
+    invalid_webhook_max_bytes: int = Field(4096, ge=0)         # how much of a failed request's body is kept
+
     @field_validator("master_key")
     @classmethod
     def _master_key_ok(cls, v: str) -> str:

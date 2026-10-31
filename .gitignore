@@ -21,3 +21,6 @@ backend/loadtest/results/
 deploy/terraform/**/.terraform/
 deploy/terraform/**/*.tfstate*
 deploy/terraform/**/*.tfvars
+
+DockerInstaller.exe
+*.exe

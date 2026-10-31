@@ -16,23 +16,39 @@ log = logging.getLogger("salesai.ingress")
 MAX_BODY = 1_000_000
 
 
-async def accept_webhook(db: Database, app_secret: str, raw_body: bytes, signature: str | None) -> tuple[int, dict[str, Any]]:
+async def _keep(db: Database, raw_body: bytes, signature: str | None, *, valid: bool, payload: dict[str, Any] | None,
+                error: str | None = None, cap: int | None = None) -> None:
+    """Store the request as received. Used for evidence only; a failure here must never change the answer given to Meta."""
+    body = raw_body if cap is None else raw_body[:cap]
+    try:
+        async with db.system_tx() as c:
+            await c.execute("INSERT INTO webhook_events (signature_valid, payload, raw_body, signature, error) VALUES (%s, %s, %s, %s, %s)",
+                            (valid, jsonb(payload) if payload is not None else None, body, (signature or None) and signature[:200], error))
+    except Exception:  # noqa: BLE001
+        log.exception("could not keep rejected webhook")
+
+
+async def accept_webhook(db: Database, app_secret: str, raw_body: bytes, signature: str | None, *,
+                         invalid_max_bytes: int = 4096) -> tuple[int, dict[str, Any]]:
     t0 = time.perf_counter()
     try:
         if len(raw_body) > MAX_BODY:
             return 413, {"error": "payload too large"}
         if not verify_signature(app_secret, raw_body, signature):
             log.warning("webhook rejected: bad signature")
+            await _keep(db, raw_body, signature, valid=False, payload=None, cap=invalid_max_bytes)
             return 401, {"error": "invalid signature"}
         try:
             payload = json.loads(raw_body)
         except ValueError:
+            await _keep(db, raw_body, signature, valid=True, payload=None, error="invalid json")
             return 400, {"error": "invalid json"}
         if not isinstance(payload, dict) or payload.get("object") != "whatsapp_business_account":
             return 400, {"error": "unexpected payload"}
         async with db.system_tx() as c:
             row = await (await c.execute(
-                "INSERT INTO webhook_events (signature_valid, payload) VALUES (true, %s) RETURNING id", (jsonb(payload),))).fetchone()
+                "INSERT INTO webhook_events (signature_valid, payload, raw_body, signature) VALUES (true, %s, %s, %s) RETURNING id",
+                (jsonb(payload), raw_body, signature))).fetchone()
             await emit(c, "webhook.received", {"webhook_event_id": row["id"]}, business_id=None)
         return 200, {"ok": True}
     finally:

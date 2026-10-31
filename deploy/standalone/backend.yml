@@ -1,0 +1,71 @@
+# Backend (production design): migrations, API (+ live updates), the owner/platform worker and the scheduler.
+# Self-contained and independent of the demo stack (deploy/docker-compose.yml): own env file, own image tag, own project name.
+# WhatsApp traffic is the channel gateway's (deploy/gateway) and the AI engine is ai-engine.yml; this worker takes only
+# owner.notifications and platform.events.
+#
+#   scripts\stack.ps1 backend            (or: docker compose --env-file .env -f backend.yml up -d, from deploy/standalone)
+#
+# API on http://localhost:8000 (this computer only). Webhook ingress is the gateway's `receive` on :8001.
+# The database is external: set the four *_DATABASE_URL values in deploy/standalone/.env (see .env.example there).
+name: chatdeal-backend
+
+x-backend: &backend
+  build: { context: ../../backend }
+  image: chatdeal-backend:prod
+  restart: unless-stopped
+  environment: &backend-env
+    ENV: ${APP_ENV:?set APP_ENV in deploy/standalone/.env}
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    TRUST_PROXY: "true"
+    ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?set ALLOWED_ORIGINS in deploy/standalone/.env}
+    DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in deploy/standalone/.env}
+    PRICING_DATABASE_URL: ${PRICING_DATABASE_URL:?set PRICING_DATABASE_URL in deploy/standalone/.env}
+    SYSTEM_DATABASE_URL: ${SYSTEM_DATABASE_URL:?set SYSTEM_DATABASE_URL in deploy/standalone/.env}
+    MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?set MIGRATION_DATABASE_URL in deploy/standalone/.env}
+    QUEUE_BACKEND: ${QUEUE_BACKEND:-postgres}
+    REDIS_URL: ${REDIS_URL:-}
+    MASTER_KEY: ${MASTER_KEY:?set MASTER_KEY in deploy/standalone/.env}
+    JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/standalone/.env}
+    OTP_SECRET: ${OTP_SECRET:?set OTP_SECRET in deploy/standalone/.env}
+    META_APP_SECRET: ${META_APP_SECRET:?set META_APP_SECRET in deploy/standalone/.env}
+    META_VERIFY_TOKEN: ${META_VERIFY_TOKEN:?set META_VERIFY_TOKEN in deploy/standalone/.env}
+    META_APP_ID: ${META_APP_ID:-}
+    META_CONFIG_ID: ${META_CONFIG_ID:-}
+    OTP_CHANNEL: ${OTP_CHANNEL:-whatsapp_cloud}
+    OTP_ACCEPT_ANY: ${OTP_ACCEPT_ANY:-false}
+    OTP_MIN_INTERVAL_S: ${OTP_MIN_INTERVAL_S:-20}
+    OTP_PER_PHONE_PER_HOUR: ${OTP_PER_PHONE_PER_HOUR:-5}
+    OTP_PER_IP_PER_HOUR: ${OTP_PER_IP_PER_HOUR:-30}
+    PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-test}
+    PAYMENT_INSTRUCTIONS: ${PAYMENT_INSTRUCTIONS:-Pay by UPI or bank transfer and quote the invoice number.}
+    INVOICE_SELLER_NAME: ${INVOICE_SELLER_NAME:-[Company name]}
+    INVOICE_SELLER_ADDRESS: ${INVOICE_SELLER_ADDRESS:-[Registered address]}
+    INVOICE_SELLER_GSTIN: ${INVOICE_SELLER_GSTIN:-[GSTIN]}
+    SIMULATOR_ENABLED: ${SIMULATOR_ENABLED:-false}
+    LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+services:
+  migrate:
+    <<: *backend
+    restart: "no"
+    command: ["migrate"]
+
+  api:
+    <<: *backend
+    command: ["api"]
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    ports: ["127.0.0.1:8000:8000"]
+
+  worker:
+    <<: *backend
+    command: ["worker"]
+    depends_on: { migrate: { condition: service_completed_successfully } }
+    environment:
+      <<: *backend-env
+      WORKER_QUEUES: owner.notifications,platform.events
+
+  scheduler:
+    <<: *backend
+    command: ["scheduler"]
+    depends_on: { migrate: { condition: service_completed_successfully } }

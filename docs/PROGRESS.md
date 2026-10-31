@@ -208,3 +208,10 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
 
 - **The assistant on/off switch is no longer the shop's** (founder's instruction). Owners and staff have no toggle in the app: Settings → Assistant lost the switch and its code step, `POST /business/ai` and `POST /business/ai/code` are gone (404), and `confirm_code` was removed with them. The platform team switches it in the operator console (`PATCH /operator/businesses/{id}` with `ai_enabled`; switching on is still refused for an ended subscription). When it is off, the menu says "AI assistant paused" and Home points to Support ("Contact support"); while it is on nothing is shown. Billing still pauses it automatically (trial end, cancellation). **Open question for the founder:** the owner's WhatsApp `stop` / `start` commands (PRD FR-CV-10) still work, because they are PRD behaviour; say if they should go too. Tests: `test_the_assistant_switch_belongs_to_the_platform_team_not_the_shop` (backend) and the owner browser spec; `test_api.py` and `test_billing.py` were re-run after the change, the full backend suite was not.
 
+
+- **Channel gateway, step 1 (2026-10-31).** Gateway part `forward` renamed `inbound` to match the agreed component design (receive / inbound / send):
+  `deploy/gateway/docker-compose.yml` (service, `INBOUND_CONCURRENCY`), `.env.example`, `scripts/stack.ps1` comment, ADR 0020. No code change; the queue
+  name `inbound.events` is unchanged. Checked with `docker compose config` only: **no Docker daemon, Postgres or uv on this machine, so the backend suite
+  was not run.** Still open from ADR 0020: (1) raw webhook log fidelity (exact bytes, signature header, keep bad-signature requests, `RAW_WEBHOOK_RETENTION_DAYS`),
+  (2) per-role secrets (only `send` needs `MASTER_KEY`), (3) agent context loader must not read `access_token_enc`, (4) `/metrics` ports for the monitor.
+  Next: do (1) and (2) test-first on a machine where the Postgres suite can run.

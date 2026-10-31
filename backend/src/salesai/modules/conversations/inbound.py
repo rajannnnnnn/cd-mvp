@@ -44,9 +44,9 @@ class InboundRouter:
     async def route_webhook(self, job: Job) -> None:
         wid = job.spec.payload["webhook_event_id"]
         async with self.db.system_tx() as c:
-            row = await (await c.execute("SELECT payload FROM webhook_events WHERE id=%s", (wid,))).fetchone()
-        if row is None:
-            return
+            row = await (await c.execute("SELECT payload, signature_valid FROM webhook_events WHERE id=%s", (wid,))).fetchone()
+        if row is None or not row["signature_valid"] or row["payload"] is None:
+            return                                   # never process a request that failed verification or could not be read
         try:
             await self.process_payload(row["payload"])
         except Exception as e:

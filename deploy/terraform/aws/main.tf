@@ -21,8 +21,8 @@ data "aws_vpc" "default" {
 }
 
 resource "aws_security_group" "demo" {
-  name_prefix = "saathi-demo-"
-  description = "Saathi demo: web (80/443) and optional SSH"
+  name_prefix = "chatdeal-demo-"
+  description = "ChatDeal demo: web (80/443) and optional SSH"
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
@@ -75,11 +75,11 @@ resource "aws_instance" "demo" {
     volume_type = "gp3"
   }
 
-  # First-boot script: swap (the image build needs memory), then the project's one-command server setup. Its log: /var/log/saathi-setup.log
+  # First-boot script: swap (the image build needs memory), then the project's one-command server setup. Its log: /var/log/chatdeal-setup.log
   user_data = <<-EOT
     #!/bin/bash
     set -x
-    exec > /var/log/saathi-setup.log 2>&1
+    exec > /var/log/chatdeal-setup.log 2>&1
     fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
     export ALLOW_IPS="${local.allow_ips}"
     export BRANCH="${var.branch}"
@@ -88,5 +88,5 @@ resource "aws_instance" "demo" {
     echo SETUP-FINISHED
   EOT
 
-  tags = { Name = "saathi-demo" }
+  tags = { Name = "chatdeal-demo" }
 }

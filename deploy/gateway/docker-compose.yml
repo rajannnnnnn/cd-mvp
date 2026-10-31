@@ -1,0 +1,68 @@
+# Channel gateway (ADR 0020): everything between WhatsApp and the rest of the system. No LLM, no sales logic.
+#   receive   public webhook: verify signature, store the raw event, enqueue, answer 200 (NFR-1)
+#   inbound   turn stored webhooks into clean messages / statuses / account events, hand the conversation to the agent
+#   send      the only way out to Meta: window + per-number limit + pacing, then send. Holds the WhatsApp tokens
+#
+# Start:   scripts\stack.ps1 gateway           Scale one part:  scripts\stack.ps1 gateway -Service send -Scale 2
+# Needs deploy/gateway/.env (copy .env.example). Migrations are run by the backend stack, so start that first.
+# Independent of the demo stack and of every other stack: own project name, env file and image tag.
+# Only `receive` is published (127.0.0.1:8001); point your public tunnel for Meta at it.
+name: chatdeal-gateway
+
+x-gateway: &gateway
+  build: { context: ../../backend }
+  image: chatdeal-gateway:local
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+    interval: 15s
+    timeout: 5s
+    retries: 4
+    start_period: 20s
+  environment: &gateway-env
+    ENV: ${APP_ENV:?set APP_ENV in deploy/gateway/.env}
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    TRUST_PROXY: "true"
+    DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in deploy/gateway/.env}
+    PRICING_DATABASE_URL: ${PRICING_DATABASE_URL:?set PRICING_DATABASE_URL in deploy/gateway/.env}
+    SYSTEM_DATABASE_URL: ${SYSTEM_DATABASE_URL:?set SYSTEM_DATABASE_URL in deploy/gateway/.env}
+    MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?set MIGRATION_DATABASE_URL in deploy/gateway/.env}
+    QUEUE_BACKEND: ${QUEUE_BACKEND:-postgres}
+    REDIS_URL: ${REDIS_URL:-}
+    # Settings still require every secret in every container today; ADR 0020 follow-up 2 narrows this per part.
+    MASTER_KEY: ${MASTER_KEY:?set MASTER_KEY in deploy/gateway/.env}
+    JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/gateway/.env}
+    OTP_SECRET: ${OTP_SECRET:?set OTP_SECRET in deploy/gateway/.env}
+    META_APP_SECRET: ${META_APP_SECRET:?set META_APP_SECRET in deploy/gateway/.env}
+    META_VERIFY_TOKEN: ${META_VERIFY_TOKEN:?set META_VERIFY_TOKEN in deploy/gateway/.env}
+    META_APP_ID: ${META_APP_ID:-}
+    META_CONFIG_ID: ${META_CONFIG_ID:-}
+    META_GRAPH_VERSION: ${META_GRAPH_VERSION:?set META_GRAPH_VERSION in deploy/gateway/.env}
+    META_GRAPH_BASE: ${META_GRAPH_BASE:-https://graph.facebook.com}
+    OTP_CHANNEL: ${OTP_CHANNEL:-whatsapp_cloud}
+    PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-manual}      # production refuses `test`; the gateway never takes payments
+    SIMULATOR_ENABLED: ${SIMULATOR_ENABLED:-false}
+    LLM_PROVIDER: ${LLM_PROVIDER:-local}
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+services:
+  receive:
+    <<: *gateway
+    command: ["ingress"]
+    ports: ["127.0.0.1:${RECEIVE_PORT:-8001}:8000"]
+
+  inbound:
+    <<: *gateway
+    command: ["worker"]
+    environment:
+      <<: *gateway-env
+      WORKER_QUEUES: inbound.events
+      WORKER_CONCURRENCY: ${INBOUND_CONCURRENCY:-8}
+
+  send:
+    <<: *gateway
+    command: ["worker"]
+    environment:
+      <<: *gateway-env
+      WORKER_QUEUES: outbound.actions
+      WORKER_CONCURRENCY: ${SEND_CONCURRENCY:-8}

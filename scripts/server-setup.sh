@@ -12,7 +12,7 @@
 set -euo pipefail
 REPO="${REPO:-https://github.com/rajannnnnnn/cd-mvp.git}"
 BRANCH="${BRANCH:-claude/festive-allen-4dinya}"
-DIR=/opt/saathi
+DIR=/opt/chatdeal
 
 if [ "$(id -u)" -ne 0 ]; then echo "Run as root: sudo bash scripts/server-setup.sh"; exit 1; fi
 

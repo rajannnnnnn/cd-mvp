@@ -91,10 +91,14 @@ class Scheduler:
         return n
 
     async def tick_retention(self) -> dict[str, int]:
-        """HLD retention: raw webhooks 30 days; finished jobs and stale auth artifacts shorter."""
+        """HLD retention: raw webhooks RAW_WEBHOOK_RETENTION_DAYS (rejected ones INVALID_WEBHOOK_RETENTION_DAYS); finished jobs and stale auth artifacts shorter."""
         out: dict[str, int] = {}
         async with self.rt.db.system_tx() as c:
-            out["webhook_events"] = (await c.execute("DELETE FROM webhook_events WHERE received_at < now() - interval '30 days'")).rowcount
+            cfg = self.rt.settings
+            out["webhook_events"] = (await c.execute(
+                "DELETE FROM webhook_events WHERE (signature_valid AND received_at < now() - make_interval(days => %s)) "
+                "OR (NOT signature_valid AND received_at < now() - make_interval(days => %s))",
+                (cfg.raw_webhook_retention_days, cfg.invalid_webhook_retention_days))).rowcount
             out["outbox"] = (await c.execute("DELETE FROM outbox WHERE published_at < now() - interval '7 days'")).rowcount
             out["otp_challenges"] = (await c.execute("DELETE FROM otp_challenges WHERE created_at < now() - interval '2 days'")).rowcount
             out["auth_sessions"] = (await c.execute("DELETE FROM auth_sessions WHERE (revoked_at IS NOT NULL AND revoked_at < now() - interval '30 days') OR expires_at < now() - interval '30 days'")).rowcount
