@@ -4,6 +4,7 @@ pricing engine -> reply checks -> delivery planner -> sender -> simulated phone.
 from __future__ import annotations
 
 import json
+import os
 import re
 import uuid
 from decimal import Decimal
@@ -15,6 +16,9 @@ from tests.evals.conftest import RESULTS
 from tests.evals.scenarios import SCENARIOS
 from tests.evals.shops import SHOPS, build_shop
 from tests.world import Recorder, install_llm, settle, sim_texts
+
+
+EVAL_TIMEOUT_S = float(os.environ.get("EVAL_TIMEOUT_S", "12"))     # raise it when the model is slow (e.g. through the LLM bridge)
 
 
 async def _context(world, shop, spec, phone, steps, rec) -> g.Context:  # noqa: ANN001
@@ -53,7 +57,7 @@ async def test_scenario(world, sc):
             if st.wait_silent:
                 await world.drain_for(1.5)
             else:
-                await settle(world, shop, phone, want=consumed + 1, timeout=12)
+                await settle(world, shop, phone, want=consumed + 1, timeout=EVAL_TIMEOUT_S)
                 for _ in range(8):                                             # more parts may follow: wait until the thread is quiet
                     n_before = len(await sim_texts(world, shop, phone))
                     await world.drain_for(0.7)

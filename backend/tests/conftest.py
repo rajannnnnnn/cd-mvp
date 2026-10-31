@@ -43,10 +43,12 @@ def pg_urls() -> dict[str, str]:
     with psycopg.connect(SUPER, autocommit=True) as c:
         c.execute(f'CREATE DATABASE "{name}"')
     subprocess.run(  # noqa: S603
-        [shutil.which("psql") or "psql", _with_db(SUPER, name), "-v", "ON_ERROR_STOP=1", "-q",  # which(): finds psql.cmd on Windows
+        [shutil.which("psql") or "psql", "-v", "ON_ERROR_STOP=1", "-q",  # which(): finds psql.cmd on Windows
          "-v", f"owner_pw={PW['owner']}", "-v", f"user_pw={PW['user']}",
          "-v", f"pricing_pw={PW['pricing']}", "-v", f"system_pw={PW['system']}",
-         "-f", str(ROOT / "db" / "bootstrap_roles.sql")],
+         "-f", str(ROOT / "db" / "bootstrap_roles.sql"),
+         _with_db(SUPER, name)],       # connection string LAST: Windows psql ignores options placed after it
+
         check=True, capture_output=True,
     )
     urls = {
