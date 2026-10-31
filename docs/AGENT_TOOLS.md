@@ -76,6 +76,7 @@ Behaviour that must hold:
 | `update_qualification` | `fields{quantity, occasion, budget, timeline, delivery_location, delivery_address}` | merge into `conversations.qualification` | `policy` qualification merge | `…/tools/update_qualification` | whitelisted keys, ≤ 200 chars each |
 | `set_lead_stage` | `stage`, `lost_reason?` | `lead_stage` via `sales.next_stage` | `sales.next_stage` | `…/tools/set_lead_stage` | **AI never sets `won`** (owner does); `lost` only per existing rule |
 | `mark_selling_stopped` | `reason: not_interested\|opted_out` | `selling_stopped=true`, stage `lost` | `policy` | `…/tools/mark_selling_stopped` | none beyond enum |
+| `schedule_followup` | `kind: promised_revert`, `when_hint?` (the customer's words, e.g. "kal shaam", "after lunch"), `topic?` | insert one row in `followups` (section 3.5) | `followups` table | `…/tools/schedule_followup` | selling not stopped, not opted out, not paused; the **harness computes `due_at`** from the hint inside the 24 h window and business hours; at most one pending per conversation |
 | `propose_order` | `variant_id`, `quantity`, `delivery_address?`, `customer_confirmed: bool` | `capture_deal(kind="order")` **only if** all checks pass; otherwise returns what is missing | `sales.capture_deal` | `…/tools/propose_order` | variant exists and in stock; **price is taken from the last issued quote, never from the model**; address present; `customer_confirmed` true; high-value threshold → also stages a `high_value` handoff |
 | `propose_visit` | `time_text` | `capture_deal(kind="visit")` | `sales.capture_deal` | `…/tools/propose_visit` | non-empty time text |
 | `request_handoff` | `reason: unknown_answer\|on_request_price\|customer_asked_human\|complaint\|high_value\|other`, `note` | `handoffs.create_handoff` (pauses AI, alerts owner) | `handoffs.create_handoff` | `…/tools/request_handoff` | one open handoff per conversation+reason (existing); `below_floor` is **not** a model-callable reason |
@@ -88,11 +89,52 @@ Exactly one terminal tool must end the turn: `reply`, `stay_silent`, or `react`.
 the harness uses the safe holding plan (INV-12: never silent about a failure).
 
 ### 3.4 Deliberately not tools in v1
-- **`schedule_followup` / nudge:** stays code-triggered (FR-SL-8: at most one in-window nudge, never when selling stopped). Letting the model
-  schedule messages would put timing and spam limits in the model's hands.
+- **Free choice of send time or wording at schedule time.** The model may *propose* a follow-up (`schedule_followup`) but code computes the
+  time and the message is written when it fires (section 3.5).
 - **Catalog or price edits, refunds, discounts outside the engine:** owner-only; not reachable by the seller.
 - **Free web search, arbitrary HTTP, code execution:** out of PRD v1 scope.
 - **Sending raw text to a customer outside `reply`.** There is no other send path.
+
+### 3.5 Follow-ups: scheduling, storage, trigger
+
+PRD: FR-SL-8 (at most one in-window nudge after a customer goes quiet), v1 outbound is **in-window only** (no templates). Two cases:
+
+| Case | Example | How it is created | Default due time |
+|---|---|---|---|
+| **Promised revert** | "I'll check and tell you", "kal batata hu", "will ask my husband" | the model calls `schedule_followup(kind=promised_revert, when_hint)` in the turn where the customer said it | from the hint if there is one ("tomorrow evening"), else `revert_after_minutes` (default 240); **always** at least 30 min before the 24 h window closes |
+| **Seen, then silent** | customer read our message, no reply | **no model needed**: when a turn commits a reply to a customer who showed interest, the harness inserts a `silent_after_reply` row | `nudge_after_minutes` (default 240); if a `read` status arrives, pulled earlier (`read_after_minutes`, default 120); if delivered but never read, wait the normal time and use neutral wording |
+
+Read receipts are not reliable (customers can switch them off), so *read* only moves a time earlier; it is never required.
+
+**Where it lives.** One table, the source of truth, visible to the owner and to the audit trail:
+
+```
+followups(id, business_id, conversation_id, kind, status, due_at, context jsonb, created_by_turn_id, created_at,
+          fired_at, outcome, skip_reason)
+  status: pending | firing | sent | skipped | cancelled
+  unique partial index: one row per conversation WHERE status = 'pending'          -- the "at most one" rule
+  index (due_at) WHERE status = 'pending'                                          -- the scheduler scan is a tiny indexed read
+  context: product in focus, topic, the customer's own words (≤ 200 chars), never a price
+```
+
+**How it fires.** The scheduler claims due rows (`FOR UPDATE SKIP LOCKED`, so several schedulers are safe), marks them `firing` and writes a
+`conversation.followup_due` event in the same transaction. It goes to the same per-conversation ordered queue as live turns, so it can never
+race a customer message. This replaces the current polling over all conversations in `tick_nudges`.
+
+**Cancelled automatically** (status `cancelled`, reason recorded): any new customer message; an owner reply from the Business app (echo); a
+handoff, pause, opt-out or `selling_stopped`; the deal moving to won or lost; or a new `schedule_followup` replacing it.
+
+**Re-validated when it fires** (else `skipped` with a reason): conversation `version` unchanged; AI allowed (`ai_block_reason`); still
+inside the 24 h window; inside business hours and the customer quiet-hours rule (default no sends 21:00–09:00 India time, moved to the next
+allowed time if still in the window, otherwise skipped); the per-number rate limit has room; fire times are jittered so a 9 am batch does
+not hit the number all at once.
+
+**Message: computed when it fires, not written in advance.** Prices, stock, offers and what the customer last said can change in hours; a
+pre-written text goes stale and could carry a number that is no longer engine-issued (INV-2). Only the *context* above is stored. At fire time
+the normal pipeline runs with `trigger="followup"`: small model plans, writer words it in the owner's voice, the usual checks run, delivery
+re-checks window and limits. Nobody is waiting on this turn, so the model call costs money but no perceived latency.
+
+**One follow-up per silence.** After it is sent, no second one until the customer writes again (assumption, see section 9).
 
 ## 4. The owner assistant (owner chatting with their own number) — tools
 
@@ -167,6 +209,7 @@ separate call so a bad writer cannot grade itself.
 ## 9. Assumptions I made (please overrule)
 
 1. **The model proposes and the harness confirms** orders and visits (no autonomous capture). Matches how pricing works today.
-2. **Nudges stay code-triggered**, not a tool.
+2. **Follow-ups: the model proposes a promised-revert, code decides the time and writes the text at fire time; "seen then silent" needs no
+   model.** One follow-up per silence (it re-arms when the customer writes); quiet hours 21:00–09:00 India time (a product choice for you to set).
 3. **The internal HTTP routes are internal-only**; the public API is unchanged in v1.
 4. **Seller and owner assistant are separate agents with separate tool allowlists**, not one agent with all tools.
