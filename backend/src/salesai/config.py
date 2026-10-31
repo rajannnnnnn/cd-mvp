@@ -17,6 +17,8 @@ ALL_QUEUES = (
     "owner.notifications",
     "platform.events",
 )
+# Queues whose jobs send to WhatsApp, so the process needs the master key to open the owner's access token.
+SENDING_QUEUES = {"outbound.actions", "owner.notifications", "platform.events"}
 
 
 class Settings(BaseSettings):
@@ -45,11 +47,13 @@ class Settings(BaseSettings):
     blob_path: str = "./.data/blobs"
 
     # --- secrets (environment or secret store only; INV-11)
-    master_key: str = Field(..., description="base64 32 bytes; wraps per-tenant data keys")
-    jwt_secret: str = Field(..., min_length=32)
-    otp_secret: str = Field(..., min_length=32)
-    meta_app_secret: str = Field(..., min_length=8)
-    meta_verify_token: str = Field(..., min_length=8)
+    # Each secret is required only by the process roles that use it (ADR 0020, `_required_secrets`); a role that does not need one
+    # is run without it, so a break-in there cannot read it. A secret that is present is always validated.
+    master_key: str = Field("", description="base64 32 bytes; wraps per-tenant data keys. Senders and the API only")
+    jwt_secret: str = Field("", description="at least 32 characters. API only")
+    otp_secret: str = Field("", description="at least 32 characters. API only")
+    meta_app_secret: str = Field("", description="at least 8 characters. Receive, API, and anything that signs simulated webhooks")
+    meta_verify_token: str = Field("", description="at least 8 characters. Receive and API")
     meta_app_id: str = ""                  # Embedded Signup: the Meta app id (public) and its configuration id
     meta_config_id: str = ""
     meta_graph_version: str = "v21.0"
@@ -111,6 +115,8 @@ class Settings(BaseSettings):
     @field_validator("master_key")
     @classmethod
     def _master_key_ok(cls, v: str) -> str:
+        if not v:
+            return v                                   # absence is judged per role in _required_secrets
         try:
             raw = base64.b64decode(v, validate=True)
         except Exception as e:  # noqa: BLE001
@@ -118,6 +124,27 @@ class Settings(BaseSettings):
         if len(raw) != 32:
             raise ValueError("MASTER_KEY must decode to exactly 32 bytes")
         return v
+
+    @model_validator(mode="after")
+    def _required_secrets(self) -> Settings:
+        """INV-11 / ADR 0020: each role gets the secrets it uses and no more; a required one that is missing stops startup."""
+        need: set[str] = set()
+        if self.role in ("api", "all"):
+            need |= {"master_key", "jwt_secret", "otp_secret", "meta_app_secret", "meta_verify_token"}
+        elif self.role == "ingress":
+            need |= {"meta_app_secret", "meta_verify_token"}
+        elif self.role == "worker" and set(self.queues) & SENDING_QUEUES:
+            need.add("master_key")                     # decrypts the owner's WhatsApp token to send
+        if self.simulator_enabled and self.role not in ("web", "migrate"):
+            need.add("meta_app_secret")                # the simulator signs the webhooks it plays back
+        for name in sorted(need):
+            if not getattr(self, name):
+                raise ValueError(f"{name.upper()} is required for role {self.role!r}")
+        for name, minimum in (("jwt_secret", 32), ("otp_secret", 32), ("meta_app_secret", 8), ("meta_verify_token", 8)):
+            v = getattr(self, name)
+            if v and len(v) < minimum:
+                raise ValueError(f"{name.upper()} must be at least {minimum} characters")
+        return self
 
     @model_validator(mode="after")
     def _production_rules(self) -> Settings:
@@ -158,6 +185,8 @@ class Settings(BaseSettings):
 
     @property
     def master_key_bytes(self) -> bytes:
+        if not self.master_key:
+            raise RuntimeError(f"MASTER_KEY is not configured for role {self.role!r}")
         return base64.b64decode(self.master_key)
 
 

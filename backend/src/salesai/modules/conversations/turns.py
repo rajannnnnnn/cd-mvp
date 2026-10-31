@@ -51,7 +51,9 @@ class TurnWorker:
                     return
                 biz = required(await (await c.execute("SELECT * FROM businesses WHERE id=%s", (bid,))).fetchone(), "biz")
                 cust = required(await (await c.execute("SELECT * FROM customers WHERE id=%s", (conv["customer_id"],))).fetchone(), "cust")
-                num = required(await (await c.execute("SELECT * FROM whatsapp_numbers WHERE id=%s", (conv["whatsapp_number_id"],))).fetchone(), "num")
+                num = required(await (await c.execute(            # no access token here: only the send part reads it (INV-11, ADR 0020)
+                    "SELECT id, business_id, channel, phone_number_id, display_phone, verified_name, status, quality_rating, coexistence "
+                    "FROM whatsapp_numbers WHERE id=%s", (conv["whatsapp_number_id"],))).fetchone(), "num")
                 gaps = [r["gap_ms"] for r in await (await c.execute(
                     "SELECT gap_ms FROM messages WHERE conversation_id=%s AND direction='in' AND gap_ms IS NOT NULL ORDER BY created_at DESC LIMIT 20", (cid,))).fetchall()]
             block = ai_block_reason(business=biz, conv=conv, customer=cust, number=num, now=now)

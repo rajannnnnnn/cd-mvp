@@ -29,12 +29,9 @@ x-gateway: &gateway
     MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?set MIGRATION_DATABASE_URL in deploy/gateway/.env}
     QUEUE_BACKEND: ${QUEUE_BACKEND:-postgres}
     REDIS_URL: ${REDIS_URL:-}
-    # Settings still require every secret in every container today; ADR 0020 follow-up 2 narrows this per part.
-    MASTER_KEY: ${MASTER_KEY:?set MASTER_KEY in deploy/gateway/.env}
-    JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/gateway/.env}
-    OTP_SECRET: ${OTP_SECRET:?set OTP_SECRET in deploy/gateway/.env}
-    META_APP_SECRET: ${META_APP_SECRET:?set META_APP_SECRET in deploy/gateway/.env}
-    META_VERIFY_TOKEN: ${META_VERIFY_TOKEN:?set META_VERIFY_TOKEN in deploy/gateway/.env}
+    # No secrets here on purpose (ADR 0020 follow-up 2, INV-11): each part below is given only the secrets it uses.
+    #   receive  META_APP_SECRET, META_VERIFY_TOKEN     inbound  none     send  MASTER_KEY (opens the WhatsApp tokens)
+    # JWT_SECRET and OTP_SECRET belong to the API and are not part of the gateway.
     META_APP_ID: ${META_APP_ID:-}
     META_CONFIG_ID: ${META_CONFIG_ID:-}
     META_GRAPH_VERSION: ${META_GRAPH_VERSION:?set META_GRAPH_VERSION in deploy/gateway/.env}
@@ -50,6 +47,10 @@ services:
     <<: *gateway
     command: ["ingress"]
     ports: ["127.0.0.1:${RECEIVE_PORT:-8001}:8000"]
+    environment:
+      <<: *gateway-env
+      META_APP_SECRET: ${META_APP_SECRET:?set META_APP_SECRET in deploy/gateway/.env}
+      META_VERIFY_TOKEN: ${META_VERIFY_TOKEN:?set META_VERIFY_TOKEN in deploy/gateway/.env}
 
   inbound:
     <<: *gateway
@@ -66,3 +67,4 @@ services:
       <<: *gateway-env
       WORKER_QUEUES: outbound.actions
       WORKER_CONCURRENCY: ${SEND_CONCURRENCY:-8}
+      MASTER_KEY: ${MASTER_KEY:?set MASTER_KEY in deploy/gateway/.env}

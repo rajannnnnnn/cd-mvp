@@ -3,11 +3,13 @@ roles are bootstrapped from db/bootstrap_roles.sql and migrations are applied ex
 production. Set TEST_PG_SUPERUSER_URL to point at another server."""
 from __future__ import annotations
 
+import asyncio
 import base64
 import os
 import shutil
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 import uuid
@@ -17,6 +19,9 @@ import httpx
 import psycopg
 import pytest
 import pytest_asyncio
+
+if sys.platform == "win32":   # psycopg's async mode cannot use Windows' default (Proactor) event loop
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 ROOT = Path(__file__).resolve().parents[2]
 SUPER = os.environ.get("TEST_PG_SUPERUSER_URL", "postgresql://postgres@127.0.0.1:5432/postgres")
@@ -38,7 +43,7 @@ def pg_urls() -> dict[str, str]:
     with psycopg.connect(SUPER, autocommit=True) as c:
         c.execute(f'CREATE DATABASE "{name}"')
     subprocess.run(  # noqa: S603
-        ["psql", _with_db(SUPER, name), "-v", "ON_ERROR_STOP=1", "-q",  # noqa: S607
+        [shutil.which("psql") or "psql", _with_db(SUPER, name), "-v", "ON_ERROR_STOP=1", "-q",  # which(): finds psql.cmd on Windows
          "-v", f"owner_pw={PW['owner']}", "-v", f"user_pw={PW['user']}",
          "-v", f"pricing_pw={PW['pricing']}", "-v", f"system_pw={PW['system']}",
          "-f", str(ROOT / "db" / "bootstrap_roles.sql")],

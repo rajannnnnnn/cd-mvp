@@ -85,7 +85,9 @@ async def load(db: Database, business_id: uuid.UUID, conversation_id: uuid.UUID,
         business = required(await (await c.execute("SELECT * FROM businesses WHERE id=%s", (business_id,))).fetchone(), "business")
         conv = required(await (await c.execute("SELECT * FROM conversations WHERE id=%s", (conversation_id,))).fetchone(), "conv")
         customer = required(await (await c.execute("SELECT * FROM customers WHERE id=%s", (conv["customer_id"],))).fetchone(), "customer")
-        number = required(await (await c.execute("SELECT * FROM whatsapp_numbers WHERE id=%s", (conv["whatsapp_number_id"],))).fetchone(), "number")
+        number = required(await (await c.execute(                 # no access token here: only the send part reads it (INV-11, ADR 0020)
+            "SELECT id, business_id, channel, phone_number_id, display_phone, verified_name, status, quality_rating, coexistence "
+            "FROM whatsapp_numbers WHERE id=%s", (conv["whatsapp_number_id"],))).fetchone(), "number")
         unanswered = await (await c.execute(
             """SELECT id, kind, body, wa_message_id, created_at FROM messages
                WHERE conversation_id=%s AND direction='in' AND NOT answered ORDER BY created_at, id""", (conversation_id,))).fetchall()

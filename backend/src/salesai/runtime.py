@@ -42,7 +42,7 @@ def build_alert_router(db: Database, channels: ChannelRegistry, settings: Settin
 class Runtime:
     def __init__(self, settings: Settings, db: Database, queue: Queue):
         self.settings, self.db, self.queue = settings, db, queue
-        self.vault = TokenVault(db, settings.master_key_bytes)
+        self.vault = TokenVault(db, settings.master_key_bytes if settings.master_key else None)   # None: this role never opens tokens (ADR 0020)
         self.channels = ChannelRegistry(db, self.vault, graph_base=settings.meta_graph_base,
                                         graph_version=settings.meta_graph_version,
                                         simulator_enabled=settings.simulator_enabled, platform_channel=settings.otp_channel,

@@ -52,6 +52,22 @@ A small deployment may run every part in one container (`role=all`); that is pac
      includes `access_token_enc`.
   4. **Monitoring ports.** `inbound` and `send` expose `/metrics` on the container network only; publish for the monitor
      when it exists.
+- **Follow-up status (2026-10-31): all four done and tested.**
+  1. Raw log fidelity: migration `0012_webhook_raw_log.sql`; exact bytes, signature header and receive time kept; bad-signature requests kept as
+     flagged evidence (never queued, size-capped by `INVALID_WEBHOOK_MAX_BYTES`, shorter `INVALID_WEBHOOK_RETENTION_DAYS`);
+     `RAW_WEBHOOK_RETENTION_DAYS` replaces the fixed 30 days. Tests: `test_gateway_raw_log.py`.
+  2. Per-role secrets: `Settings._required_secrets` requires each secret only for the roles that use it (`receive`: the two Meta values;
+     `inbound`, the agent and the scheduler: none; senders, the API and `all`: `MASTER_KEY`; the API and `all` also `JWT_SECRET`/`OTP_SECRET`).
+     A present secret is always validated; reading an absent master key raises; `TokenVault` without a key refuses to open tokens.
+     `deploy/gateway/docker-compose.yml` hands each part only its own secrets. A worker is a "sender" when its queues include
+     `outbound.actions`, `owner.notifications` or `platform.events` (all three send to WhatsApp), so the default all-queues worker still needs the key.
+     Tests: `test_config_roles.py`.
+  3. The agent's context loader and the turn planner select explicit `whatsapp_numbers` columns, never the token. Tests:
+     `test_gateway_token_isolation.py` (source scan of the agent and conversation modules plus a behavioural check).
+  4. `/metrics`, `/healthz` and `/readyz` were already served by every worker; now locked by `test_gateway_metrics.py` (queue depth, oldest-job age and
+     dead letters for each queue; no webhook or API route on a worker). Not published to the host; publish for the monitor when it exists.
+- Not covered by this decision and still open: `owner.notifications` and `platform.events` workers are "senders" but are not yet a named gateway
+  part; today they run in the backend stack. When they move into the gateway they need `MASTER_KEY` too, as above.
 - Already satisfied by the existing router and queue: event routing by type, duplicate protection by WhatsApp message ID,
   per-conversation ordering, a shared send-rate limit.
 

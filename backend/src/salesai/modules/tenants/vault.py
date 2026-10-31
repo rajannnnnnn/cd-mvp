@@ -9,11 +9,14 @@ from salesai.db import Conn, Database
 
 
 class TokenVault:
-    def __init__(self, db: Database, master_key: bytes):
+    def __init__(self, db: Database, master_key: bytes | None):
+        """`master_key` is None in processes that must never open a token (receive, inbound, the agent): any use then fails."""
         self.db, self._master = db, master_key
         self._dek_cache: dict[uuid.UUID, bytes] = {}
 
     async def _dek(self, business_id: uuid.UUID) -> bytes:
+        if self._master is None:
+            raise RuntimeError("MASTER_KEY is not configured in this process: it cannot open WhatsApp tokens")
         if business_id in self._dek_cache:
             return self._dek_cache[business_id]
         async with self.db.system_tx() as c:
