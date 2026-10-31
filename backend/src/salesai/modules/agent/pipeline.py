@@ -51,14 +51,27 @@ class Usage:
     cost_micros: int = 0
     latency_ms: int = 0
     models: list[str] = field(default_factory=list)
+    calls: list[dict[str, Any]] = field(default_factory=list)      # one entry per model call, in order (audit)
 
-    def add(self, res: Any) -> None:
+    def add(self, res: Any, stage: str = "?") -> None:
         self.input_tokens += res.input_tokens
         self.output_tokens += res.output_tokens
         self.cost_micros += res.cost_micros
         self.latency_ms += res.latency_ms
         if res.model not in self.models:
             self.models.append(res.model)
+        self.calls.append({"stage": stage, "ok": True, "model": res.model, "provider": getattr(res, "provider", None),
+                           "in": res.input_tokens, "out": res.output_tokens, "ms": res.latency_ms})
+
+    def failed(self, stage: str, error: Any) -> None:
+        self.calls.append({"stage": stage, "ok": False, "error": str(error)[:160]})
+
+    def summary(self) -> dict[str, Any]:
+        """What the audit shows: how many model calls this turn made, split by step, and which of them failed."""
+        by_stage: dict[str, int] = {}
+        for c in self.calls:
+            by_stage[c["stage"]] = by_stage.get(c["stage"], 0) + 1
+        return {"calls": len(self.calls), "failed": sum(1 for c in self.calls if not c["ok"]), "by_stage": by_stage, "detail": self.calls}
 
 
 @dataclass
@@ -99,6 +112,7 @@ class AgentService:
             try:
                 plan, out = await self._plan(ctx, usage, prompt_refs, trigger)
             except LLMUnavailable as e:
+                usage.failed("planner", e)
                 log.error("LLM unavailable at planning: %s", e)
                 plan = self._holding_plan(ctx, f"LLM unavailable: {e}", "system_failure")
                 return await self._finish(ctx, plan, [self._holding_text(plan)], usage, {"llm_unavailable": True}, signals or {}, version, t0, trigger, prompt_refs)
@@ -115,7 +129,7 @@ class AgentService:
         pr = prompts.load("planner")
         prompt_refs["planner"] = pr.ref
         res = await self.llm.generate(LLMRequest("planner", pr.text, ctx.planner_input(trigger), self.models.planner, pr.ref, max_tokens=1200), PlannerOutput)
-        usage.add(res)
+        usage.add(res, "planner")
         out: PlannerOutput = res.output
         plan = await pol.build_plan(ctx, out, self.pricing, trigger=trigger)
         return plan, out
@@ -140,6 +154,10 @@ class AgentService:
             "customer_name": ctx.customer.get("name"), "honorific": sales.get("honorific"),
             "style_examples": [{"situation": e["situation"], "customer_text": e["customer_text"], "owner_reply": e["owner_reply"]} for e in ctx.style_examples],
             "directives": plan.directives, "reaction_emoji": plan.reaction_emoji,
+            # an ongoing chat: without these the writer treats every turn as the first and greets again
+            "first_reply": not ctx.has_prior_ai_message,
+            "history": [{"sender": m["sender"], "text": (m["body"] or "")[:400]} for m in ctx.history[-12:]],
+            "customer_just_said": [(m["body"] or "")[:400] for m in ctx.unanswered],
         }
         checkctx = self._checkctx(ctx, plan)
         log: dict[str, Any] = {"attempts": []}
@@ -150,13 +168,14 @@ class AgentService:
                     LLMRequest("writer", wp.text, {**base_input, **({"feedback": feedback} if feedback else {})}, self.models.writer, wp.ref, max_tokens=900),
                     WriterOutput)
             except LLMUnavailable as e:
+                usage.failed("writer", e)
                 log["failed"], log["error"] = ["llm_unavailable"], str(e)
                 return None, None, log
-            usage.add(res)
+            usage.add(res, "writer")
             parts = [p.strip() for p in res.output.parts if p and p.strip()]
             result = chk.run_checks(parts, checkctx)
             if result.ok and self.llm_checks:
-                result = await self._llm_check(ctx, parts, usage, prompt_refs, result)
+                result = await self._llm_check(ctx, plan, parts, usage, prompt_refs, result)
             log["attempts"].append({"ok": result.ok, "failures": [f"{f.check}: {f.detail}" for f in result.failures]})
             if result.ok:
                 return parts, res.output.reaction_emoji or plan.reaction_emoji, log
@@ -166,17 +185,20 @@ class AgentService:
             log["failed"] = result.checks()
         return None, None, log
 
-    async def _llm_check(self, ctx: ctxmod.TurnContext, parts: list[str], usage: Usage, prompt_refs: dict[str, str],
+    async def _llm_check(self, ctx: ctxmod.TurnContext, plan: pol.Plan, parts: list[str], usage: Usage, prompt_refs: dict[str, str],
                          result: chk.CheckResult) -> chk.CheckResult:
         cp = prompts.load("checker")
         prompt_refs["checker"] = cp.ref
         try:
             res = await self.llm.generate(
                 LLMRequest("check", cp.text, {"parts": parts, "business": ctx.business["name"],
+                                              # the same facts the writer was given: engine-issued prices, stock, shop info. Without them every correct quote looks invented.
+                                              "allowed_facts": plan.directives,
                                               "facts": ctxmod.topic_text(ctx.business["profile"] or {}, "hours")}, self.models.check, cp.ref, max_tokens=400), CheckOutput)
-        except LLMUnavailable:
+        except LLMUnavailable as e:
+            usage.failed("check", e)
             return result                      # deterministic checks already passed; do not block on the optional model check
-        usage.add(res)
+        usage.add(res, "check")
         o: CheckOutput = res.output
         if not o.scope_ok:
             result.failures.append(chk.Failure("scope", "reply is outside the business scope"))
@@ -245,7 +267,7 @@ class AgentService:
                 """INSERT INTO turns (business_id, conversation_id, conversation_version, inbound_message_ids, status, decision, signals,
                                       model, prompt_versions, input_tokens, output_tokens, cost_micros, latency_ms, completed_at)
                    VALUES (%s,%s,%s,%s,'planned',%s,%s,%s,%s,%s,%s,%s,%s, now()) RETURNING id""",
-                (bid, cid, version, inbound_ids, jsonb({**decision, "intent": plan.intent, "directives": [d["type"] for d in plan.directives],
+                (bid, cid, version, inbound_ids, jsonb({**decision, "intent": plan.intent, "llm": usage.summary(), "directives": [d["type"] for d in plan.directives],
                                                        "engine": [e.decision.for_llm() for e in plan.evaluations]}),
                  jsonb({**signals, "trigger": trigger}), ",".join(usage.models) or None, jsonb(prompt_refs or {}),
                  usage.input_tokens, usage.output_tokens, usage.cost_micros, usage.latency_ms))).fetchone()

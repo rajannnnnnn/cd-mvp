@@ -4,6 +4,7 @@ Every role exposes /healthz and /readyz; migrations are a separate one-off step.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import signal
 import sys
@@ -46,7 +47,8 @@ async def run(role: str) -> None:
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, stop.set)
+        with contextlib.suppress(NotImplementedError):      # Windows event loops cannot register signal handlers; Ctrl+C then ends the process directly
+            loop.add_signal_handler(sig, stop.set)
 
     tasks: list[asyncio.Task[None]] = []
     servers: list[uvicorn.Server] = []
@@ -74,6 +76,8 @@ async def run(role: str) -> None:
 
 
 def main() -> None:
+    if sys.platform == "win32":     # psycopg's async mode cannot use Windows' default Proactor event loop
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     role = sys.argv[1] if len(sys.argv) > 1 else get_settings().role
     asyncio.run(run(role))
 

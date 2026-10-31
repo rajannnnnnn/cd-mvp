@@ -1,27 +1,6 @@
 {
   "components": {
     "schemas": {
-      "AiToggle": {
-        "properties": {
-          "code": {
-            "description": "The code sent to the signed-in number by POST /business/ai/code.",
-            "maxLength": 12,
-            "minLength": 1,
-            "title": "Code",
-            "type": "string"
-          },
-          "enabled": {
-            "title": "Enabled",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "enabled",
-          "code"
-        ],
-        "title": "AiToggle",
-        "type": "object"
-      },
       "AlertOut": {
         "properties": {
           "business_id": {
@@ -2344,7 +2323,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
                 "type": "string"
               }
             ],
@@ -2357,7 +2335,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
                 "type": "string"
               }
             ],
@@ -2370,7 +2347,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
                 "type": "string"
               }
             ],
@@ -2389,7 +2365,6 @@
       "LadderOut": {
         "properties": {
           "list_price": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "List Price",
             "type": "string"
           },
@@ -2398,7 +2373,6 @@
             "items": {
               "anyOf": [
                 {
-                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                   "type": "string"
                 },
                 {
@@ -3025,7 +2999,6 @@
                     "type": "number"
                   },
                   {
-                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                     "type": "string"
                   }
                 ],
@@ -3159,7 +3132,6 @@
                 "decimal_places": 2,
                 "gt": 0,
                 "max_digits": 12,
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -3833,7 +3805,6 @@
                     "type": "number"
                   },
                   {
-                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                     "type": "string"
                   }
                 ],
@@ -3855,7 +3826,6 @@
                     "type": "number"
                   },
                   {
-                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                     "type": "string"
                   }
                 ],
@@ -3882,7 +3852,6 @@
                     "type": "number"
                   },
                   {
-                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                     "type": "string"
                   }
                 ],
@@ -3904,7 +3873,6 @@
                     "type": "number"
                   },
                   {
-                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                     "type": "string"
                   }
                 ],
@@ -3925,7 +3893,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
                 "type": "string"
               }
             ],
@@ -3979,7 +3946,6 @@
           "list_price": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -3995,7 +3961,6 @@
           "range_max": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -4007,7 +3972,6 @@
           "range_min": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -4017,7 +3981,6 @@
             "title": "Range Min"
           },
           "round_to": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Round To",
             "type": "string"
           }
@@ -4510,7 +4473,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -5816,6 +5778,17 @@
             ],
             "title": "Latency Ms"
           },
+          "llm_calls": {
+            "title": "Llm Calls",
+            "type": "integer"
+          },
+          "llm_calls_by_stage": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Llm Calls By Stage",
+            "type": "object"
+          },
           "model": {
             "anyOf": [
               {
@@ -5849,7 +5822,9 @@
           "output_tokens",
           "cost_inr",
           "latency_ms",
-          "checks_failed"
+          "checks_failed",
+          "llm_calls",
+          "llm_calls_by_stage"
         ],
         "title": "TurnRow",
         "type": "object"
@@ -7289,114 +7264,6 @@
           }
         },
         "summary": "Patch Business",
-        "tags": [
-          "business"
-        ]
-      }
-    },
-    "/api/v1/business/ai": {
-      "post": {
-        "operationId": "toggle_ai_api_v1_business_ai_post",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AiToggle"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BusinessOut"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Pause or resume the AI for the whole business (needs the confirmation code)",
-        "tags": [
-          "business"
-        ]
-      }
-    },
-    "/api/v1/business/ai/code": {
-      "post": {
-        "operationId": "ai_code_api_v1_business_ai_code_post",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "authorization",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OtpSent"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Send a confirmation code to your own number before switching the AI",
         "tags": [
           "business"
         ]

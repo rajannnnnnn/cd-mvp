@@ -256,6 +256,8 @@ class TurnRow(BaseModel):
     cost_inr: float
     latency_ms: int | None
     checks_failed: int
+    llm_calls: int                      # model calls this turn made (planner + writer attempts + checker), failures included
+    llm_calls_by_stage: dict[str, int]
 
 
 @router.get("/turns", response_model=list[TurnRow], summary="Recent AI turns: decision metadata, model, tokens, cost, latency (FR-OP-2) — no customer content")
@@ -263,10 +265,12 @@ async def turns(rt: RT, p: Operator, limit: Annotated[int, Query(ge=1, le=200)] 
     async with rt.db.system_tx() as c:
         rows = await (await c.execute(
             """SELECT t.id, b.name AS business_name, t.created_at, t.decision->>'intent' AS intent, t.model, t.input_tokens, t.output_tokens, t.cost_micros, t.latency_ms,
-                      CASE WHEN jsonb_typeof(t.decision->'checks'->'attempts') = 'array' THEN jsonb_array_length(t.decision->'checks'->'attempts') ELSE 0 END AS attempts
+                      CASE WHEN jsonb_typeof(t.decision->'checks'->'attempts') = 'array' THEN jsonb_array_length(t.decision->'checks'->'attempts') ELSE 0 END AS attempts,
+                      COALESCE((t.decision->'llm'->>'calls')::int, 0) AS llm_calls, COALESCE(t.decision->'llm'->'by_stage', '{}'::jsonb) AS llm_by_stage
                FROM turns t JOIN businesses b ON b.id=t.business_id ORDER BY t.created_at DESC LIMIT %s""", (limit,))).fetchall()
     return [TurnRow(id=r["id"], business_name=r["business_name"], created_at=r["created_at"], intent=r["intent"], model=r["model"], input_tokens=r["input_tokens"],
-                    output_tokens=r["output_tokens"], cost_inr=round((r["cost_micros"] or 0) / 1_000_000, 4), latency_ms=r["latency_ms"], checks_failed=max(0, int(r["attempts"]) - 1)) for r in rows]
+                    output_tokens=r["output_tokens"], cost_inr=round((r["cost_micros"] or 0) / 1_000_000, 4), latency_ms=r["latency_ms"], checks_failed=max(0, int(r["attempts"]) - 1),
+                    llm_calls=int(r["llm_calls"]), llm_calls_by_stage=dict(r["llm_by_stage"] or {})) for r in rows]
 
 
 class CostRow(BaseModel):

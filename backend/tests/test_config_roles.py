@@ -16,6 +16,13 @@ MASTER = base64.b64encode(b"k" * 32).decode()
 SECRETS = {"MASTER_KEY": MASTER, "JWT_SECRET": "j" * 40, "OTP_SECRET": "o" * 40, "META_APP_SECRET": "m" * 24, "META_VERIFY_TOKEN": "v" * 24}
 
 
+@pytest.fixture(autouse=True)
+def _clean_environment(monkeypatch):
+    """Settings reads os.environ; other test files export the whole secret set for the session. These tests are about what is ABSENT."""
+    for name in list(SECRETS) + ["ROLE", "WORKER_QUEUES", "SIMULATOR_ENABLED", "ENV", "OTP_CHANNEL", "LLM_PROVIDER", "PAYMENT_PROVIDER"]:
+        monkeypatch.delenv(name, raising=False)
+
+
 def build(role: str, *, keep: tuple[str, ...] = (), **over: str) -> Settings:
     """Settings for `role` carrying only the named secrets (plus any override)."""
     env = {**DB, "ROLE": role, "SIMULATOR_ENABLED": "false", **{k: v for k, v in SECRETS.items() if k in keep}, **over}
