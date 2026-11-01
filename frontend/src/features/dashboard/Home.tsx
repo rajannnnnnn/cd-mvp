@@ -144,7 +144,6 @@ export default function Home() {
         </section>
       </div>
 
-      {!needsCount && !ov.isLoading && <div className="card"><EmptyState icon={<Sparkles className="h-6 w-6" />} title={t('dash.nothing', 'Nothing needs you right now 🎉')} body={tr('The assistant is handling your conversations. You’ll see handoffs and orders to confirm here.')} /></div>}
     </div>
   )
 }
