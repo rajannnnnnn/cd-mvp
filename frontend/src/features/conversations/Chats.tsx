@@ -8,15 +8,12 @@ import { Avatar, Badge, Confirm, EmptyState, ErrorNote, MessageTicks, Skeleton, 
 import { ago, clock, cx, dayLabel, inr, phone as fmtPhone } from '@/lib/format'
 import { HANDOFF_LABEL, HANDOFF_TONE, STAGES, STAGE_LABEL, STAGE_TONE, type Stage } from '@/lib/stages'
 import { tr } from '@/i18n/tr'
-import { CHAT_TABS, TabBar, TryButton, useTabSwitch } from '@/app/SectionTabs'
-import { ListRowsSkeleton, ThreadSkeleton } from '@/ui/skeletons'
+import { TryButton } from '@/app/SectionTabs'
+import { ChatRowsSkeleton, ThreadSkeleton } from '@/ui/skeletons'
 
 type Summary = Schemas['ConversationSummary']
 type Detail = Schemas['ConversationDetail']
-const FILTERS = [
-  { id: 'all', key: 'chat.all', label: 'All' }, { id: 'attention', key: 'chat.attention', label: 'Needs you' }, { id: 'negotiating', key: 'chat.negotiating', label: 'Negotiating' },
-  { id: 'ready', key: 'chat.ready', label: 'Ready to buy' }, { id: 'paused', key: 'chat.paused', label: 'Paused' },
-] as const
+import { FILTERS } from './filters'
 
 function filterQuery(f: string, search: string) {
   const q: Record<string, any> = { limit: 30 }
@@ -48,7 +45,7 @@ function ChatList({ activeId }: { activeId?: string }) {
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5">{FILTERS.map((f) => <button key={f.id} className={cx('chip', filter === f.id && 'chip-active')} onClick={() => setFilter(f.id)}>{t(f.key, f.label)}</button>)}</div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {q.isLoading && <ListRowsSkeleton />}
+        {q.isLoading && <ChatRowsSkeleton />}
         {q.error && <div className="p-4"><ErrorNote error={q.error} retry={() => q.refetch()} /></div>}
         {!q.isLoading && items.length === 0 && <EmptyState icon={debounced ? <Search className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />} title={debounced ? tr('No chats match “{q}”', { q: debounced }) : t('chat.empty', 'No conversations here')} body={debounced ? tr('Check the spelling, or search by a name or phone number.') : filter === 'all' ? tr('Customer chats will appear here as soon as someone messages your number.') : tr('Nothing matches this filter.')} />}
         {items.map((c) => <ChatRow key={c.id} c={c} active={c.id === activeId} />)}
@@ -265,17 +262,13 @@ export default function Chats() {
   const { t } = useT()
   const { id } = useParams()
   const nav = useNavigate()
-  const switched = useTabSwitch(CHAT_TABS())
   return (
-    <div className={cx('flex h-[calc(100dvh-57px-76px)] flex-col lg:h-[calc(100dvh-57px)]', switched)}>
-      <TabBar tabs={CHAT_TABS()} className={id ? 'hidden lg:flex' : undefined} left={<h1 className="truncate font-display text-xl font-extrabold">{t('chat.title', 'Chats')}</h1>} />
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] lg:grid-cols-[360px_minmax(0,1fr)]">
+    <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] lg:grid-cols-[360px_minmax(0,1fr)]">
         <div className={cx('min-h-0 border-r border-line/70', id ? 'hidden lg:block' : 'block')}><ChatList activeId={id} /></div>
         <div className={cx('min-h-0', id ? 'block' : 'hidden lg:block')}>
           {id ? <Thread key={id} id={id} onBack={() => nav('/chats')} /> : (
             <div className="chat-bg grid h-full place-items-center"><EmptyState icon={<MessageCircle className="h-6 w-6" />} title={tr('Pick a conversation')} body={tr('Select a chat to read it, take over from the AI, or see the lead details.')} /></div>)}
         </div>
-      </div>
     </div>
   )
 }

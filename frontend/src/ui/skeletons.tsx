@@ -2,7 +2,10 @@ import type { ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { cx } from '@/lib/format'
 import { STAGES } from '@/lib/stages'
-import { Segmented } from '@/ui'
+import { MessageCircle, Search } from 'lucide-react'
+import { EmptyState, Segmented } from '@/ui'
+import { FILTERS } from '@/features/conversations/filters'
+import { tr } from '@/i18n/tr'
 import { CHAT_TABS, INSIGHT_TABS, SectionTabs, TabBar } from '@/app/SectionTabs'
 
 /* ------------------------------------------------------------------------------------------------------------------
@@ -94,17 +97,67 @@ export function ColumnsSkeleton({ count = 4 }: { count?: number }) {
   )
 }
 
-/** Message bubbles in a conversation. */
-export function ThreadSkeleton() {
+/** Rows of the conversation list: name and time, the last message, the stage tag. */
+export function ChatRowsSkeleton({ count = 7 }: { count?: number }) {
+  const w = ['w-2/3', 'w-4/5', 'w-1/2', 'w-3/4', 'w-3/5', 'w-5/6', 'w-2/3']
   return (
-    <div className="flex h-full flex-col" aria-hidden>
-      <div className="flex items-center gap-3 border-b border-line/70 px-4 py-3"><Bone className="h-10 w-10 !rounded-full" /><div className="flex-1 space-y-2"><Bone className="h-4 w-1/3" /><Bone className="h-3 w-1/4" /></div></div>
-      <div className="flex flex-1 flex-col gap-3 p-4">
-        <Bone className="h-12 w-3/5 !rounded-2xl" /><Bone className="ml-auto h-16 w-2/3 !rounded-2xl" /><Bone className="h-10 w-1/2 !rounded-2xl" /><Bone className="ml-auto h-12 w-3/5 !rounded-2xl" />
-      </div>
-      <div className="border-t border-line/70 p-3"><Bone className="h-11 w-full !rounded-xl" /></div>
+    <div aria-hidden>
+      {range(count).map((i) => (
+        <div key={i} className="flex gap-3 border-b border-line/40 px-4 py-3.5">
+          <Bone className="h-11 w-11 shrink-0 !rounded-full" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <div className="flex items-center justify-between gap-3"><Bone className="h-4 w-28" /><Bone className="h-3 w-12" /></div>
+            <Bone className={cx('h-3.5', w[i % w.length])} />
+            <Bone className="h-5 w-20 !rounded-full" />
+          </div>
+        </div>))}
     </div>
   )
+}
+
+/** A conversation: header, a day marker, bubbles from both sides and the reply box. */
+export function ThreadSkeleton() {
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-surface" aria-hidden>
+      <div className="flex items-center gap-3 border-b border-line/70 px-4 py-3">
+        <Bone className="h-10 w-10 shrink-0 !rounded-full" />
+        <div className="flex-1 space-y-2"><Bone className="h-4 w-36" /><Bone className="h-3 w-24" /></div>
+        <Bone className="h-9 w-28 !rounded-xl" />
+      </div>
+      <div className="chat-bg flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4">
+        <Bone className="mx-auto h-5 w-20 !rounded-full" />
+        <Bone className="h-14 w-3/5 max-w-[320px] !rounded-2xl" />
+        <Bone className="ml-auto h-20 w-2/3 max-w-[380px] !rounded-2xl" />
+        <Bone className="h-10 w-2/5 max-w-[240px] !rounded-2xl" />
+        <Bone className="ml-auto h-14 w-3/5 max-w-[320px] !rounded-2xl" />
+        <Bone className="h-12 w-1/2 max-w-[280px] !rounded-2xl" />
+      </div>
+      <div className="flex items-center gap-2 border-t border-line/70 p-3"><Bone className="h-11 flex-1 !rounded-xl" /><Bone className="h-11 w-11 shrink-0 !rounded-xl" /></div>
+    </div>
+  )
+}
+
+/** The Conversations view: the real search box and filter chips, grey rows, and a grey thread (or the real "pick a conversation" note). */
+export function ChatsBodySkeleton({ thread = false }: { thread?: boolean }) {
+  return (
+    <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] lg:grid-cols-[360px_minmax(0,1fr)]" aria-busy="true" aria-label="Loading">
+      <div className={cx('flex min-h-0 flex-col border-r border-line/70 bg-surface', thread && 'hidden lg:flex')}>
+        <div className="space-y-3 border-b border-line/70 p-4">
+          <div className="relative"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input disabled className="input !pl-10" placeholder={tr('Search name or number')} /></div>
+          <div className="-mx-1 flex gap-2 overflow-hidden px-1 pb-0.5">{FILTERS.map((f) => <span key={f.id} className={cx('chip', f.id === 'all' && 'chip-active')}>{tr(f.label)}</span>)}</div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-hidden"><ChatRowsSkeleton /></div>
+      </div>
+      <div className={cx('min-h-0', thread ? 'block' : 'hidden lg:block')}>
+        {thread ? <ThreadSkeleton /> : <div className="chat-bg grid h-full place-items-center"><EmptyState icon={<MessageCircle className="h-6 w-6" />} title={tr('Pick a conversation')} body={tr('Select a chat to read it, take over from the AI, or see the lead details.')} /></div>}
+      </div>
+    </div>
+  )
+}
+
+/** The Pipeline view: the real hint line and grey columns. */
+export function PipelineBodySkeleton() {
+  return <div className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-3 lg:px-8" aria-busy="true" aria-label="Loading"><ColumnsSkeleton /></div>
 }
 
 /** A form: label and field pairs. */
@@ -137,18 +190,15 @@ const HomePage = () => (
   </Page>
 )
 const ChatsPage = () => (
-  <div className="flex h-full min-h-0 flex-col" aria-busy="true" aria-label="Loading">
+  <div className="flex h-[calc(100dvh-57px-76px)] flex-col lg:h-[calc(100dvh-57px)]">
     <TabBar tabs={CHAT_TABS()} left={<h1 className="truncate font-display text-xl font-extrabold">Chats</h1>} />
-    <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] lg:grid-cols-[360px_minmax(0,1fr)]">
-      <div className="border-r border-line/70 bg-surface"><div className="space-y-3 border-b border-line/70 p-4"><Bone className="h-11 w-full !rounded-xl" /></div><ListRowsSkeleton /></div>
-      <div className="hidden lg:block"><ThreadSkeleton /></div>
-    </div>
+    <ChatsBodySkeleton />
   </div>
 )
 const PipelinePage = () => (
-  <div className="flex h-full min-h-0 flex-col" aria-busy="true" aria-label="Loading">
+  <div className="flex h-[calc(100dvh-57px-76px)] flex-col lg:h-[calc(100dvh-57px)]">
     <TabBar tabs={CHAT_TABS()} left={<h1 className="truncate font-display text-xl font-extrabold">Pipeline</h1>} />
-    <div className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-3 lg:px-8"><ColumnsSkeleton /></div>
+    <PipelineBodySkeleton />
   </div>
 )
 const CatalogPage = ({ title, sub, height }: { title: string; sub: string; height: number }) => (<Page wide><TitleBar title={title} sub={sub} /><Toolbar /><CardGridSkeleton height={height} /></Page>)

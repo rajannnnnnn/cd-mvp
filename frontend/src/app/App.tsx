@@ -8,6 +8,7 @@ import { appBase, currentSlug, shopUrl } from '@/lib/slug'
 import { api, ok } from '@/api/client'
 import { useQuery } from '@tanstack/react-query'
 import Shell from './Shell'
+import ChatsLayout from './ChatsLayout'
 import { LoginSkeleton, ShellSkeleton } from '@/ui/skeletons'
 
 const Login = lazy(() => import('@/auth/LoginPage'))
@@ -109,9 +110,11 @@ export default function App() {
                   <Route element={<Gate />}>
                     <Route index element={<Index />} />
                     <Route path="home" element={<Home />} />
-                    <Route path="chats" element={<Chats />} />
-                    <Route path="chats/:id" element={<Chats />} />
-                    <Route path="pipeline" element={<Pipeline />} />
+                    <Route element={<ChatsLayout />}>
+                      <Route path="chats" element={<Chats />} />
+                      <Route path="chats/:id" element={<Chats />} />
+                      <Route path="pipeline" element={<Pipeline />} />
+                    </Route>
                     <Route path="products" element={<Products />} />
                     <Route path="catalog" element={<Navigate to="/products" replace />} />
                     <Route path="offers" element={<Offers />} />

@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useContext, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowRight, Clock, Hand, TrendingUp } from 'lucide-react'
@@ -8,7 +9,8 @@ import { Avatar, Badge, Confirm, EmptyState, ErrorNote, KebabMenu, Skeleton, use
 import { ago, cx } from '@/lib/format'
 import { STAGES, STAGE_COLOR, STAGE_LABEL, type Stage } from '@/lib/stages'
 import { tr } from '@/i18n/tr'
-import { CHAT_TABS, TabBar, TryButton, useTabSwitch } from '@/app/SectionTabs'
+import { TryButton } from '@/app/SectionTabs'
+import { TabSlot } from '@/app/ChatsLayout'
 import { ColumnsSkeleton } from '@/ui/skeletons'
 
 type Conv = Schemas['ConversationSummary']
@@ -80,13 +82,12 @@ export default function Pipeline() {
     onError: (e) => { toast((e as Error).message, 'error'); setPending(null) },
   })
   const ask = (c: Conv, to: Stage) => { setReason(''); setPending({ c, to }) }
-  const switched = useTabSwitch(CHAT_TABS())
+  const slot = useContext(TabSlot)
   const active = STAGES.filter((s) => s !== 'won' && s !== 'lost').reduce((n, s) => n + cols[s].length, 0)
 
   return (
-    <div className={`flex h-full min-h-0 flex-col ${switched}`}>
-      <TabBar tabs={CHAT_TABS()} left={<><h1 className="truncate font-display text-xl font-extrabold">{t('nav.pipeline', 'Pipeline')}</h1><span className="hidden sm:block"><div className="flex items-center gap-2 rounded-lg border border-line/70 bg-surface px-2.5 py-1 text-sm"><TrendingUp className="h-4 w-4 text-brand" /><span className="text-muted">{tr('{active} active of {total}', { active, total })}</span></div></span><TryButton compact /></>} />
-      <div className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-3 lg:px-8">
+    <div className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-3 lg:px-8">
+      {slot && createPortal(<>{!q.isLoading && <span className="hidden sm:block"><div className="flex items-center gap-2 rounded-lg border border-line/70 bg-surface px-2.5 py-1 text-sm"><TrendingUp className="h-4 w-4 text-brand" /><span className="text-muted">{tr('{active} active of {total}', { active, total })}</span></div></span>}<TryButton compact /></>, slot)}
       {q.error && <ErrorNote error={q.error} retry={() => q.refetch()} />}
       {q.isLoading && <ColumnsSkeleton />}
       {!q.isLoading && total === 0 && <div className="card"><EmptyState title={tr('No conversations yet')} body={tr('When customers message your WhatsApp number they will appear here, grouped by stage.')} /></div>}
@@ -112,7 +113,6 @@ export default function Pipeline() {
           ))}
         </div>
       )}
-      </div>
 
       <Confirm open={!!pending} onClose={() => setPending(null)} busy={move.isPending} danger={pending?.to === 'lost'}
         title={tr('Move {name} to {stage}?', { name: pending?.c.customer.name ?? pending?.c.customer.phone ?? '', stage: tr(pending ? STAGE_LABEL[pending.to] : '') })}
