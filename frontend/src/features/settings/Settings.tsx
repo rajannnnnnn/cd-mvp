@@ -8,6 +8,8 @@ import { startEmbeddedSignup } from './signup'
 import { useT } from '@/i18n'
 import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, Modal, RequiredNote, Segmented, Skeleton, Spinner, Switch, useToast } from '@/ui'
 import { ago, phone as fmtPhone } from '@/lib/format'
+import { PhoneInput } from '@/ui/inputs'
+import { isPhone, toE164 } from '@/lib/phone'
 import { tr } from '@/i18n/tr'
 import { currentSlug, shopUrl } from '@/lib/slug'
 import { useSearchParams } from 'react-router-dom'
@@ -35,8 +37,8 @@ function Chips({ values, onChange, placeholder, disabled }: { values: string[]; 
   const add = () => { const v = draft.trim(); if (v && !values.includes(v)) onChange([...values, v]); setDraft('') }
   return (
     <div>
-      <div className="mb-2 flex flex-wrap gap-2">{values.map((v) => <span key={v} className="inline-flex items-center gap-1.5 rounded-full bg-surface2 py-1 pl-3 pr-1.5 text-sm font-medium">{v}{!disabled && <button className="grid h-5 w-5 place-items-center rounded-full hover:bg-line" onClick={() => onChange(values.filter((x) => x !== v))} aria-label={tr('Remove {v}', { v })}><X className="h-3 w-3" /></button>}</span>)}</div>
-      {!disabled && <div className="flex gap-2"><input className="input" value={draft} placeholder={placeholder} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }} /><button className="btn btn-outline" type="button" onClick={add}><Plus className="h-4 w-4" /></button></div>}
+      <div className="mb-2 flex flex-wrap gap-2">{values.map((v) => <span key={v} className="inline-flex items-center gap-1.5 rounded-full bg-surface2 py-1 pl-3 pr-1.5 text-sm font-medium">{v}{!disabled && <button className="grid h-7 w-7 place-items-center rounded-full hover:bg-line" onClick={() => onChange(values.filter((x) => x !== v))} aria-label={tr('Remove {v}', { v })}><X className="h-3 w-3" /></button>}</span>)}</div>
+      {!disabled && <div className="flex gap-2"><input maxLength={200} className="input" value={draft} placeholder={placeholder} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add() } }} /><button className="btn btn-outline" type="button" onClick={add}><Plus className="h-4 w-4" /></button></div>}
     </div>
   )
 }
@@ -48,8 +50,6 @@ function parseHours(h: unknown): Record<string, { open: boolean; from: string; t
 }
 function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }) {
   const p = b.profile as any
-  const [name, setName] = useState(b.name)
-  const [slug, setSlug] = useState(b.slug)
   const [address, setAddress] = useState<string>(p.address ?? '')
   const [shopPhone, setShopPhone] = useState<string>(p.phone ?? '')
   const [delivery, setDelivery] = useState<string>(p.delivery ?? '')
@@ -61,32 +61,29 @@ function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }
   const save = useSaveBusiness()
   const [tried, setTried] = useState(false)
   const shopForm = useRef<HTMLDivElement>(null)
-  const nameErr = name.trim() ? undefined : tr('Enter your shop name')
-  const slugErr = slug.length >= 2 ? undefined : tr('Choose a web address')
+  // an open day needs both times, and it must close after it opens
+  const hoursErr: Record<string, string | undefined> = Object.fromEntries(DAYS.map(([k]) => [k, !hours[k].open ? undefined : !hours[k].from || !hours[k].to ? tr('Set both times') : hours[k].to <= hours[k].from ? tr('Closing time must be after opening time') : undefined]))
+  const hoursBad = Object.values(hoursErr).some(Boolean)
   const submit = () => {
     setTried(true)
-    if (nameErr || slugErr) { setTimeout(() => focusFirstInvalid(shopForm.current), 30); return }
+    if (hoursBad) return
     send()
   }
   const send = () => save.mutate({
-    name: name.trim() || undefined,
-    slug: slug !== b.slug ? slug : undefined,
     profile: { address, phone: shopPhone, delivery, returns, payment_modes: pay, delivery_areas: areas, facts, hours: Object.fromEntries(DAYS.map(([k]) => [k, hours[k].open ? `${hours[k].from}-${hours[k].to}` : 'closed'])) },
   })
   return (
     <div className="space-y-5">
       <Section title={tr('Your shop')} sub={tr('The assistant only states facts that are written here or in your products.')} footer={canEdit && <button className="btn btn-primary" disabled={save.isPending} onClick={submit}>{save.isPending && <Spinner />} {tr('Save changes')}</button>}>
         <div className="grid gap-4 sm:grid-cols-2" ref={shopForm}>
-          <Field label={tr('Shop name')} required error={tried ? nameErr : undefined}><input className="input" value={name} onChange={(e) => setName(e.target.value)} disabled={!canEdit} /></Field>
-          <Field label={tr('Your web address')} hint={tr('Where you sign in to your shop. Changing it changes the link.')} required error={tried ? slugErr : undefined}>
-            <div className="flex items-stretch overflow-hidden rounded-xl border border-line bg-surface focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/15"><span className="grid place-items-center border-r border-line bg-surface2 px-3 text-sm text-muted">{window.location.host}/app/</span>
-              <input className="min-w-0 flex-1 bg-transparent px-3 py-3 font-semibold outline-none" value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))} disabled={!canEdit} aria-label={tr('Your web address')} /></div></Field>
-          <Field label={tr('Shop phone')} hint={tr('Shown to customers who ask')}><input className="input" value={shopPhone} onChange={(e) => setShopPhone(e.target.value)} disabled={!canEdit} /></Field>
+          <Field label={tr('Shop name')} hint={tr('To change your shop name or web address, contact support.')}><div className="flex min-h-[44px] items-center rounded-xl border border-line bg-surface2/60 px-3.5 text-sm font-semibold">{b.name}</div></Field>
+          <Field label={tr('Your web address')} hint={tr('Where you sign in to your shop.')}><div className="flex min-h-[44px] items-center break-all rounded-xl border border-line bg-surface2/60 px-3.5 text-sm text-muted">{window.location.host}/app/<b className="text-ink">{b.slug}</b></div></Field>
+          <Field label={tr('Shop phone')} hint={tr('Shown to customers who ask')}><PhoneInput value={shopPhone} onChange={setShopPhone} disabled={!canEdit} /></Field>
         </div>
-        <Field label={tr('Address')}><textarea className="textarea min-h-[70px]" value={address} onChange={(e) => setAddress(e.target.value)} disabled={!canEdit} /></Field>
+        <Field label={tr('Address')}><textarea maxLength={500} className="textarea min-h-[70px]" value={address} onChange={(e) => setAddress(e.target.value)} disabled={!canEdit} /></Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr('Delivery')}><textarea className="textarea min-h-[84px]" value={delivery} onChange={(e) => setDelivery(e.target.value)} disabled={!canEdit} placeholder={tr('Charges, time, areas…')} /></Field>
-          <Field label={tr('Returns & exchange')}><textarea className="textarea min-h-[84px]" value={returns} onChange={(e) => setReturns(e.target.value)} disabled={!canEdit} /></Field>
+          <Field label={tr('Delivery')}><textarea maxLength={1000} className="textarea min-h-[84px]" value={delivery} onChange={(e) => setDelivery(e.target.value)} disabled={!canEdit} placeholder={tr('Charges, time, areas…')} /></Field>
+          <Field label={tr('Returns & exchange')}><textarea maxLength={1500} className="textarea min-h-[84px]" value={returns} onChange={(e) => setReturns(e.target.value)} disabled={!canEdit} /></Field>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={tr('Payment modes')}><Chips values={pay} onChange={setPay} placeholder={tr('Add, e.g. UPI')} disabled={!canEdit} /></Field>
@@ -101,10 +98,11 @@ function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }
               <div className="w-28 text-sm font-semibold">{label}</div>
               <Switch checked={hours[k].open} onChange={(v) => setHours((h) => ({ ...h, [k]: { ...h[k], open: v } }))} label={tr('{label} open', { label })} disabled={!canEdit} />
               {hours[k].open ? <div className="flex items-center gap-2"><input type="time" className="input !w-[130px]" value={hours[k].from} disabled={!canEdit} onChange={(e) => setHours((h) => ({ ...h, [k]: { ...h[k], from: e.target.value } }))} /><span className="text-muted">{tr('to')}</span><input type="time" className="input !w-[130px]" value={hours[k].to} disabled={!canEdit} onChange={(e) => setHours((h) => ({ ...h, [k]: { ...h[k], to: e.target.value } }))} /></div> : <span className="text-sm text-muted">{tr('Closed')}</span>}
+              {hoursErr[k] && <span role="alert" className="text-sm font-medium text-danger">{hoursErr[k]}</span>}
             </div>
           ))}
         </div>
-        {canEdit && <div className="flex justify-end"><button className="btn btn-primary" disabled={save.isPending} onClick={submit}>{save.isPending && <Spinner />} {tr('Save hours')}</button></div>}
+        {canEdit && <div className="flex justify-end"><button className="btn btn-primary" disabled={save.isPending || hoursBad} onClick={submit}>{save.isPending && <Spinner />} {tr('Save hours')}</button></div>}
       </Section>
     </div>
   )
@@ -129,23 +127,25 @@ function AssistantTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: bool
   const [nudge, setNudge] = useState<string>(String(c.nudge_after_minutes ?? 240))
   const [hour, setHour] = useState<string>(String(c.daily_summary_hour ?? 21))
   const save = useSaveBusiness()
+  const pauseErr = +pause >= 1 && +pause <= 1440 ? undefined : tr('Enter 1 to 1440 minutes')
+  const nudgeErr = +nudge >= 30 && +nudge <= 1380 ? undefined : tr('Enter 30 to 1380 minutes')
   return (
     <div className="space-y-5">
       <TrySection />
       <Section title={tr('Selling style')} footer={canEdit && <button className="btn btn-primary" disabled={save.isPending} onClick={() => save.mutate({ sales_settings: { honorific: honorific.trim() || null, language_default: lang as any, proactiveness: pro as any, may_mention_offers: offers, handoff_value_threshold: thr || null } })}>{save.isPending && <Spinner />} {tr('Save')}</button>}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr('How should the assistant address customers?')} hint={tr('Added after their name, e.g. “ji”')}><input className="input" value={honorific} onChange={(e) => setHonorific(e.target.value)} disabled={!canEdit} placeholder={tr('ji')} /></Field>
+          <Field label={tr('How should the assistant address customers?')} hint={tr('Added after their name, e.g. “ji”')}><input maxLength={12} className="input" value={honorific} onChange={(e) => setHonorific(e.target.value)} disabled={!canEdit} placeholder={tr('ji')} /></Field>
           <Field label={tr('Default language')}><select className="select" value={lang} onChange={(e) => setLang(e.target.value)} disabled={!canEdit}><option value="en">{tr('English')}</option><option value="hi">हिन्दी</option><option value="hinglish">{tr('Hinglish')}</option></select><p className="mt-1 text-[12px] text-muted">{tr('The assistant still follows the customer’s own language.')}</p></Field>
         </div>
         <Field label={tr('How proactive should it be?')}><Segmented className="w-full sm:w-auto" value={pro} onChange={setPro} options={[{ value: 'low', label: tr('Answer only') }, { value: 'medium', label: tr('Balanced') }, { value: 'high', label: tr('Go for the sale') }]} /></Field>
         <label className="flex items-center justify-between gap-4 rounded-xl border border-line px-3.5 py-3"><span><span className="block text-sm font-bold">{tr('Mention offers')}</span><span className="block text-[13px] text-muted">{tr('Let the assistant bring up your active offers.')}</span></span><Switch checked={offers} onChange={setOffers} label={tr('Mention offers')} disabled={!canEdit} /></label>
-        <Field label={tr('Bring me in for orders above (₹)')} hint={tr('High-value orders pause the assistant so you can close them yourself')}><input className="input sm:max-w-xs" inputMode="numeric" value={thr} onChange={(e) => setThr(e.target.value.replace(/\D/g, ''))} disabled={!canEdit} placeholder="e.g. 50000" /></Field>
+        <Field label={tr('Bring me in for orders above (₹)')} hint={tr('High-value orders pause the assistant so you can close them yourself')}><input className="input sm:max-w-xs" inputMode="numeric" value={thr} onChange={(e) => setThr(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 9))} disabled={!canEdit} placeholder="e.g. 50000" /></Field>
       </Section>
-      <Section title={tr('When you step in')} footer={canEdit && <button className="btn btn-primary" disabled={save.isPending} onClick={() => save.mutate({ conversation_settings: { business_hours_behavior: hb as any, owner_pause_minutes: +pause, nudge_after_minutes: +nudge, daily_summary_hour: +hour } })}>{save.isPending && <Spinner />} {tr('Save')}</button>}>
+      <Section title={tr('When you step in')} footer={canEdit && <button className="btn btn-primary" disabled={save.isPending || !!pauseErr || !!nudgeErr} onClick={() => save.mutate({ conversation_settings: { business_hours_behavior: hb as any, owner_pause_minutes: +pause, nudge_after_minutes: +nudge, daily_summary_hour: +hour } })}>{save.isPending && <Spinner />} {tr('Save')}</button>}>
         <Field label={tr('Outside opening hours')}><select className="select sm:max-w-sm" value={hb} onChange={(e) => setHb(e.target.value)} disabled={!canEdit}><option value="reply_normally">{tr('Reply normally')}</option><option value="slower">{tr('Reply a little slower')}</option><option value="wait_for_open">{tr('Wait until we open')}</option></select></Field>
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label={tr('Pause the AI after I reply (minutes)')} hint={tr('So we never talk over each other')}><input className="input" inputMode="numeric" value={pause} onChange={(e) => setPause(e.target.value.replace(/\D/g, ''))} disabled={!canEdit} /></Field>
-          <Field label={tr('Follow up silent customers after (minutes)')}><input className="input" inputMode="numeric" value={nudge} onChange={(e) => setNudge(e.target.value.replace(/\D/g, ''))} disabled={!canEdit} /></Field>
+          <Field label={tr('Pause the AI after I reply (minutes)')} hint={tr('So we never talk over each other')} error={pauseErr}><input className="input" inputMode="numeric" value={pause} onChange={(e) => setPause(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 4))} disabled={!canEdit} /></Field>
+          <Field label={tr('Follow up silent customers after (minutes)')} hint={tr('30 minutes to 23 hours')} error={nudgeErr}><input className="input" inputMode="numeric" value={nudge} onChange={(e) => setNudge(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 5))} disabled={!canEdit} /></Field>
           <Field label={tr('Daily summary at')}><select className="select" value={hour} onChange={(e) => setHour(e.target.value)} disabled={!canEdit}>{Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>)}</select></Field>
         </div>
       </Section>
@@ -163,7 +163,7 @@ function TeamTab({ canEdit }: { canEdit: boolean }) {
   const [nm, setNm] = useState(''); const [ph, setPh] = useState(''); const [role, setRole] = useState<'staff' | 'owner'>('staff')
   const [triedAdd, setTriedAdd] = useState(false)
   const addForm = useRef<HTMLDivElement>(null)
-  const create = useMutation({ mutationFn: () => ok(api.POST('/api/v1/team', { body: { name: nm.trim(), phone: ph.trim(), role } })), onSuccess: () => { qc.invalidateQueries({ queryKey: ['team'] }); setAdd(false); setTriedAdd(false); setNm(''); setPh(''); toast(tr('Team member added')) }, onError: (e) => toast((e as Error).message, 'error') })
+  const create = useMutation({ mutationFn: () => ok(api.POST('/api/v1/team', { body: { name: nm.trim(), phone: toE164(ph), role } })), onSuccess: () => { qc.invalidateQueries({ queryKey: ['team'] }); setAdd(false); setTriedAdd(false); setNm(''); setPh(''); toast(tr('Team member added')) }, onError: (e) => toast((e as Error).message, 'error') })
   const addMember = () => { setTriedAdd(true); if (!nm.trim() || ph.replace(/\D/g, '').length < 10) { setTimeout(() => focusFirstInvalid(addForm.current), 30); return } create.mutate() }
   const patch = useMutation({ mutationFn: (v: { id: string; notify: boolean }) => ok(api.PATCH('/api/v1/team/{member_id}', { params: { path: { member_id: v.id } }, body: { notify: v.notify } })), onSuccess: () => qc.invalidateQueries({ queryKey: ['team'] }) })
   const remove = useMutation({ mutationFn: (id: string) => ok(api.DELETE('/api/v1/team/{member_id}', { params: { path: { member_id: id } } })), onSuccess: () => { qc.invalidateQueries({ queryKey: ['team'] }); setDel(null); toast(tr('Removed')) }, onError: (e) => toast((e as Error).message, 'error') })
@@ -182,7 +182,7 @@ function TeamTab({ canEdit }: { canEdit: boolean }) {
         ))}
       </div>
       <Modal open={add} onClose={() => setAdd(false)} title={tr('Add a team member')} footer={<><button className="btn btn-ghost" onClick={() => setAdd(false)}>{tr('Cancel')}</button><button className="btn btn-primary" disabled={create.isPending} onClick={addMember}>{create.isPending && <Spinner />} {tr('Add')}</button></>}>
-        <div className="space-y-4" ref={addForm}><RequiredNote /><Field label={tr('Name')} required error={triedAdd && !nm.trim() ? tr('Enter their name') : undefined}><input className="input" value={nm} onChange={(e) => setNm(e.target.value)} autoFocus /></Field><Field label={tr('WhatsApp number')} hint={tr('They’ll sign in with a code sent here')} required error={triedAdd && ph.replace(/\D/g, '').length < 10 ? tr('Enter a WhatsApp number with at least 10 digits') : undefined}><input className="input" inputMode="tel" value={ph} onChange={(e) => setPh(e.target.value)} placeholder="+91 98765 43210" /></Field>
+        <div className="space-y-4" ref={addForm}><RequiredNote /><Field label={tr('Name')} required error={triedAdd && !nm.trim() ? tr('Enter their name') : undefined}><input maxLength={80} className="input" value={nm} onChange={(e) => setNm(e.target.value)} autoFocus /></Field><Field label={tr('WhatsApp number')} hint={tr('They’ll sign in with a code sent here')} required error={triedAdd && !isPhone(ph) ? tr('Enter a 10-digit mobile number') : undefined}><PhoneInput value={ph} onChange={setPh} /></Field>
           <Field label={tr('Role')}><Segmented value={role} onChange={setRole} options={[{ value: 'staff', label: tr('Staff') }, { value: 'owner', label: tr('Owner') }]} /></Field></div>
       </Modal>
       <Confirm open={!!del} title={tr('Remove {name}?', { name: del?.name })} body={tr('They will be signed out and can no longer open this shop.')} confirmLabel={tr('Remove')} danger busy={remove.isPending} onClose={() => setDel(null)} onConfirm={() => del && remove.mutate(del.id)} />
@@ -277,7 +277,7 @@ function DataSection() {
       <Modal open={open} onClose={() => setOpen(false)} title={tr('Delete this shop permanently?')}
         footer={<><button className="btn btn-outline" onClick={() => setOpen(false)}>{tr('Cancel')}</button><button className="btn btn-danger" disabled={typed !== name || erase.isPending} onClick={() => erase.mutate()}>{erase.isPending ? <Spinner /> : null} {tr('Delete everything')}</button></>}>
         <p className="text-sm text-muted">{tr('This erases your products, prices, customers, conversations and team, with no way back. Download your data first if you may need it.')}</p>
-        <Field label={tr('Type “{name}” to confirm', { name })} className="mt-4"><input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus /></Field>
+        <Field label={tr('Type “{name}” to confirm', { name })} className="mt-4"><input maxLength={120} className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus /></Field>
       </Modal>
     </Section>
   )

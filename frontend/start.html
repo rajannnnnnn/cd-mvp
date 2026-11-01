@@ -12,7 +12,7 @@
   <script src="/theme-init.js"></script>
   <script type="module" src="/src/site/site.ts"></script>
 </head>
-<body>
+<body class="ad-light">
 <!--@header-->
 <main>
   <section class="section">
@@ -24,24 +24,81 @@
         <div class="mt-8 flex flex-wrap gap-3"><a href="/app/login?src=ad" class="btn btn-primary btn-lg" data-cta>Start free for 14 days</a><a href="/pricing" class="btn btn-outline btn-lg">See pricing</a></div>
         <p class="mt-4 text-[13.5px] text-muted">No card needed. Set up in about five minutes with just your mobile number.</p>
       </div>
-      <div class="card p-6">
-        <div class="text-[13px] font-bold uppercase tracking-wider text-muted">A typical night</div>
-        <div class="mt-4 space-y-3 text-[15px]">
-          <div class="rounded-2xl rounded-bl-sm bg-surface2 p-3.5">Silk saree ka rate kya hai? Aur thoda kam hoga?</div>
-          <div class="ml-auto max-w-[88%] rounded-2xl rounded-br-sm bg-brand-soft p-3.5">₹9,500 hai ji. Aapke liye ₹9,000 kar deta hoon, free fall &amp; pico ke saath.</div>
-          <div class="rounded-2xl rounded-bl-sm bg-surface2 p-3.5">Theek hai, kal aata hoon.</div>
-          <div class="rounded-xl border border-brand/30 p-3 text-[13.5px] text-brand-ink">✅ Store visit booked for tomorrow. Sent to your WhatsApp for one-tap confirmation.</div>
+      <div class="relative mx-auto w-full max-w-[420px]" aria-label="Example conversation">
+        <div class="phone phone-light mx-auto !h-[560px]" style="transform: rotate(1.5deg)">
+          <div class="phone-notch"></div>
+          <div class="phone-screen">
+            <div class="flex items-center gap-3 border-b border-line/60 bg-brand-soft/60 px-4 pb-3 pt-9 text-ink">
+              <div class="grid h-9 w-9 place-items-center rounded-full bg-brand-soft text-sm font-bold text-brand-ink">SS</div>
+              <div class="min-w-0 flex-1"><div class="truncate text-[15px] font-bold leading-tight">Sharma Sarees</div><div class="text-[11.5px] text-muted" id="hero-status">business account</div></div>
+            </div>
+            <div id="hero-chat" class="flex min-h-0 flex-1 flex-col gap-1.5 overflow-hidden bg-[rgb(var(--chat-bg))] px-3 py-3">
+              <div class="chat-msg bubble bubble-in" data-who="c">What’s the price of the silk saree? Can you do a little less?<div class="bubble-meta">10:41 PM</div></div>
+              <div class="chat-msg bubble bubble-out" data-who="a">It’s ₹9,500, and free fall &amp; pico are included 🙏<div class="bubble-meta">10:41 PM ✓✓</div></div>
+              <div class="chat-msg bubble bubble-in" data-who="c">Please make it ₹8,500<div class="bubble-meta">10:42 PM</div></div>
+              <div class="chat-msg bubble bubble-out" data-who="a">For you I can do ₹9,000, with free fall &amp; pico included.<div class="bubble-meta">10:42 PM ✓✓</div></div>
+              <div class="chat-msg bubble bubble-in" data-who="c">Okay, I’ll come by tomorrow.<div class="bubble-meta">10:43 PM</div></div>
+              <div class="chat-msg bubble bubble-out" data-who="a">Lovely! Your store visit is booked for tomorrow ✅<div class="bubble-meta">10:43 PM ✓✓</div></div>
+              <div class="typing-bubble bubble bubble-out !px-3.5 !py-2.5" id="hero-typing"><span class="typing-dots"><span></span><span></span><span></span></span></div>
+            </div>
+            <div class="flex items-center gap-2 border-t border-line/60 bg-surface px-3 py-2.5"><div class="flex-1 rounded-full bg-surface2 px-4 py-2 text-[13px] text-muted">Message</div></div>
+          </div>
         </div>
-        <p class="mt-4 text-center text-[12px] text-muted">Example conversation, shown for illustration.</p>
+        <p class="mt-5 text-center text-[12px] text-muted">Example conversation, shown for illustration.</p>
       </div>
     </div>
   </section>
 
-  <section class="section bg-surface">
+  <section class="section pb-0">
+    <div class="wrap">
+      <div class="mx-auto max-w-2xl text-center"><div class="kicker">Your dashboard</div><h2 class="h-display text-[28px] sm:text-[40px]">See every customer and every chat in one place.</h2><p class="lead mt-4">Who is asking, who is ready to buy, and what needs you today.</p></div>
+      <div class="mx-auto mt-10 max-w-[980px] overflow-hidden rounded-[20px] border border-line/70 bg-surface shadow-card" aria-label="Example dashboard">
+        <div class="flex items-center gap-2 border-b border-line/60 bg-surface2/50 px-4 py-2.5"><i class="h-2.5 w-2.5 rounded-full bg-line"></i><i class="h-2.5 w-2.5 rounded-full bg-line"></i><i class="h-2.5 w-2.5 rounded-full bg-line"></i></div>
+        <div class="space-y-4 p-4 sm:p-6">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div><div class="text-[12px] text-muted">Sunday, October 4</div><div class="font-display text-[22px] font-extrabold sm:text-[26px]">Hello, Rakesh 👋</div></div>
+            <div class="flex items-center gap-2.5 rounded-2xl border border-line/70 bg-surface px-3.5 py-2 text-[13px]"><span class="h-2 w-2 rounded-full bg-brand/60"></span><span class="font-semibold">AI assistant is on</span></div>
+          </div>
+          <div class="rounded-2xl bg-accent-soft/60 px-4 py-3 text-[13.5px]"><b>3 things need you.</b> <span class="text-muted">2 customers waiting · 1 order to confirm</span></div>
+          <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div class="kpi"><div class="kpi-l">Conversations today</div><div class="kpi-v">7</div><div class="kpi-s">3 still open</div></div>
+            <div class="kpi"><div class="kpi-l">New customers</div><div class="kpi-v">11</div><div class="kpi-s">first-time chats</div></div>
+            <div class="kpi"><div class="kpi-l">Buying interest</div><div class="kpi-v">7</div><div class="kpi-s">leads warming up</div></div>
+            <div class="kpi"><div class="kpi-l">To confirm</div><div class="kpi-v">2</div><div class="kpi-s">waiting for you</div></div>
+          </div>
+          <div class="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+            <div class="rounded-2xl border border-line/60 p-4">
+              <div class="mb-3 text-[14px] font-bold">Where your customers are</div>
+              <div class="space-y-2.5 text-[13px]">
+                <div class="flex items-center gap-3"><span class="w-24 shrink-0 text-muted">New</span><div class="h-2.5 flex-1 rounded-full bg-surface2"><div class="h-full rounded-full" style="width:30%;background:#cbd5e1"></div></div><b class="tnum w-5 text-right">3</b></div>
+                <div class="flex items-center gap-3"><span class="w-24 shrink-0 text-muted">Exploring</span><div class="h-2.5 flex-1 rounded-full bg-surface2"><div class="h-full rounded-full" style="width:60%;background:#bfdbfe"></div></div><b class="tnum w-5 text-right">6</b></div>
+                <div class="flex items-center gap-3"><span class="w-24 shrink-0 text-muted">Interested</span><div class="h-2.5 flex-1 rounded-full bg-surface2"><div class="h-full rounded-full" style="width:50%;background:#fde68a"></div></div><b class="tnum w-5 text-right">5</b></div>
+                <div class="flex items-center gap-3"><span class="w-24 shrink-0 text-muted">Negotiating</span><div class="h-2.5 flex-1 rounded-full bg-surface2"><div class="h-full rounded-full" style="width:30%;background:#fed7aa"></div></div><b class="tnum w-5 text-right">3</b></div>
+                <div class="flex items-center gap-3"><span class="w-24 shrink-0 text-muted">Ready to buy</span><div class="h-2.5 flex-1 rounded-full bg-surface2"><div class="h-full rounded-full" style="width:20%;background:#a7f3d0"></div></div><b class="tnum w-5 text-right">2</b></div>
+                <div class="flex items-center gap-3"><span class="w-24 shrink-0 text-muted">Won</span><div class="h-2.5 flex-1 rounded-full bg-surface2"><div class="h-full rounded-full" style="width:80%;background:#86efac"></div></div><b class="tnum w-5 text-right">8</b></div>
+              </div>
+            </div>
+            <div class="rounded-2xl border border-line/60 p-4">
+              <div class="mb-1 text-[14px] font-bold">Latest chats</div>
+              <div class="divide-y divide-line/50 text-[13px]">
+                <div class="flex items-center gap-3 py-2.5"><span class="av" style="background:#e9e4fb;color:#4b3b91">P</span><div class="min-w-0 flex-1"><div class="font-semibold">Priya</div><div class="truncate text-muted">Yes, confirm the red Banarasi saree</div></div><span class="pill pill-green">Order</span></div>
+                <div class="flex items-center gap-3 py-2.5"><span class="av" style="background:#dcebfd;color:#245a9e">A</span><div class="min-w-0 flex-1"><div class="font-semibold">Anita</div><div class="truncate text-muted">Can I visit tomorrow evening?</div></div><span class="pill pill-amber">Visit</span></div>
+                <div class="flex items-center gap-3 py-2.5"><span class="av" style="background:#fdeacf;color:#8a5a14">M</span><div class="min-w-0 flex-1"><div class="font-semibold">Meena</div><div class="truncate text-muted">Is there a lower price on the cotton set?</div></div><span class="pill pill-blue">Needs you</span></div>
+                <div class="flex items-center gap-3 py-2.5"><span class="av" style="background:#d9f2e4;color:#1d6b47">R</span><div class="min-w-0 flex-1"><div class="font-semibold">Ritu</div><div class="truncate text-muted">Do you have this in blue?</div></div><span class="pill pill-gray">Assistant replied</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="mt-4 text-center text-[12.5px] text-muted">Example dashboard with sample data.</p>
+    </div>
+  </section>
+
+  <section class="section">
     <div class="wrap grid gap-6 md:grid-cols-3">
-      <div class="card card-pad"><div class="text-[32px]">🏷️</div><h3 class="mt-3 text-lg font-bold">You hold the price</h3><p class="mt-2 text-[15px] text-muted">Set a private lowest price per item. The assistant comes down in small steps and never below it. It can’t even see the number.</p></div>
-      <div class="card card-pad"><div class="text-[32px]">🌙</div><h3 class="mt-3 text-lg font-bold">Late-night enquiries get answered</h3><p class="mt-2 text-[15px] text-muted">Replies in seconds, paced like a person, at 11 PM or while you’re serving someone else.</p></div>
-      <div class="card card-pad"><div class="text-[32px]">🤝</div><h3 class="mt-3 text-lg font-bold">You step in when it matters</h3><p class="mt-2 text-[15px] text-muted">Complaints, big orders and questions it can’t answer come straight to your phone. Reply and the assistant steps back.</p></div>
+      <div class="card card-pad"><div class="icon-tile">🏷️</div><h3 class="mt-3 text-lg font-bold">You hold the price</h3><p class="mt-2 text-[15px] text-muted">Set a private lowest price per item. The assistant comes down in small steps and never below it. It can’t even see the number.</p></div>
+      <div class="card card-pad"><div class="icon-tile">🌙</div><h3 class="mt-3 text-lg font-bold">Late-night enquiries get answered</h3><p class="mt-2 text-[15px] text-muted">Replies in seconds, paced like a person, at 11 PM or while you’re serving someone else.</p></div>
+      <div class="card card-pad"><div class="icon-tile">🤝</div><h3 class="mt-3 text-lg font-bold">You step in when it matters</h3><p class="mt-2 text-[15px] text-muted">Complaints, big orders and questions it can’t answer come straight to your phone. Reply and the assistant steps back.</p></div>
     </div>
   </section>
 
@@ -49,9 +106,9 @@
     <div class="wrap max-w-[900px]">
       <div class="text-center"><div class="kicker">How it works</div><h2 class="h-display text-[30px] sm:text-[42px]">Live in an afternoon.</h2></div>
       <ol class="mt-10 grid gap-5 md:grid-cols-3">
-        <li class="glass p-6"><div class="grid h-10 w-10 place-items-center rounded-xl bg-brand font-extrabold text-white">1</div><h3 class="mt-4 font-bold">Tell us about your shop</h3><p class="mt-1.5 text-[14.5px] text-muted">Name, hours, address and what you sell, with prices.</p></li>
-        <li class="glass p-6"><div class="grid h-10 w-10 place-items-center rounded-xl bg-brand font-extrabold text-white">2</div><h3 class="mt-4 font-bold">Connect your WhatsApp</h3><p class="mt-1.5 text-[14.5px] text-muted">Your own number. Your WhatsApp Business app keeps working.</p></li>
-        <li class="glass p-6"><div class="grid h-10 w-10 place-items-center rounded-xl bg-brand font-extrabold text-white">3</div><h3 class="mt-4 font-bold">Go live</h3><p class="mt-1.5 text-[14.5px] text-muted">Watch conversations arrive, take over any time.</p></li>
+        <li class="glass p-6"><div class="grid h-10 w-10 place-items-center rounded-xl bg-brand-soft font-extrabold text-brand-ink">1</div><h3 class="mt-4 font-bold">Tell us about your shop</h3><p class="mt-1.5 text-[14.5px] text-muted">Name, hours, address and what you sell, with prices.</p></li>
+        <li class="glass p-6"><div class="grid h-10 w-10 place-items-center rounded-xl bg-brand-soft font-extrabold text-brand-ink">2</div><h3 class="mt-4 font-bold">Connect your WhatsApp</h3><p class="mt-1.5 text-[14.5px] text-muted">Your own number. Your WhatsApp Business app keeps working.</p></li>
+        <li class="glass p-6"><div class="grid h-10 w-10 place-items-center rounded-xl bg-brand-soft font-extrabold text-brand-ink">3</div><h3 class="mt-4 font-bold">Go live</h3><p class="mt-1.5 text-[14.5px] text-muted">Watch conversations arrive, take over any time.</p></li>
       </ol>
       <div class="mt-10 text-center"><a href="/app/login?src=ad-bottom" class="btn btn-primary btn-lg" data-cta>Start free for 14 days</a></div>
     </div>

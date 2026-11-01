@@ -44,7 +44,7 @@ export default function Reports() {
       </div>
       <div className="flex flex-wrap items-end gap-3 print:hidden">
         <Segmented value={preset} onChange={setPreset} options={[{ value: 'last', label: tr('Last month') }, { value: 'month', label: tr('This month') }, { value: '30', label: tr('Last 30 days') }, { value: 'custom', label: tr('Custom') }]} />
-        {preset === 'custom' && <><Field label={tr('From')}><input type="date" className="input" value={from} max={to} onChange={(e) => setFrom(e.target.value)} /></Field><Field label={tr('To')}><input type="date" className="input" value={to} min={from} onChange={(e) => setTo(e.target.value)} /></Field></>}
+        {preset === 'custom' && <><Field label={tr('From')}><input type="date" className="input" value={from} max={to || iso(new Date())} onChange={(e) => { const v = e.target.value; setFrom(v); if (v && to && v > to) setTo(v) }} /></Field><Field label={tr('To')}><input type="date" className="input" value={to} min={from} max={iso(new Date())} onChange={(e) => { const v = e.target.value > iso(new Date()) ? iso(new Date()) : e.target.value; setTo(v); if (v && from && v < from) setFrom(v) }} /></Field></>}
       </div>
       {q.error && <PlanGate error={q.error} retry={() => q.refetch()} />}
       {q.isLoading && <Skeleton className="h-72 rounded-2xl" />}

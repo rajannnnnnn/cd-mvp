@@ -77,7 +77,7 @@ test.describe('owner app', () => {
     await expect(page.getByRole('button', { name: 'Answer' }).first()).toBeVisible()
   })
 
-  test('offers can be created, switched off and deleted', async ({ page }) => {
+  test('offers can be created, paused and deleted', async ({ page }) => {
     await page.goto(`${SHOP}/offers`)
     await page.getByRole('button', { name: 'New offer' }).click()
     await page.getByPlaceholder('e.g. Festive 10% off').fill('E2E test offer')
@@ -135,14 +135,14 @@ test.describe('owner app', () => {
     const first = page.getByRole('switch', { name: /is for sale/ }).first()
     await expect(first).toHaveAttribute('aria-checked', 'true')
     await first.click()
-    await expect(page.getByRole('heading', { name: /Switch off/ })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Hide/ })).toBeVisible()
     await page.getByRole('button', { name: 'Cancel' }).click()
     await expect(first).toHaveAttribute('aria-checked', 'true')                                     // cancelled: nothing changed
     await first.click()
-    await page.getByRole('button', { name: 'Switch off', exact: true }).click()
+    await page.getByRole('button', { name: 'Hide', exact: true }).click()
     await expect(first).toHaveAttribute('aria-checked', 'false')
     await first.click()                                                                              // put it back
-    await page.getByRole('button', { name: 'Switch on', exact: true }).click()
+    await page.getByRole('button', { name: 'Show', exact: true }).click()
     await expect(first).toHaveAttribute('aria-checked', 'true')
 
     // several products: tick, choose, and confirm once more
@@ -151,14 +151,14 @@ test.describe('owner app', () => {
     await page.getByRole('button', { name: 'Select', exact: true }).click()
     await ticks.nth(0).click(); await ticks.nth(1).click()
     await expect(page.getByText('2 selected')).toBeVisible()
-    await page.getByRole('region', { name: 'Selected products' }).getByRole('button', { name: 'Switch off' }).click()
-    await expect(page.getByRole('heading', { name: 'Switch off 2 products?' })).toBeVisible()
-    await page.getByRole('button', { name: 'Yes, switch off 2' }).click()
+    await page.getByRole('region', { name: 'Selected products' }).getByRole('button', { name: 'Hide' }).click()
+    await expect(page.getByRole('heading', { name: 'Hide 2 products?' })).toBeVisible()
+    await page.getByRole('button', { name: 'Yes, hide 2' }).click()
     await expect(page.getByText('2 products updated')).toBeVisible()
     await page.getByRole('button', { name: 'Select', exact: true }).click()                         // the bulk change ended selection; start again to restore both
     await ticks.nth(0).click(); await ticks.nth(1).click()
-    await page.getByRole('region', { name: 'Selected products' }).getByRole('button', { name: 'Switch on' }).click()
-    await page.getByRole('button', { name: 'Yes, switch on 2' }).click()
+    await page.getByRole('region', { name: 'Selected products' }).getByRole('button', { name: 'Show' }).click()
+    await page.getByRole('button', { name: 'Yes, show 2' }).click()
     await expect(page.getByText('2 products updated').first()).toBeVisible()
   })
 
@@ -294,11 +294,11 @@ test.describe('owner app', () => {
 
     const sw = page.getByRole('switch', { name: `${a} is on` })                                       // switch, with a confirmation
     await sw.click()
-    await expect(page.getByRole('heading', { name: `Switch off “${a}”?` })).toBeVisible()
+    await expect(page.getByRole('heading', { name: `Pause “${a}”?` })).toBeVisible()
     await page.getByRole('button', { name: 'Cancel' }).click()
     await expect(sw).toHaveAttribute('aria-checked', 'true')
     await sw.click()
-    await page.getByRole('button', { name: 'Switch off', exact: true }).click()
+    await page.getByRole('button', { name: 'Pause', exact: true }).click()
     await expect(sw).toHaveAttribute('aria-checked', 'false')
 
     await page.getByRole('button', { name: `Edit ${a}` }).click()                                      // edit opens beside the list

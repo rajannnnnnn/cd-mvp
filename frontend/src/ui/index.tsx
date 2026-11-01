@@ -1,6 +1,6 @@
 import { cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Check, CheckCheck, Loader2, X, AlertTriangle, Info, CheckCircle2 } from 'lucide-react'
+import { Check, CheckCheck, Loader2, MoreVertical, X, AlertTriangle, Info, CheckCircle2 } from 'lucide-react'
 import { cx, initials } from '@/lib/format'
 import { tr } from '@/i18n/tr'
 
@@ -122,13 +122,13 @@ export function Stat({ label, value, sub, icon, tone = 'green', onClick }: { lab
   const tones = { green: 'bg-brand-soft text-brand-ink', amber: 'bg-accent-soft text-[rgb(150_92_0)]', blue: 'bg-info-soft text-info', red: 'bg-danger-soft text-danger' }
   const Tag: any = onClick ? 'button' : 'div'
   return (
-    <Tag onClick={onClick} className={cx('card card-pad text-left', onClick && 'transition hover:-translate-y-0.5 hover:shadow-pop')}>
-      <div className="flex items-center justify-between">
-        <span className="text-[13px] font-medium text-muted">{label}</span>
-        {icon && <span className={cx('grid h-8 w-8 place-items-center rounded-lg', tones[tone])}>{icon}</span>}
+    <Tag onClick={onClick} className={cx('card relative flex flex-col justify-between overflow-hidden p-4 text-left sm:p-5', onClick && 'transition hover:-translate-y-0.5 hover:shadow-pop')}>
+      {icon && <span className={cx('absolute right-3.5 top-3.5 grid h-8 w-8 place-items-center rounded-full opacity-90', tones[tone])}>{icon}</span>}
+      <div className="tnum pr-10 font-display text-[34px] font-extrabold leading-none tracking-tight">{value}</div>
+      <div className="mt-2.5">
+        <div className="text-[13px] font-semibold leading-snug text-muted">{label}</div>
+        {sub && <div className="mt-0.5 text-xs text-muted/80">{sub}</div>}
       </div>
-      <div className="tnum mt-2 font-display text-[30px] font-extrabold leading-none tracking-tight">{value}</div>
-      {sub && <div className="mt-2 text-xs text-muted">{sub}</div>}
     </Tag>
   )
 }
@@ -142,6 +142,30 @@ export function MessageTicks({ status }: { status: string }) {
 }
 
 /* ---------------------------------------------------------------- overlays */
+/** The three-dot menu on a card: every action other than opening it. Closes on outside click, Escape or choosing an item. */
+export function KebabMenu({ items, label }: { items: { label: string; icon?: ReactNode; danger?: boolean; onClick: () => void }[]; label: string }) {
+  const [open, setOpen] = useState(false)
+  const root = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const away = (e: MouseEvent) => { if (!root.current?.contains(e.target as Node)) setOpen(false) }
+    const key = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('mousedown', away); document.addEventListener('keydown', key)
+    return () => { document.removeEventListener('mousedown', away); document.removeEventListener('keydown', key) }
+  }, [open])
+  return (
+    <span ref={root} className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
+      <button type="button" className="btn btn-ghost btn-icon btn-sm" aria-label={label} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((v) => !v)}><MoreVertical className="h-4 w-4" /></button>
+      {open && (
+        <div role="menu" className="absolute right-0 top-full z-40 mt-1 min-w-[170px] rounded-xl border border-line bg-surface p-1 shadow-pop">
+          {items.map((it) => (
+            <button key={it.label} type="button" role="menuitem" onClick={() => { setOpen(false); it.onClick() }}
+              className={cx('flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-semibold transition hover:bg-surface2', it.danger && 'text-danger')}>{it.icon}{it.label}</button>))}
+        </div>)}
+    </span>
+  )
+}
+
 export function Modal({ open, onClose, title, children, footer, wide }: { open: boolean; onClose: () => void; title?: ReactNode; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
   useEffect(() => {
     if (!open) return

@@ -30,13 +30,9 @@ test.describe('marketing site', () => {
     await expect(path).not.toContainText('₹9,5')
   })
 
-  test('language and theme toggles work and are remembered', async ({ page }) => {
+  test('theme toggle works; there is no language switch', async ({ page }) => {
     await page.goto('/')
-    await page.locator('#lang-toggle').click()
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('हर ग्राहक')
-    await page.reload()
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('हर ग्राहक')
-    await page.locator('#lang-toggle').click()
+    await expect(page.locator('#lang-toggle')).toHaveCount(0)
     await expect(page.getByRole('heading', { level: 1 })).toContainText(/never below it/i)
     await page.locator('#theme-toggle').click()
     await expect(page.locator('html')).toHaveAttribute('data-theme', /dark|light/)

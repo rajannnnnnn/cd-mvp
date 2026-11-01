@@ -1,3 +1,4 @@
+import { cleanPhone, isPhone, toE164 } from '@/lib/phone'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -47,7 +48,7 @@ export default function LoginPage() {
   const [choose, setChoose] = useState<{ businesses: { id: string; name: string; role: string }[]; ticket: string } | null>(null)
   const [autofilled, setAutofilled] = useState(false)
   const [baseline, setBaseline] = useState(0)          // newest login code already in the simulated inbox when this request began
-  const full = useMemo(() => { const d = local.replace(/\D/g, ''); return d.length === 10 ? `+91${d}` : local.trim().startsWith('+') ? `+${d}` : d.length >= 11 ? `+${d}` : '' }, [local])
+  const full = useMemo(() => (isPhone(local) ? toE164(local) : ''), [local])
 
   useEffect(() => { if (wait <= 0) return; const id = setTimeout(() => setWait((w) => w - 1), 1000); return () => clearTimeout(id) }, [wait])
 
@@ -86,19 +87,20 @@ export default function LoginPage() {
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-[1.05fr_1fr]">
-      {/* ---------------- brand panel */}
-      <section className="relative hidden overflow-hidden bg-[#06281d] text-white lg:flex lg:flex-col lg:justify-between lg:p-12">
-        <div className="pointer-events-none absolute inset-0 opacity-70" style={{ background: 'radial-gradient(60% 50% at 20% 10%, rgba(18,183,106,.35), transparent 70%), radial-gradient(50% 50% at 90% 90%, rgba(245,165,36,.18), transparent 70%)' }} />
-        <div className="relative"><Logo light /></div>
+      {/* ---------------- brand panel (soft colours) */}
+      <section className="relative hidden overflow-hidden border-r border-line/60 lg:flex lg:flex-col lg:justify-between lg:p-12" style={{ background: 'linear-gradient(160deg, rgb(var(--brand-soft)) 0%, rgb(var(--surface)) 55%, rgb(var(--accent-soft) / .6) 100%)' }}>
+        <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-brand/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 right-10 h-72 w-72 rounded-full bg-accent/15 blur-3xl" />
+        <div className="relative"><Logo /></div>
         <div className="relative max-w-lg">
-          <h1 className="font-display text-[44px] font-extrabold leading-[1.05]">{tr('Your shop\'s best salesperson,')} <span className="text-[#6ee7b7]">{tr('on WhatsApp.')}</span></h1>
-          <p className="mt-5 max-w-md text-[17px] leading-relaxed text-white/75">{tr('Answers customers in your voice, quotes only the prices you allow, and brings you in when it matters — even while you\'re serving the person at the counter.')}</p>
-          <div className="mt-8 grid max-w-md gap-3 text-sm text-white/85">
-            {[[ShieldCheck, 'Never quotes a price you didn’t allow'], [Globe, 'English, Hindi and Hinglish — mirrors the customer'], [MessageCircle, 'Runs from your phone: reply, pause or confirm on WhatsApp']].map(([I, s]: any, i) => (
-              <div key={i} className="flex items-center gap-3"><span className="grid h-8 w-8 place-items-center rounded-lg bg-white/10"><I className="h-4 w-4 text-[#6ee7b7]" /></span>{s}</div>))}
+          <h1 className="font-display text-[42px] font-extrabold leading-[1.08]">{tr("Your shop’s best salesperson,")} <span className="text-brand-ink">{tr('on WhatsApp.')}</span></h1>
+          <p className="mt-5 max-w-md text-[17px] leading-relaxed text-muted">{tr('Answers customers in your voice, quotes only the prices you allow, and brings you in when it matters, even while you are serving someone else.')}</p>
+          <div className="mt-8 grid max-w-md gap-3 text-sm">
+            {[[ShieldCheck, 'Never quotes a price you didn’t allow'], [MessageCircle, 'Runs from your phone: reply, pause or confirm on WhatsApp']].map(([I, s]: any, i) => (
+              <div key={i} className="flex items-center gap-3 rounded-2xl border border-line/60 bg-surface/80 px-3.5 py-3 shadow-card"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-soft"><I className="h-4 w-4 text-brand-ink" /></span><span className="font-medium text-ink/85">{s}</span></div>))}
           </div>
         </div>
-        <div className="relative flex items-center gap-6 text-xs text-white/55"><span>{tr('© ChatDeal')}</span><a className="hover:text-white" href="/privacy.html">{tr('Privacy')}</a><a className="hover:text-white" href="/terms.html">{tr('Terms')}</a><a className="ml-auto flex items-center gap-1 hover:text-white" href="/"><ArrowRight className="h-3 w-3 rotate-180" />{tr('Back to site')}</a></div>
+        <div className="relative flex items-center gap-6 text-xs text-muted"><span>{tr('© ChatDeal')}</span><a className="hover:text-ink" href="/privacy.html">{tr('Privacy')}</a><a className="hover:text-ink" href="/terms.html">{tr('Terms')}</a></div>
         {/* phone */}
         <div className="absolute -right-10 top-1/2 hidden -translate-y-1/2 scale-[.82] xl:block">
           <PhoneFrame title={tr('ChatDeal · Login code')} subtitle={tr('WhatsApp Business account · verified')}>
@@ -124,10 +126,10 @@ export default function LoginPage() {
               <h2 className="font-display text-[28px] font-extrabold leading-tight">{t('login.title', 'Sign in or create your account')}</h2>
               <p className="mt-2 text-[15px] text-muted">{t('login.subtitle', 'Enter your WhatsApp number. New here? We’ll set up your shop in a few minutes. No password to remember.')}</p>
               <form className="mt-8" onSubmit={(e) => { e.preventDefault(); if (full) send() }}>
-                <label className="field-label" htmlFor="phone">{t('login.phone', 'Mobile number')}</label>
+                <label className="field-label" htmlFor="phone">{t('login.phone', 'Mobile number')}<span aria-hidden="true" className="ml-0.5 font-bold text-danger"> *</span></label>
                 <div className={cx('flex items-stretch overflow-hidden rounded-xl border bg-surface transition focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/15', err ? 'border-danger' : 'border-line')}>
                   <span className="grid place-items-center border-r border-line bg-surface2 px-3.5 text-sm font-semibold">🇮🇳 +91</span>
-                  <input id="phone" autoFocus inputMode="tel" autoComplete="tel-national" placeholder="98765 43210" value={local} onChange={(e) => setLocal(e.target.value)} className="tnum min-w-0 flex-1 bg-transparent px-3.5 py-3.5 text-lg font-semibold outline-none placeholder:font-normal placeholder:text-muted/60" />
+                  <input id="phone" autoFocus type="tel" inputMode="numeric" autoComplete="tel-national" placeholder="98765 43210" value={local} onChange={(e) => setLocal(cleanPhone(e.target.value))} maxLength={20} className="tnum min-w-0 flex-1 bg-transparent px-3.5 py-3.5 text-lg font-semibold outline-none placeholder:font-normal placeholder:text-muted/60" />
                 </div>
                 {err && <p className="mt-2 text-sm font-medium text-danger">{err}</p>}
                 <button className="btn btn-primary btn-lg mt-5 w-full" disabled={!full || busy}>{busy ? <Spinner /> : <MessageCircle className="h-5 w-5" />}{t('login.send', 'Continue with WhatsApp')}</button>

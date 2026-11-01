@@ -7,7 +7,7 @@ import { useBusiness, useOverview } from '@/api/hooks'
 import { useAuth } from '@/auth/AuthProvider'
 import { useT } from '@/i18n'
 import { AreaChart, Avatar, Badge, EmptyState, ErrorNote, Ring, Segmented, Skeleton, Stat, Switch } from '@/ui'
-import { ago, inr } from '@/lib/format'
+import { ago, cx, inr } from '@/lib/format'
 import { HANDOFF_LABEL, HANDOFF_TONE, STAGES, STAGE_COLOR, STAGE_LABEL, type Stage } from '@/lib/stages'
 import { useToast } from '@/ui'
 import { useQueryClient } from '@tanstack/react-query'
@@ -56,12 +56,16 @@ export default function Home() {
   return (
     <div className="mx-auto max-w-[1180px] space-y-6 px-4 py-6 lg:px-8 lg:py-8">
       {/* ------------- greeting */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium text-muted">{new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-          <h1 className="mt-1 text-[28px] font-extrabold leading-tight sm:text-[34px]">{t('dash.hello', 'Namaste')}{first ? `, ${first}` : ''} 👋</h1>
-          <p className="mt-1 text-[15px] text-muted">{t('dash.subtitle', 'Here’s how your shop is doing on WhatsApp today.')}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-[28px] font-extrabold leading-tight sm:text-[34px]">{t('dash.hello', 'Namaste')}{first ? `, ${first}` : ''} 👋</h1>
         </div>
+        {(
+              <Link to="/inbox" title={[handoffs.data?.length && `${handoffs.data.length} customer${handoffs.data.length > 1 ? 's' : ''} waiting`, deals.data?.length && `${deals.data.length} to confirm`, gaps.data?.length && `${gaps.data.length} unanswered question${gaps.data.length > 1 ? 's' : ''}`].filter(Boolean).join(' · ')} aria-label={needsCount === 0 ? tr('Nothing needs you right now') : needsCount === 1 ? tr('{n} thing needs you', { n: needsCount }) : tr('{n} things need you', { n: needsCount })} className={cx('group inline-flex shrink-0 items-center gap-2 self-start rounded-full border py-1 pl-1.5 pr-3 align-middle text-sm font-bold shadow-card transition hover:shadow-pop', needsCount > 0 ? 'border-accent/60 bg-accent-soft' : 'border-line bg-surface')}>
+                <span className={cx('relative grid h-6 w-6 place-items-center rounded-full', needsCount > 0 ? 'bg-accent text-[#3a2400]' : 'bg-surface2 text-muted')}><Flame className="h-3.5 w-3.5" />{needsCount > 0 && <><span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 animate-ping rounded-full bg-danger/80" aria-hidden /><span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-danger" aria-hidden /></>}</span>
+                <span className="flex flex-col leading-tight sm:flex-row sm:items-baseline sm:gap-2"><span>{needsCount > 0 ? <>{needsCount} {tr('need you')}</> : tr('Nothing needs you')}</span><span className="hidden text-[12.5px] font-medium text-muted sm:inline">{[handoffs.data?.length && `${handoffs.data.length} customer${handoffs.data.length > 1 ? 's' : ''} waiting`, deals.data?.length && `${deals.data.length} to confirm`, gaps.data?.length && `${gaps.data.length} unanswered question${gaps.data.length > 1 ? 's' : ''}`].filter(Boolean).join(' · ')}</span></span>
+                <ArrowRight className="h-3.5 w-3.5 text-muted transition group-hover:translate-x-0.5" />
+              </Link>)}
       </div>
 
       {biz.data && !aiOn && (
@@ -72,24 +76,15 @@ export default function Home() {
       {ov.error && <ErrorNote error={ov.error} retry={() => ov.refetch()} />}
 
       <SetupCard />
-      {/* ------------- needs you */}
-      {needsCount > 0 && (
-        <Link to="/inbox" className="group flex items-center gap-4 overflow-hidden rounded-2xl border border-accent/40 bg-gradient-to-r from-accent-soft to-surface p-4 shadow-card transition hover:shadow-pop">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-accent text-[#3a2400]"><Flame className="h-5 w-5" /></span>
-          <div className="min-w-0 flex-1"><div className="font-display text-lg font-bold">{needsCount === 1 ? tr('{n} thing needs you', { n: needsCount }) : tr('{n} things need you', { n: needsCount })}</div>
-            <div className="truncate text-sm text-muted">{[handoffs.data?.length && `${handoffs.data.length} customer${handoffs.data.length > 1 ? 's' : ''} waiting`, deals.data?.length && `${deals.data.length} to confirm`, gaps.data?.length && `${gaps.data.length} unanswered question${gaps.data.length > 1 ? 's' : ''}`].filter(Boolean).join(' · ')}</div></div>
-          <ArrowRight className="h-5 w-5 text-muted transition group-hover:translate-x-1" />
-        </Link>)}
-
       {/* ------------- KPIs */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        {ov.isLoading || !today ? Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-[112px]" />) : (<>
-          <Stat label={t('dash.conversations', 'Conversations')} value={today.conversations} icon={<MessageCircle className="h-4 w-4" />} sub={tr('today')} onClick={() => nav('/chats')} />
-          <Stat label={t('dash.newCustomers', 'New customers')} value={today.new_customers} icon={<UserPlus className="h-4 w-4" />} tone="blue" sub={tr('first-time chats')} onClick={() => nav('/customers')} />
-          <Stat label={t('dash.interest', 'Buying interest')} value={today.interested} icon={<Flame className="h-4 w-4" />} tone="amber" sub={tr('leads warming up')} onClick={() => nav('/pipeline')} />
-          <Stat label={t('dash.commitments', 'Orders & visits')} value={today.commitments} icon={<ShoppingBag className="h-4 w-4" />} sub={tr('captured today')} onClick={() => nav('/inbox')} />
-          <Stat label={t('dash.pending', 'To confirm')} value={today.pending_deals} icon={<ClipboardCheck className="h-4 w-4" />} tone={today.pending_deals ? 'amber' : 'green'} sub={tr('waiting for you')} onClick={() => nav('/inbox')} />
-          <Stat label={t('dash.handoffs', 'Open handoffs')} value={today.open_handoffs} icon={<AlertTriangle className="h-4 w-4" />} tone={today.open_handoffs ? 'red' : 'green'} sub={(today.complaints === 1 ? tr('{n} complaint today', { n: 1 }) : tr('{n} complaints today', { n: today.complaints }))} onClick={() => nav('/inbox')} />
+        {ov.isLoading || !today ? Array.from({ length: 6 }, (_, i) => <Skeleton key={i} className="h-[104px]" />) : (<>
+          <Stat label={t('dash.conversations', 'Conversations today')} value={today.conversations} icon={<MessageCircle className="h-4 w-4" />} onClick={() => nav('/chats')} />
+          <Stat label={t('dash.newCustomers', 'New customers')} value={today.new_customers} icon={<UserPlus className="h-4 w-4" />} tone="blue" onClick={() => nav('/customers')} />
+          <Stat label={t('dash.interest', 'Buying interest')} value={today.interested} icon={<Flame className="h-4 w-4" />} tone="amber" onClick={() => nav('/pipeline')} />
+          <Stat label={t('dash.commitments', 'Orders & visits today')} value={today.commitments} icon={<ShoppingBag className="h-4 w-4" />} onClick={() => nav('/inbox')} />
+          <Stat label={t('dash.pending', 'To confirm')} value={today.pending_deals} icon={<ClipboardCheck className="h-4 w-4" />} tone={today.pending_deals ? 'amber' : 'green'} onClick={() => nav('/inbox')} />
+          <Stat label={t('dash.handoffs', 'Open handoffs')} value={today.open_handoffs} icon={<AlertTriangle className="h-4 w-4" />} tone={today.open_handoffs ? 'red' : 'green'} onClick={() => nav('/inbox')} />
         </>)}
       </div>
 
@@ -108,7 +103,7 @@ export default function Home() {
           <h2 className="text-lg font-bold">{t('dash.ai', 'AI assistant')}</h2>
           <p className="text-xs text-muted">{tr('Last 30 days')}</p>
           <div className="mt-4 flex items-center gap-5">
-            <Ring value={ai.autonomous_pct ?? 0} size={112} label={<div><div className="tnum font-display text-2xl font-extrabold">{ai.autonomous_pct ?? '–'}{ai.autonomous_pct != null && '%'}</div><div className="text-[10px] font-semibold leading-tight tracking-wide text-muted">{t('dash.autonomy', 'handled alone')}</div></div>} />
+            <Ring value={ai.autonomous_pct ?? 0} size={112} label={<div><div className="tnum font-display text-2xl font-extrabold">{ai.autonomous_pct ?? '–'}{ai.autonomous_pct != null && '%'}</div><div className="text-[11px] font-semibold leading-tight tracking-wide text-muted">{t('dash.autonomy', 'handled alone')}</div></div>} />
             <dl className="grid flex-1 gap-3 text-sm">
               <div className="flex justify-between"><dt className="text-muted">{tr('Replies planned')}</dt><dd className="tnum font-semibold">{ai.turns_30d ?? '–'}</dd></div>
               <div className="flex justify-between"><dt className="text-muted">{tr('Avg. thinking time')}</dt><dd className="tnum font-semibold">{ov.data ? ((ai.avg_latency_ms ?? 0) < 1000 ? tr('under 1 s') : `${((ai.avg_latency_ms ?? 0) / 1000).toFixed(1)} s`) : '–'}</dd></div>
@@ -149,22 +144,6 @@ export default function Home() {
         </section>
       </div>
 
-      {/* ------------- needs-you preview */}
-      {(handoffs.data?.length ?? 0) + (gaps.data?.length ?? 0) > 0 && (
-        <section className="card card-pad">
-          <div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-bold">{t('dash.needsYou', 'Needs you')}</h2><Link className="text-sm font-semibold text-brand-ink hover:underline" to="/inbox">{tr('Open')}</Link></div>
-          <div className="grid gap-3 md:grid-cols-2">
-            {handoffs.data?.slice(0, 4).map((h) => (
-              <Link key={h.id} to={`/chats/${h.conversation_id}`} className="flex items-start gap-3 rounded-xl border border-line/70 p-3.5 transition hover:border-brand/50 hover:shadow-card">
-                <Avatar name={h.customer.name ?? h.customer.phone} size={38} />
-                <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="truncate text-sm font-semibold">{h.customer.name ?? h.customer.phone}</span><Badge tone={HANDOFF_TONE[h.reason] ?? 'amber'}><span className="max-w-[9rem] truncate">{tr(HANDOFF_LABEL[h.reason] ?? h.reason)}</span></Badge></div>
-                  <p className="mt-0.5 line-clamp-2 text-[13px] text-muted">{h.last_message}</p></div></Link>))}
-            {gaps.data?.slice(0, 2).map((g) => (
-              <Link key={g.id} to="/inbox" className="flex items-start gap-3 rounded-xl border border-dashed border-line p-3.5 transition hover:border-brand/50">
-                <span className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-full bg-info-soft text-info"><CircleHelp className="h-4 w-4" /></span>
-                <div><div className="text-sm font-semibold">{tr('Question you can answer once')}</div><p className="line-clamp-2 text-[13px] text-muted">“{g.question}”</p></div></Link>))}
-          </div>
-        </section>)}
       {!needsCount && !ov.isLoading && <div className="card"><EmptyState icon={<Sparkles className="h-6 w-6" />} title={t('dash.nothing', 'Nothing needs you right now 🎉')} body={tr('The assistant is handling your conversations. You’ll see handoffs and orders to confirm here.')} /></div>}
     </div>
   )

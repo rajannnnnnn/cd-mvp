@@ -97,10 +97,10 @@ test.describe('prices and mandatory fields', () => {
     await expect(page.getByText('Tell us what happened')).toBeVisible()
 
     await page.goto(`${SHOP}/settings`)
-    await expect(star(page.locator('main'), 'Shop name')).toContainText('*')
-    await page.getByLabel('Shop name').fill('')
-    await page.getByRole('button', { name: 'Save changes' }).first().click()
-    await expect(page.getByText('Enter your shop name')).toBeVisible()
+    // the shop name and web address are shown, not editable (changing them goes through support)
+    await expect(page.getByText('To change your shop name or web address, contact support.')).toBeVisible()
+    await expect(page.getByLabel('Shop name')).toHaveCount(0)
+    await expect(page.getByLabel('Your web address')).toHaveCount(0)
 
     await page.getByRole('tab', { name: 'Team' }).click()
     await page.getByRole('button', { name: /Add (a )?team member|Add member|Add someone/ }).first().click()

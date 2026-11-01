@@ -1,3 +1,5 @@
+import { PhoneInput } from '@/ui/inputs'
+import { isPhone, toE164 } from '@/lib/phone'
 import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -5,7 +7,7 @@ import { Activity, AlertOctagon, Building2, CircleDollarSign, Download, Eye, Inb
 import { api, ok, type Schemas } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
 import { tokens } from '@/auth/tokens'
-import { Badge, Confirm, EmptyState, ErrorNote, Field, Modal, Segmented, Skeleton, Spinner, Stat, Switch, useToast } from '@/ui'
+import { Badge, Confirm, EmptyState, ErrorNote, Field, Modal, RequiredNote, Segmented, Skeleton, Spinner, Stat, Switch, useToast } from '@/ui'
 import { ago, cx, inr, phone as fmtPhone } from '@/lib/format'
 import { StatusBadge, Thread } from '@/features/support/Thread'
 
@@ -28,19 +30,20 @@ function NewBusinessModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient(); const toast = useToast()
   const [f, setF] = useState({ name: '', owner_name: '', owner_phone: '', plan: 'pilot', language: 'en' as 'en' | 'hi', sim: '' })
   const create = useMutation({
-    mutationFn: () => ok(api.POST('/api/v1/operator/businesses', { body: { name: f.name.trim(), owner_name: f.owner_name.trim(), owner_phone: f.owner_phone.trim(), plan: f.plan, language: f.language, ai_enabled: true, timezone: 'Asia/Kolkata', simulated_number: f.sim.trim() || null } })),
+    mutationFn: () => ok(api.POST('/api/v1/operator/businesses', { body: { name: f.name.trim(), owner_name: f.owner_name.trim(), owner_phone: toE164(f.owner_phone), plan: f.plan, language: f.language, ai_enabled: true, timezone: 'Asia/Kolkata', simulated_number: f.sim ? toE164(f.sim) : null } })),
     onSuccess: (r) => { qc.invalidateQueries({ queryKey: ['op-tenants'] }); toast(`${r.name} created. The owner can sign in with ${fmtPhone(r.owner_phone ?? '')}.`); onClose() }, onError: (e) => toast((e as Error).message, 'error'),
   })
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF((x) => ({ ...x, [k]: e.target.value }))
   return (
     <Modal open onClose={onClose} title="Onboard a business"
-      footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={!f.name.trim() || !f.owner_name.trim() || f.owner_phone.replace(/\D/g, '').length < 10 || create.isPending} onClick={() => create.mutate()}>{create.isPending && <Spinner />} Create business</button></>}>
+      footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={!f.name.trim() || !f.owner_name.trim() || !isPhone(f.owner_phone) || (!!f.sim && !isPhone(f.sim)) || create.isPending} onClick={() => create.mutate()}>{create.isPending && <Spinner />} Create business</button></>}>
       <div className="space-y-4">
-        <Field label="Business name"><input className="input" value={f.name} onChange={set('name')} autoFocus /></Field>
-        <div className="grid gap-4 sm:grid-cols-2"><Field label="Owner’s name"><input className="input" value={f.owner_name} onChange={set('owner_name')} /></Field><Field label="Owner’s WhatsApp number" hint="This is their login"><input className="input" inputMode="tel" value={f.owner_phone} onChange={set('owner_phone')} placeholder="+91 …" /></Field></div>
+        <RequiredNote />
+        <Field label="Business name" required><input maxLength={120} className="input" value={f.name} onChange={set('name')} autoFocus /></Field>
+        <div className="grid gap-4 sm:grid-cols-2"><Field label="Owner’s name" required><input maxLength={80} className="input" value={f.owner_name} onChange={set('owner_name')} /></Field><Field label="Owner’s WhatsApp number" hint="This is their login" required><PhoneInput value={f.owner_phone} onChange={(v) => setF((x) => ({ ...x, owner_phone: v }))} /></Field></div>
         <div className="grid gap-4 sm:grid-cols-2"><Field label="Plan"><select className="select" value={f.plan} onChange={set('plan')}><option value="pilot">Pilot</option><option value="starter">Starter</option><option value="growth">Growth</option></select></Field>
           <Field label="Owner language"><select className="select" value={f.language} onChange={set('language')}><option value="en">English</option><option value="hi">हिन्दी</option></select></Field></div>
-        <Field label="Test number (optional)" hint="Adds a simulated WhatsApp number so the owner can try the assistant"><input className="input" inputMode="tel" value={f.sim} onChange={set('sim')} placeholder="+91 99999 …" /></Field>
+        <Field label="Test number (optional)" hint="Adds a simulated WhatsApp number so the owner can try the assistant"><PhoneInput value={f.sim} onChange={(v) => setF((x) => ({ ...x, sim: v }))} placeholder="99999 00000" /></Field>
       </div>
     </Modal>
   )
@@ -102,7 +105,7 @@ function Tenants() {
       <Modal open={!!del} onClose={() => setDel(null)} title="Delete this business permanently?"
         footer={<><button className="btn btn-ghost" onClick={() => setDel(null)}>Cancel</button><button className="btn btn-danger" disabled={typed !== del?.name || remove.isPending} onClick={() => del && remove.mutate(del)}>{remove.isPending && <Spinner />} Delete everything</button></>}>
         <p className="text-sm">This erases <b>{del?.name}</b> and all conversations, customers, products and prices, with no way back. Export the data first if it’s needed.</p>
-        <Field label={`Type “${del?.name}” to confirm`} className="mt-4"><input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus /></Field>
+        <Field label={`Type “${del?.name}” to confirm`} className="mt-4"><input maxLength={120} className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus /></Field>
       </Modal>
     </div>
   )

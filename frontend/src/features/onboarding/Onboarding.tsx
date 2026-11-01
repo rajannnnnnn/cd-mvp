@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ArrowRight, Check, CheckCircle2, MessageCircle, PartyPopper, Phone, Plus, Rocket, Sparkles, Store, Tag, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, CheckCircle2, LogOut, MessageCircle, PartyPopper, Phone, Plus, Rocket, Sparkles, Store, Tag, X } from 'lucide-react'
 import { api, ok, type Schemas } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
 import { usePublicConfig } from '@/api/hooks'
@@ -39,6 +39,8 @@ function Nav({ back, next, nextLabel, busy, nextDisabled, skip }: { back?: () =>
 
 /* ------------------------------------------------------------------ 1. the business (creates it) */
 function BusinessStep() {
+  const { logout } = useAuth()
+  const nav = useNavigate()
   const { adopt } = useAuth(); const toast = useToast()
   const cats = useQuery({ queryKey: ['ob-cats'], queryFn: () => ok(api.GET('/api/v1/onboarding/categories')), staleTime: Infinity })
   const [name, setName] = useState(''); const [owner, setOwner] = useState(''); const [category, setCategory] = useState(''); const [city, setCity] = useState('')
@@ -75,11 +77,11 @@ function BusinessStep() {
       <p className="mt-1.5 text-[15px] text-muted">{tr('This takes about five minutes. You can change everything later.')}</p>
       <div className="mt-6 space-y-4">
         <RequiredNote />
-        <Field label={tr('Business name')} hint={tr('The name your customers know')} required error={tried ? errs.name : undefined}><input className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Sharma Sarees & Fabrics')} /></Field>
-        <Field label={tr('Your name')} required error={tried ? errs.owner : undefined}><input className="input" value={owner} onChange={(e) => setOwner(e.target.value)} placeholder={tr('e.g. Meera Sharma')} /></Field>
+        <Field label={tr('Business name')} hint={tr('The name your customers know')} required error={tried ? errs.name : undefined}><input maxLength={80} className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Sharma Sarees & Fabrics')} /></Field>
+        <Field label={tr('Your name')} required error={tried ? errs.owner : undefined}><input maxLength={80} className="input" value={owner} onChange={(e) => setOwner(e.target.value)} placeholder={tr('e.g. Meera Sharma')} /></Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={tr('What do you sell?')}><select className="select" value={category} onChange={(e) => setCategory(e.target.value)}><option value="">{tr('Choose…')}</option>{cats.data?.map((c) => <option key={c}>{c}</option>)}</select></Field>
-          <Field label={tr('City')}><input className="input" value={city} onChange={(e) => setCity(e.target.value)} placeholder={tr('e.g. Pune')} /></Field>
+          <Field label={tr('City')}><input maxLength={80} className="input" value={city} onChange={(e) => setCity(e.target.value)} placeholder={tr('e.g. Pune')} /></Field>
         </div>
         <Field label={tr('How do your customers talk?')} hint={tr('The assistant still follows each customer’s own language')}>
           <Segmented value={language} onChange={setLanguage} options={[{ value: 'hinglish', label: 'Hinglish' }, { value: 'hi', label: 'हिन्दी' }, { value: 'en', label: 'English' }]} />
@@ -87,13 +89,14 @@ function BusinessStep() {
         <Field label={tr('Your web address')} hint={check && !check.available ? (check.reason ?? undefined) : undefined} required error={tried ? errs.slug : undefined}>
           <div className="flex items-stretch overflow-hidden rounded-xl border border-line bg-surface focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/15">
             <span className="grid place-items-center border-r border-line bg-surface2 px-3 text-sm text-muted">{window.location.host}/</span>
-            <input className="min-w-0 flex-1 bg-transparent px-3 py-3 font-semibold outline-none" value={slug} onChange={(e) => { setSlugTouched(true); setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')) }} aria-label={tr('Your web address')} />
+            <input maxLength={40} className="min-w-0 flex-1 bg-transparent px-3 py-3 font-semibold outline-none" value={slug} onChange={(e) => { setSlugTouched(true); setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')) }} aria-label={tr('Your web address')} />
             {check && <span className={cx('grid place-items-center px-3 text-xs font-bold', check.available ? 'text-brand-ink' : 'text-danger')}>{check.available ? tr('Available') : tr('Taken')}</span>}
           </div>
           {check && !check.available && <p className="mt-1.5 text-xs text-muted">{tr('We’ll use')} <b>{check.suggestion}</b> {tr('unless you change it.')}</p>}
         </Field>
       </div>
       <Nav next={go} busy={create.isPending} nextLabel={tr('Create my shop')} />
+      <div className="mt-5 text-center"><button type="button" className="text-sm font-semibold text-muted underline hover:text-ink" onClick={async () => { await logout(); nav('/login', { replace: true }) }}>{tr('Cancel and sign out')}</button></div>
     </form>
   )
 }
@@ -120,14 +123,14 @@ function DetailsStep({ onDone }: { onDone: () => void }) {
       <h2 className="font-display text-[26px] font-extrabold leading-tight">{tr('Shop details')}</h2>
       <p className="mt-1.5 text-[15px] text-muted">{tr('The assistant only states facts that are written here or in your products. Skip anything you’d rather answer yourself.')}</p>
       <div className="mt-6 space-y-4">
-        <Field label={tr('About your shop')} hint={tr('One or two lines in your own words')}><textarea className="textarea min-h-[70px]" value={about} onChange={(e) => setAbout(e.target.value)} placeholder={tr('e.g. Family-run saree shop since 1998. Silk, cotton and bridal collections.')} /></Field>
-        <Field label={tr('Address')}><textarea className="textarea min-h-[70px]" value={address} onChange={(e) => setAddress(e.target.value)} placeholder={tr('Shop number, street, area, city, PIN')} /></Field>
-        <Field label={tr('Opening hours')}><input className="input" value={hours} onChange={(e) => setHours(e.target.value)} placeholder={tr('e.g. Mon–Sat 10am–8pm, Sunday closed')} /></Field>
+        <Field label={tr('About your shop')} hint={tr('One or two lines in your own words')}><textarea maxLength={600} className="textarea min-h-[70px]" value={about} onChange={(e) => setAbout(e.target.value)} placeholder={tr('e.g. Family-run saree shop since 1998. Silk, cotton and bridal collections.')} /></Field>
+        <Field label={tr('Address')}><textarea maxLength={500} className="textarea min-h-[70px]" value={address} onChange={(e) => setAddress(e.target.value)} placeholder={tr('Shop number, street, area, city, PIN')} /></Field>
+        <Field label={tr('Opening hours')}><input maxLength={200} className="input" value={hours} onChange={(e) => setHours(e.target.value)} placeholder={tr('e.g. Mon–Sat 10am–8pm, Sunday closed')} /></Field>
         <Field label={tr('How customers can pay')}>
           <div className="flex flex-wrap gap-2">{MODES.map((m) => <button type="button" key={m} className={cx('chip', pay.includes(m) && 'chip-active')} onClick={() => setPay((a) => (a.includes(m) ? a.filter((x) => x !== m) : [...a, m]))}>{pay.includes(m) && <Check className="mr-1 inline h-3.5 w-3.5" />}{m}</button>)}</div>
         </Field>
-        <Field label={tr('Delivery')}><input className="input" value={delivery} onChange={(e) => setDelivery(e.target.value)} placeholder={tr('e.g. Free delivery within Pune in 2 days; courier elsewhere')} /></Field>
-        <Field label={tr('Returns and exchange')}><input className="input" value={returns} onChange={(e) => setReturns(e.target.value)} placeholder={tr('e.g. Exchange within 7 days with the bill')} /></Field>
+        <Field label={tr('Delivery')}><input maxLength={1000} className="input" value={delivery} onChange={(e) => setDelivery(e.target.value)} placeholder={tr('e.g. Free delivery within Pune in 2 days; courier elsewhere')} /></Field>
+        <Field label={tr('Returns and exchange')}><input maxLength={1500} className="input" value={returns} onChange={(e) => setReturns(e.target.value)} placeholder={tr('e.g. Exchange within 7 days with the bill')} /></Field>
       </div>
       <Nav next={() => save.mutate()} busy={save.isPending} skip={() => skip.mutate()} />
     </div>
@@ -167,7 +170,7 @@ function ProductsStep({ onDone, onBack }: { onDone: () => void; onBack: () => vo
       <div className="mt-5 rounded-2xl border border-line/70 bg-surface2/50 p-4" ref={card}>
         <div className="mb-3 flex items-center justify-between gap-3"><span className="text-sm font-bold">{items.length ? tr('Add another') : tr('Add your first product')}</span><RequiredNote /></div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label={tr('Product or service name')} required error={tried ? nameErr : undefined}><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Banarasi Silk Saree')} /></Field>
+          <Field label={tr('Product or service name')} required error={tried ? nameErr : undefined}><input maxLength={120} className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Banarasi Silk Saree')} /></Field>
           <Field label={tr('Category')} hint={tr('Optional')}><CategoryField value={category} onChange={setCategory} options={categoriesOf(items)} placeholder={tr('e.g. Sarees')} /></Field>
           <Field label={tr('Price (₹)')} required error={tried ? found.list_price : undefined}><MoneyInput value={d.list_price} onChange={(v) => set({ list_price: v })} placeholder="1999" /></Field>
           <Field label={tr('Availability')}><select className="select" value={d.availability} onChange={(e) => set({ availability: e.target.value })}><option value="in_stock">{tr('In stock')}</option><option value="limited">{tr('Limited')}</option><option value="made_to_order">{tr('Made to order')}</option><option value="out_of_stock">{tr('Out of stock')}</option></select></Field>
@@ -286,7 +289,7 @@ function LiveStep({ data, onBack, goto }: { data: Onb; onBack: () => void; goto:
       <ul className="mt-6 divide-y divide-line/60 rounded-2xl border border-line/70 bg-surface">
         {rows.map((s) => (
           <li key={s.key} className="flex items-center gap-3 px-4 py-3">
-            {s.done ? <CheckCircle2 className="h-5 w-5 text-brand" /> : <span className="grid h-5 w-5 place-items-center rounded-full border border-line text-[10px] text-muted">{s.skipped ? '–' : ''}</span>}
+            {s.done ? <CheckCircle2 className="h-5 w-5 text-brand" /> : <span className="grid h-5 w-5 place-items-center rounded-full border border-line text-[11px] text-muted">{s.skipped ? '–' : ''}</span>}
             <div className="flex-1"><div className="text-sm font-semibold">{tr(s.title)}</div><div className="text-xs text-muted">{s.done ? tr('Done') : s.skipped ? tr('Skipped. You can do it later.') : tr(s.required ? 'Needed' : 'Not done')}</div></div>
             {!s.done && <button className="btn btn-ghost btn-sm" onClick={() => goto(s.key)}>{tr('Do it now')}</button>}
           </li>))}
@@ -302,6 +305,8 @@ export default function Onboarding() {
   const q = useOnboarding()
   const [sp, setSp] = useSearchParams()
   const nav = useNavigate()
+  const { logout } = useAuth()
+  const leave = async () => { await logout(); nav('/login', { replace: true }) }
   const data = q.data
   const firstOpen = useMemo(() => {
     if (!data) return 'business' as StepKey
@@ -319,7 +324,7 @@ export default function Onboarding() {
 
   return (
     <div className="min-h-dvh bg-bg">
-      <header className="mx-auto flex max-w-[1040px] items-center justify-between px-5 py-5"><Logo /><span className="text-sm text-muted">{data?.business?.name ?? ''}</span></header>
+      <header className="mx-auto flex max-w-[1040px] items-center justify-between gap-3 px-5 py-5"><Logo /><div className="flex min-w-0 items-center gap-3"><span className="hidden truncate text-sm text-muted sm:inline">{data?.business?.name ?? ''}</span><button type="button" className="btn btn-outline btn-sm shrink-0" onClick={leave}><LogOut className="h-4 w-4" />{tr('Sign out')}</button></div></header>
       <div className="mx-auto grid max-w-[1040px] gap-8 px-5 pb-16 lg:grid-cols-[240px_1fr]">
         <nav aria-label={tr('Setup steps')} className="lg:sticky lg:top-6 lg:self-start">
           <ol className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:gap-1 lg:overflow-visible">

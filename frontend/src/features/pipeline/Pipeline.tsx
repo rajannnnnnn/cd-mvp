@@ -8,7 +8,7 @@ import { Avatar, Badge, EmptyState, ErrorNote, Skeleton } from '@/ui'
 import { ago, cx } from '@/lib/format'
 import { STAGES, STAGE_COLOR, STAGE_LABEL, type Stage } from '@/lib/stages'
 import { tr } from '@/i18n/tr'
-import { CHAT_TABS, SectionTabs, TryButton } from '@/app/SectionTabs'
+import { CHAT_TABS, TabBar, TryButton, useTabSwitch } from '@/app/SectionTabs'
 
 type Conv = Schemas['ConversationSummary']
 
@@ -49,23 +49,13 @@ export default function Pipeline() {
     return m
   }, [q.data])
   const total = q.data?.items.length ?? 0
+  const switched = useTabSwitch(CHAT_TABS())
   const active = STAGES.filter((s) => s !== 'won' && s !== 'lost').reduce((n, s) => n + cols[s].length, 0)
 
   return (
-    <div className="flex h-full min-h-0 flex-col px-4 py-6 lg:px-8 lg:py-8">
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-        <div className="space-y-3">
-          <SectionTabs tabs={CHAT_TABS()} />
-          <div>
-            <h1 className="text-[28px] font-extrabold">{t('nav.pipeline', 'Pipeline')}</h1>
-            <p className="text-[15px] text-muted">{t('pipeline.sub', 'Every customer conversation, by how close they are to buying. The AI moves people along; you can open any chat.')}</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <TryButton />
-          <div className="flex items-center gap-2 rounded-xl border border-line/70 bg-surface px-3.5 py-2 text-sm shadow-card"><TrendingUp className="h-4 w-4 text-brand" /><span className="text-muted">{tr('{active} active of {total}', { active, total })}</span></div>
-        </div>
-      </div>
+    <div className={`flex h-full min-h-0 flex-col ${switched}`}>
+      <TabBar tabs={CHAT_TABS()} left={<><h1 className="truncate font-display text-xl font-extrabold">{t('nav.pipeline', 'Pipeline')}</h1><span className="hidden sm:block"><div className="flex items-center gap-2 rounded-lg border border-line/70 bg-surface px-2.5 py-1 text-sm"><TrendingUp className="h-4 w-4 text-brand" /><span className="text-muted">{tr('{active} active of {total}', { active, total })}</span></div></span><TryButton compact /></>} />
+      <div className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-3 lg:px-8">
       {q.error && <ErrorNote error={q.error} retry={() => q.refetch()} />}
       {q.isLoading && <div className="flex gap-4">{STAGES.slice(0, 4).map((s) => <Skeleton key={s} className="h-72 w-72 shrink-0 rounded-2xl" />)}</div>}
       {!q.isLoading && total === 0 && <div className="card"><EmptyState title={tr('No conversations yet')} body={tr('When customers message your WhatsApp number they will appear here, grouped by stage.')} /></div>}
@@ -85,6 +75,7 @@ export default function Pipeline() {
           ))}
         </div>
       )}
+      </div>
     </div>
   )
 }

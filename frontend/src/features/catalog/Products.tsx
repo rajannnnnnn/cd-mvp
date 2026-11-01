@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, ChevronRight, LayoutGrid, Lock, Package, Pencil, Plus, Rows3, Search, ShieldCheck, Trash2, TrendingDown, X } from 'lucide-react'
+import { Check, ChevronRight, Eye, EyeOff, LayoutGrid, Lock, Package, Pencil, Plus, Rows3, Search, ShieldCheck, Trash2, TrendingDown, X } from 'lucide-react'
 import { api, ApiError, ok, type Schemas } from '@/api/client'
 import { useT } from '@/i18n'
-import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, RequiredNote, Segmented, Skeleton, Spinner, Switch, useToast } from '@/ui'
+import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, KebabMenu, Modal, RequiredNote, Segmented, Skeleton, Spinner, Switch, useToast } from '@/ui'
 import { MoneyInput, WholeInput } from '@/ui/inputs'
 import { cx, inr } from '@/lib/format'
 import { blank, fieldErrors, fromVariant, toPolicy, type Draft, type DraftField } from './draft'
@@ -81,7 +81,7 @@ function VariantEditor({ d, kind, set, onRemove, canRemove, single, errors }: { 
   return (
     <div className="rounded-2xl border border-line/80 bg-surface p-4">
       <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">{!single && <Field label={tr('Variant name')} required error={errors.name}><input className="input" value={d.name} onChange={(e) => set({ name: e.target.value })} placeholder={tr('e.g. Red, 6 metre, 128 GB')} /></Field>}</div>
+        <div className="min-w-0 flex-1">{!single && <Field label={tr('Variant name')} required error={errors.name}><input maxLength={120} className="input" value={d.name} onChange={(e) => set({ name: e.target.value })} placeholder={tr('e.g. Red, 6 metre, 128 GB')} /></Field>}</div>
         {canRemove && <button className="btn btn-ghost btn-icon mt-6 text-danger" onClick={onRemove} aria-label={tr('Remove variant')}><Trash2 className="h-4 w-4" /></button>}
       </div>
       <div className={cx('grid gap-3 sm:grid-cols-2', !single && 'mt-3')}>
@@ -107,7 +107,7 @@ function VariantEditor({ d, kind, set, onRemove, canRemove, single, errors }: { 
           {d.negotiable && (
             <div className="mt-3 space-y-3 border-t border-line/60 pt-3">
               <div className="flex items-center justify-between gap-3">
-                <div><div className="text-sm font-bold">{tr('Let the assistant negotiate')}</div><div className="text-[13px] text-muted">{tr('If off, bargaining requests come to you.')}</div></div>
+                <div><div className="text-sm font-bold">{tr('Let the assistant negotiate')}</div><div className="text-[13px] text-muted">{tr('When this is not allowed, bargaining requests come to you.')}</div></div>
                 <Switch checked={d.ai_may_negotiate} onChange={(v) => set({ ai_may_negotiate: v })} label={tr('AI may negotiate')} />
               </div>
               {d.ai_may_negotiate && <>
@@ -123,7 +123,7 @@ function VariantEditor({ d, kind, set, onRemove, canRemove, single, errors }: { 
                     <button type="button" className={cx('chip', d.req_qty && 'chip-active')} onClick={() => set({ req_qty: d.req_qty ? '' : '2' })}>{tr('Buys more than one')}</button>
                     <button type="button" className={cx('chip', d.req_advance && 'chip-active')} onClick={() => set({ req_advance: !d.req_advance })}>{tr('Pays an advance')}</button>
                     <button type="button" className={cx('chip', d.req_repeat && 'chip-active')} onClick={() => set({ req_repeat: !d.req_repeat })}>{tr('Is a returning customer')}</button>
-                    {d.req_qty && <span className="flex items-center gap-1.5 text-sm">{tr('at least')} <input className="input !min-h-0 !w-16 !py-1.5 text-center" inputMode="numeric" value={d.req_qty} onChange={(e) => set({ req_qty: e.target.value.replace(/\D/g, '') })} /> {tr('pieces')}</span>}
+                    {d.req_qty && <span className="flex items-center gap-1.5 text-sm">{tr('at least')} <input className="input !min-h-0 !w-16 !py-1.5 text-center" inputMode="numeric" value={d.req_qty} onChange={(e) => set({ req_qty: e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 4) })} /> {tr('pieces')}</span>}
                   </div>
                 </div>
                 <Field label={tr('Round prices to the nearest (₹)')}><select className="select" value={d.round_to} onChange={(e) => set({ round_to: e.target.value })}>{['1', '5', '10', '50', '100'].map((n) => <option key={n}>{n}</option>)}</select></Field>
@@ -144,7 +144,7 @@ function ProductPanel({ product, categories, onClose }: { product: Product | 'ne
   const [name, setName] = useState(isNew ? '' : product.name)
   const [category, setCategory] = useState(isNew ? '' : product.category ?? '')
   const [description, setDescription] = useState(isNew ? '' : product.description ?? '')
-  const active = isNew ? true : product.active                // on or off is the switch on the list, not a field here
+  const [active, setActiveFlag] = useState(isNew ? true : product.active)   // on or off lives in the editor; bulk on/off is in Select mode
   const [vs, setVs] = useState<Draft[]>(isNew ? [blank(true)] : product.variants.filter((v) => v.active).map(fromVariant))
   const [kind, setKindState] = useState<Disclosure>(vs.find((v) => v.is_default)?.disclosure ?? vs[0]?.disclosure ?? 'fixed')   // one way of showing the price per product
   const setKind = (k: Disclosure) => { setKindState(k); setVs((a) => a.map((x) => ({ ...x, disclosure: k }))) }
@@ -219,9 +219,11 @@ function ProductPanel({ product, categories, onClose }: { product: Product | 'ne
       <div className="space-y-4" ref={body}>
         <RequiredNote />
         {error && <div className="rounded-xl border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-sm font-medium text-danger">{error}</div>}
-        <Field label={tr('Product name')} required error={tried ? nameErr : undefined}><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Banarasi Silk Saree')} autoFocus={isNew} /></Field>
+        <Field label={tr('Product name')} required error={tried ? nameErr : undefined}><input maxLength={120} className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Banarasi Silk Saree')} autoFocus={isNew} /></Field>
         <Field label={tr('Category')} hint={tr('Type a new one or pick yours')}><CategoryField value={category} onChange={setCategory} options={categories} placeholder={tr('e.g. Sarees')} /></Field>
-        <Field label={tr('Description')} hint={tr('What the assistant can say about it')}><textarea className="textarea min-h-[84px]" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={tr('Fabric, sizes, delivery time, care…')} /></Field>
+        <Field label={tr('Description')} hint={tr('What the assistant can say about it')}><textarea maxLength={1000} className="textarea min-h-[84px]" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={tr('Fabric, sizes, delivery time, care…')} /></Field>
+
+        <label className="flex items-center justify-between gap-4 rounded-xl border border-line px-3.5 py-3 text-sm font-semibold"><span>{tr('For sale')}<span className="block text-[13px] font-normal text-muted">{tr('When hidden, the assistant will not offer it')}</span></span><Switch checked={active} onChange={setActiveFlag} label={tr('For sale')} /></label>
 
         <div className="pt-1"><h3 className="font-display text-base font-bold">{tr('Price')}</h3>
           <div role="radiogroup" aria-label={tr('How the price is shown')} className="mt-2 flex flex-wrap gap-2">
@@ -249,6 +251,7 @@ export default function Products() {
   const qc = useQueryClient(); const toast = useToast()
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState<Product | 'new' | null>(null)
+  const [viewing, setViewing] = useState<Product | null>(null)                        // a card was clicked: read-only look
   const [view, setView] = useView(VIEW_KEY)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [selecting, setSelecting] = useState(false)                       // ticks only appear when the owner asks for them
@@ -270,7 +273,7 @@ export default function Products() {
     mutationFn: async (v: { ids: string[]; active: boolean }) => { for (const id of v.ids) await ok(api.PATCH('/api/v1/products/{product_id}', { params: { path: { product_id: id } }, body: { active: v.active } })) },
     onSuccess: (_r, v) => {
       qc.invalidateQueries({ queryKey: ['products'] }); qc.invalidateQueries({ queryKey: ['onboarding'] })
-      toast(v.ids.length === 1 ? (v.active ? tr('Product switched on') : tr('Product switched off')) : tr('{n} products updated', { n: v.ids.length }))
+      toast(v.ids.length === 1 ? (v.active ? tr('Product shown') : tr('Product hidden')) : tr('{n} products updated', { n: v.ids.length }))
       setOne(null); setBulk(null); setPicked(new Set()); setSelecting(false)
     },
     onError: (e) => { qc.invalidateQueries({ queryKey: ['products'] }); toast((e as Error).message, 'error'); setOne(null); setBulk(null) },
@@ -294,7 +297,6 @@ export default function Products() {
   const badges = (p: Product) => {
     const { def, neg, floor, ai } = summary(p)
     return (<>
-      {!p.active && <Badge tone="gray">{tr('Not for sale')}</Badge>}
       {def?.availability === 'out_of_stock' && <Badge tone="red">{tr('Out of stock')}</Badge>}
       {def?.availability === 'limited' && <Badge tone="amber">{tr('Limited')}</Badge>}
       {neg ? <Badge tone="amber">{tr('Bargaining allowed')}</Badge> : <Badge tone="gray">{tr('Fixed price')}</Badge>}
@@ -321,15 +323,15 @@ export default function Products() {
         <div className="min-w-0 flex-1 space-y-5">
           {(q.data?.items.length ?? 0) > 0 && (
             <div className="flex flex-wrap items-center gap-3">
-              {(q.data?.items.length ?? 0) > 4 && <div className="relative min-w-[200px] max-w-sm flex-1"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input className="input pl-10" placeholder={tr('Search products')} value={search} onChange={(e) => setSearch(e.target.value)} /></div>}
+              {(q.data?.items.length ?? 0) > 4 && <div className="relative min-w-[200px] max-w-sm flex-1"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input maxLength={80} className="input pl-10" placeholder={tr('Search products')} value={search} onChange={(e) => setSearch(e.target.value)} /></div>}
               {selecting && <div className="flex items-center gap-2 text-sm font-semibold"><Tick checked={allTicked} onChange={toggleAll} label={tr('Select all products')} /><span className="cursor-pointer" onClick={() => toggleAll(!allTicked)}>{tr('Select all')}</span></div>}
               <div className="ml-auto flex items-center gap-2"><SelectToggle selecting={selecting} onToggle={toggleSelecting} /><ViewToggle value={view} onChange={setView} /></div>
             </div>)}
           {selecting && chosen.length > 0 && (
             <div className="sticky top-[68px] z-20 flex flex-wrap items-center gap-2 rounded-2xl border border-brand/40 bg-brand-soft px-4 py-3 shadow-card" role="region" aria-label={tr('Selected products')}>
               <b className="mr-1 text-sm">{tr('{n} selected', { n: chosen.length })}</b>
-              <button className="btn btn-primary btn-sm" onClick={() => setBulk(true)}>{tr('Switch on')}</button>
-              <button className="btn btn-outline btn-sm" onClick={() => setBulk(false)}>{tr('Switch off')}</button>
+              <button className="btn btn-primary btn-sm" onClick={() => setBulk(true)}>{tr('Show')}</button>
+              <button className="btn btn-outline btn-sm" onClick={() => setBulk(false)}>{tr('Hide')}</button>
               <button className="btn btn-outline btn-sm text-danger" onClick={() => setBulkDel(true)}><Trash2 className="h-3.5 w-3.5" /> {tr('Delete')}</button>
               <button className="btn btn-ghost btn-sm ml-auto" onClick={() => setPicked(new Set())}>{tr('Clear')}</button>
             </div>)}
@@ -337,22 +339,23 @@ export default function Products() {
           {q.isLoading && <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-40 rounded-2xl" />)}</div>}
           {!q.isLoading && !q.error && (q.data?.items.length ?? 0) === 0 && <div className="card"><EmptyState icon={<Package className="h-6 w-6" />} title={tr('Add your first product')} body={tr('The assistant answers questions and quotes prices from your products. Nothing is invented.')} action={<button className="btn btn-primary" onClick={() => setOpen('new')}><Plus className="h-4 w-4" /> {tr('Add product')}</button>} /></div>}
 
+          {!q.isLoading && !q.error && (q.data?.items.length ?? 0) > 0 && items.length === 0 && <div className="card"><EmptyState icon={<Search className="h-6 w-6" />} title={tr('No products match “{q}”', { q: search })} body={tr('Check the spelling, or try a shorter word.')} action={<button className="btn btn-outline" onClick={() => setSearch('')}>{tr('Clear search')}</button>} /></div>}
+
           {view === 'cards' && (
             <div className={cx('grid gap-4 sm:grid-cols-2', docked ? 'xl:grid-cols-2' : 'lg:grid-cols-3')}>
               {items.map((p) => {
                 const { def, vs } = summary(p)
                 const price = priceText(def)
                 return (
-                  <div key={p.id} onClick={() => (selecting ? toggleOne(p.id, !picked.has(p.id)) : setOpen(p))}
-                    className={cx('card card-pad flex cursor-pointer flex-col transition hover:border-brand/40 hover:shadow-pop', picked.has(p.id) && 'border-brand ring-2 ring-brand/30', editing === p.id && 'border-brand bg-brand-soft/30', !p.active && 'opacity-80')}>
+                  <div key={p.id} onClick={() => (selecting ? toggleOne(p.id, !picked.has(p.id)) : setViewing(p))}
+                    className={cx('card card-pad flex h-[200px] cursor-pointer flex-col transition hover:border-brand/40 hover:shadow-pop', picked.has(p.id) && 'border-brand ring-2 ring-brand/30', editing === p.id && 'border-brand bg-brand-soft/30', !p.active && '!border-dashed bg-surface2/60')}>
                     <div className="flex items-start gap-3">
                       {selecting && <Tick checked={picked.has(p.id)} onChange={(v) => toggleOne(p.id, v)} label={tr('Select {name}', { name: p.name })} />}
-                      <div className="min-w-0 flex-1"><div className="truncate font-display text-[17px] font-bold">{p.name}</div><div className="text-[13px] text-muted">{p.category ?? tr('Uncategorised')}{vs.length > 1 ? tr(' · {length} variants', { length: vs.length }) : ''}</div></div>
-                      <span onClick={(e) => e.stopPropagation()}><Switch checked={p.active} onChange={(v) => setOne({ p, to: v })} label={tr('{name} is for sale', { name: p.name })} /></span>
+                      <div className={cx('min-w-0 flex-1', !p.active && 'opacity-60')}><div className="flex items-center font-display text-[17px] font-bold">{!p.active && <EyeOff className="mr-1.5 h-4 w-4 shrink-0 text-muted" aria-label={tr('Hidden from customers')} />}<span className="truncate">{p.name}</span></div><div className="truncate text-[13px] text-muted">{p.category ?? tr('Uncategorised')}{vs.length > 1 ? tr(' · {length} variants', { length: vs.length }) : ''}</div></div>
+                      {!selecting && <KebabMenu label={tr('More actions for {name}', { name: p.name })} items={[{ label: tr('Edit'), icon: <Pencil className="h-4 w-4" />, onClick: () => setOpen(p) }, { label: p.active ? tr('Hide') : tr('Show'), icon: p.active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />, onClick: () => setOne({ p, to: !p.active }) }, { label: tr('Delete'), icon: <Trash2 className="h-4 w-4" />, danger: true, onClick: () => setDelOne(p) }]} />}
                     </div>
-                    <div className="mt-4 text-[22px] font-extrabold tnum">{price.split(' · ')[0]}{price.includes(' · ') && <span className="ml-1.5 text-[13px] font-semibold text-muted">{price.split(' · ')[1]}</span>}</div>
-                    <div className="mt-3 flex flex-wrap gap-1.5">{badges(p)}</div>
-                    <div className="mt-4 flex items-center justify-between border-t border-line/60 pt-3"><span className="text-xs font-semibold text-muted">{p.active ? tr('For sale') : tr('Not for sale')}</span>{actions(p)}</div>
+                    <div className={cx('mt-4 truncate text-[22px] font-extrabold tnum', !p.active && 'opacity-60')}>{price.split(' · ')[0]}{price.includes(' · ') && <span className="ml-1.5 text-[13px] font-semibold text-muted">{price.split(' · ')[1]}</span>}</div>
+                    <div className={cx('mt-3 flex max-h-[52px] flex-wrap content-start gap-1.5 overflow-hidden', !p.active && 'opacity-60')}>{badges(p)}</div>
                   </div>)
               })}
             </div>)}
@@ -362,20 +365,18 @@ export default function Products() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[820px] text-left text-sm">
                   <thead className="border-b border-line/70 bg-surface2/60 text-[11.5px] font-bold uppercase tracking-wide text-muted">
-                    <tr>{selecting && <th className="w-12 px-4 py-3"><Tick checked={allTicked} onChange={toggleAll} label={tr('Select all products')} /></th>}<th className="px-3 py-3">{tr('Product')}</th><th className="px-3 py-3">{tr('Category')}</th><th className="px-3 py-3">{tr('Price')}</th><th className="px-3 py-3">{tr('Status')}</th><th className="px-3 py-3 text-center">{tr('For sale')}</th><th className="px-3 py-3 text-right">{tr('Actions')}</th></tr>
+                    <tr>{selecting && <th className="w-12 px-4 py-3"><Tick checked={allTicked} onChange={toggleAll} label={tr('Select all products')} /></th>}<th className="px-3 py-3">{tr('Product')}</th><th className="px-3 py-3">{tr('Category')}</th><th className="px-3 py-3">{tr('Price')}</th><th className="px-3 py-3">{tr('Status')}</th></tr>
                   </thead>
                   <tbody className="divide-y divide-line/60">
                     {items.map((p) => {
                       const { def, vs } = summary(p)
                       return (
-                        <tr key={p.id} onClick={() => (selecting ? toggleOne(p.id, !picked.has(p.id)) : setOpen(p))} className={cx('cursor-pointer hover:bg-surface2/50', picked.has(p.id) && 'bg-brand-soft/60', editing === p.id && 'bg-brand-soft/40', !p.active && 'opacity-80')}>
+                        <tr key={p.id} onClick={() => (selecting ? toggleOne(p.id, !picked.has(p.id)) : setOpen(p))} className={cx('cursor-pointer hover:bg-surface2/50', picked.has(p.id) && 'bg-brand-soft/60', editing === p.id && 'bg-brand-soft/40', !p.active && 'bg-surface2/60 [&>td:not(:first-child)]:opacity-60')}>
                           {selecting && <td className="px-4 py-3"><Tick checked={picked.has(p.id)} onChange={(v) => toggleOne(p.id, v)} label={tr('Select {name}', { name: p.name })} /></td>}
-                          <td className="px-3 py-3"><div className="font-bold">{p.name}</div>{vs.length > 1 && <div className="text-xs text-muted">{tr('{n} variants', { n: vs.length })}</div>}</td>
+                          <td className="px-3 py-3"><div className="flex items-center font-bold">{!p.active && <EyeOff className="mr-1.5 h-4 w-4 shrink-0 text-muted" aria-label={tr('Hidden from customers')} />}{p.name}</div>{vs.length > 1 && <div className="text-xs text-muted">{tr('{n} variants', { n: vs.length })}</div>}</td>
                           <td className="px-3 py-3 text-muted">{p.category ?? '—'}</td>
                           <td className="tnum px-3 py-3 font-semibold">{priceText(def)}</td>
                           <td className="px-3 py-3"><div className="flex flex-wrap gap-1.5">{badges(p)}</div></td>
-                          <td className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}><Switch checked={p.active} onChange={(v) => setOne({ p, to: v })} label={tr('{name} is for sale', { name: p.name })} /></td>
-                          <td className="px-3 py-3"><div className="flex justify-end">{actions(p, true)}</div></td>
                         </tr>)
                     })}
                   </tbody>
@@ -387,15 +388,30 @@ export default function Products() {
         {open && <ProductPanel key={open === 'new' ? 'new' : open.id} product={open} categories={categories} onClose={() => setOpen(null)} />}
       </div>
 
+      <Modal open={!!viewing} onClose={() => setViewing(null)} title={viewing?.name}
+        footer={<><button className="btn btn-primary" onClick={() => { const v = viewing; setViewing(null); if (v) setOpen(v) }}><Pencil className="h-4 w-4" /> {tr('Edit')}</button><button className="btn btn-ghost" onClick={() => setViewing(null)}>{tr('Close')}</button></>}>
+        {viewing && (<div className="space-y-4">
+          <div className="text-sm text-muted">{viewing.category ?? tr('Uncategorised')}</div>
+          <div className="flex flex-wrap gap-1.5">{badges(viewing)}</div>
+          {viewing.description && <p className="text-[15px]">{viewing.description}</p>}
+          <div className="divide-y divide-line/60 rounded-xl border border-line/70">
+            {viewing.variants.filter((v) => v.active).map((v) => (
+              <div key={v.id} className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5">
+                <div className="min-w-0"><div className="truncate font-semibold">{v.name}</div><div className="text-xs text-muted">{v.availability === 'out_of_stock' ? tr('Out of stock') : v.availability === 'limited' ? tr('Limited') : tr('In stock')}{v.stock_qty != null ? ` · ${v.stock_qty}` : ''}</div></div>
+                <div className="tnum font-bold">{priceText(v)}</div>
+              </div>))}
+          </div>
+        </div>)}
+      </Modal>
       <Confirm open={!!one} onClose={() => setOne(null)} busy={setActive.isPending} danger={one ? !one.to : false}
-        title={one?.to ? tr('Switch on “{name}”?', { name: one.p.name }) : tr('Switch off “{name}”?', { name: one?.p.name ?? '' })}
+        title={one?.to ? tr('Show “{name}”?', { name: one.p.name }) : tr('Hide “{name}”?', { name: one?.p.name ?? '' })}
         body={one?.to ? tr('The assistant will start offering this product to customers again.') : tr('The assistant will stop offering it. Existing conversations keep their history.')}
-        confirmLabel={one?.to ? tr('Switch on') : tr('Switch off')} onConfirm={() => one && setActive.mutate({ ids: [one.p.id], active: one.to })} />
+        confirmLabel={one?.to ? tr('Show') : tr('Hide')} onConfirm={() => one && setActive.mutate({ ids: [one.p.id], active: one.to })} />
       <Confirm open={bulk !== null} onClose={() => setBulk(null)} busy={setActive.isPending} danger={bulk === false}
-        title={bulk ? tr('Switch on {n} products?', { n: chosen.length }) : tr('Switch off {n} products?', { n: chosen.length })}
+        title={bulk ? tr('Show {n} products?', { n: chosen.length }) : tr('Hide {n} products?', { n: chosen.length })}
         body={<div><p>{bulk ? tr('The assistant will start offering all of these again:') : tr('The assistant will stop offering all of these:')}</p>
           <ul className="mt-2 max-h-40 list-disc space-y-0.5 overflow-y-auto pl-5">{chosen.map((p) => <li key={p.id} className="font-semibold text-ink">{p.name}</li>)}</ul></div>}
-        confirmLabel={bulk ? tr('Yes, switch on {n}', { n: chosen.length }) : tr('Yes, switch off {n}', { n: chosen.length })} onConfirm={() => bulk !== null && setActive.mutate({ ids: chosen.map((p) => p.id), active: bulk })} />
+        confirmLabel={bulk ? tr('Yes, show {n}', { n: chosen.length }) : tr('Yes, hide {n}', { n: chosen.length })} onConfirm={() => bulk !== null && setActive.mutate({ ids: chosen.map((p) => p.id), active: bulk })} />
       <Confirm open={!!delOne} onClose={() => setDelOne(null)} busy={remove.isPending} danger
         title={tr('Delete “{name}”?', { name: delOne?.name ?? '' })} body={tr('Existing conversations keep their history. The assistant will stop offering it.')}
         confirmLabel={tr('Delete')} onConfirm={() => delOne && remove.mutate([delOne.id])} />

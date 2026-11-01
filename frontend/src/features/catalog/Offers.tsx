@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Gift, Megaphone, Pencil, Percent, Plus, Tag, Trash2 } from 'lucide-react'
+import { Check, Gift, Pause, Play, Megaphone, Pencil, Percent, Plus, Tag, Trash2 } from 'lucide-react'
 import { api, ok, type Schemas } from '@/api/client'
 import { useT } from '@/i18n'
-import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, RequiredNote, Skeleton, Spinner, Switch, useToast } from '@/ui'
+import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, KebabMenu, Modal, RequiredNote, Skeleton, Spinner, Switch, useToast } from '@/ui'
 import { MoneyInput, PercentInput, WholeInput } from '@/ui/inputs'
 import { cleanNumber, MONEY, moneyError, PERCENT, percentError } from '@/lib/money'
 import { cx, inr } from '@/lib/format'
@@ -61,7 +61,7 @@ function OfferPanel({ offer, products, onClose }: { offer: Offer | 'new'; produc
   const [starts, setStarts] = useState(isNew ? '' : dateOnly(offer.starts_at))
   const [ends, setEnds] = useState(isNew ? '' : dateOnly(offer.ends_at))
   const [cross, setCross] = useState(isNew ? false : !!offer.may_cross_floor)
-  const active = isNew ? true : offer.active ?? true      // switching an offer on or off is done from the list
+  const [active, setActiveFlag] = useState(isNew ? true : offer.active ?? true)   // on or off lives in the editor; bulk on/off is in Select mode
   const [err, setErr] = useState<string | null>(null)
   const [confirmDel, setConfirmDel] = useState(false)
   const categories = useMemo(() => categoriesOf(products), [products])
@@ -75,9 +75,10 @@ function OfferPanel({ offer, products, onClose }: { offer: Offer | 'new'; produc
     name: name.trim() ? undefined : 'Give the offer a name',
     value: kind === 'free_item' ? undefined : (kind === 'percent' ? percentError(value) : moneyError(value, 'Amount')) ?? undefined,
     free: kind === 'free_item' && !freeItem.trim() ? 'Say what is free' : undefined,
+    ends: ends && starts && ends < starts ? 'The end date can’t be before the start date' : ends && isNew && ends < new Date().toISOString().slice(0, 10) ? 'The end date has already passed' : undefined,
   }
   const problems = Object.values(found).filter(Boolean).length
-  const shown = tried ? found : { name: undefined, value: undefined, free: undefined }
+  const shown = tried ? found : { name: undefined, value: undefined, free: undefined, ends: found.ends }
   const submit = () => {
     setTried(true); setErr(null)
     if (problems > 0) { setErr(problems === 1 ? tr('Please fix the highlighted field.') : tr('Please fix the {n} highlighted fields.', { n: problems })); setTimeout(() => focusFirstInvalid(body.current), 30); return }
@@ -110,7 +111,7 @@ function OfferPanel({ offer, products, onClose }: { offer: Offer | 'new'; produc
       <div className="space-y-4" ref={body}>
         <RequiredNote />
         {err && <div className="rounded-xl border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-sm font-medium text-danger">{err}</div>}
-        <Field label={tr('Offer name')} hint={tr('Customers may see this')} required error={shown.name}><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Festive 10% off')} autoFocus={isNew} /></Field>
+        <Field label={tr('Offer name')} hint={tr('Customers may see this')} required error={shown.name}><input maxLength={120} className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Festive 10% off')} autoFocus={isNew} /></Field>
         <div className="grid grid-cols-2 gap-2">
           {KINDS.map((k) => (
             <button key={k.value} type="button" onClick={() => { setKind(k.value); setValue((v) => cleanNumber(v, k.value === 'percent' ? PERCENT : MONEY)) }} className={`rounded-xl border p-3 text-left transition ${kind === k.value ? 'border-brand bg-brand-soft' : 'border-line hover:bg-surface2'}`}>
@@ -119,7 +120,7 @@ function OfferPanel({ offer, products, onClose }: { offer: Offer | 'new'; produc
           ))}
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          {kind === 'free_item' ? <Field label={tr('What’s free?')} required error={shown.free}><input className="input" value={freeItem} onChange={(e) => setFreeItem(e.target.value)} placeholder={tr('e.g. matching dupatta')} /></Field>
+          {kind === 'free_item' ? <Field label={tr('What’s free?')} required error={shown.free}><input maxLength={120} className="input" value={freeItem} onChange={(e) => setFreeItem(e.target.value)} placeholder={tr('e.g. matching dupatta')} /></Field>
             : <Field label={kind === 'percent' ? tr('Percent off') : tr('Amount (₹)')} required error={shown.value}>
               {kind === 'percent' ? <PercentInput value={value} onChange={setValue} placeholder="10" /> : <MoneyInput value={value} onChange={setValue} placeholder="200" />}
             </Field>}
@@ -133,9 +134,10 @@ function OfferPanel({ offer, products, onClose }: { offer: Offer | 'new'; produc
           </Field>
           <Field label={tr('Only when buying at least')} hint={tr('Optional')}><WholeInput value={minQty} onChange={setMinQty} digits={4} placeholder="e.g. 2" /></Field>
           <div className="flex items-end"><label className="flex min-h-[44px] w-full items-center justify-between rounded-xl border border-line px-3.5 text-sm font-semibold">{tr('First order only')}<Switch checked={firstOrder} onChange={setFirstOrder} label={tr('First order only')} /></label></div>
-          <Field label={tr('Starts')} hint={tr('Optional')}><input type="date" className="input" value={starts} onChange={(e) => setStarts(e.target.value)} /></Field>
-          <Field label={tr('Ends')} hint={tr('Optional')}><input type="date" className="input" value={ends} onChange={(e) => setEnds(e.target.value)} /></Field>
+          <Field label={tr('Starts')} hint={tr('Optional')}><input type="date" className="input" max={ends || undefined} value={starts} onChange={(e) => setStarts(e.target.value)} /></Field>
+          <Field label={tr('Ends')} hint={tr('Optional')} error={shown.ends}><input type="date" className="input" min={starts || undefined} value={ends} onChange={(e) => setEnds(e.target.value)} /></Field>
         </div>
+        <label className="flex items-center justify-between gap-4 rounded-xl border border-line px-3.5 py-3 text-sm font-semibold"><span>{tr('Offer is running')}<span className="block text-[13px] font-normal text-muted">{tr('When paused, the assistant will not mention it')}</span></span><Switch checked={active} onChange={setActiveFlag} label={tr('Offer is running')} /></label>
         <label className="flex items-start justify-between gap-4 rounded-xl bg-surface2 px-3.5 py-3"><span><span className="block text-sm font-bold">{tr('May go below my lowest price')}</span><span className="block text-[13px] text-muted">{tr('Normally the assistant never goes under your lowest price. Turn this on only for offers where you accept that, like a clearance sale.')}</span></span><Switch checked={cross} onChange={setCross} label={tr('May cross floor')} /></label>
       </div>
       <Confirm open={confirmDel} title={tr('Delete this offer?')} body={tr('The assistant will stop mentioning it.')} confirmLabel={tr('Delete')} danger busy={del.isPending} onClose={() => setConfirmDel(false)} onConfirm={() => del.mutate()} />
@@ -148,6 +150,7 @@ export default function Offers() {
   const { t } = useT()
   const toast = useToast(); const qc = useQueryClient()
   const [edit, setEdit] = useState<Offer | 'new' | null>(null)
+  const [viewing, setViewing] = useState<Offer | null>(null)                           // a card was clicked: read-only look
   const [view, setView] = useView(VIEW_KEY)
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [selecting, setSelecting] = useState(false)                       // ticks only appear when the owner asks for them
@@ -171,7 +174,7 @@ export default function Offers() {
     mutationFn: async (v: { list: Offer[]; active: boolean }) => { for (const o of v.list) await ok(api.PUT('/api/v1/offers/{offer_id}', { params: { path: { offer_id: o.id } }, body: asBody(o, { active: v.active }) })) },
     onSuccess: (_r, v) => {
       qc.invalidateQueries({ queryKey: ['offers'] })
-      toast(v.list.length === 1 ? (v.active ? tr('Offer switched on') : tr('Offer switched off')) : tr('{n} offers updated', { n: v.list.length }))
+      toast(v.list.length === 1 ? (v.active ? tr('Offer resumed') : tr('Offer paused')) : tr('{n} offers updated', { n: v.list.length }))
       setOne(null); setBulk(null); setPicked(new Set()); setSelecting(false)
     },
     onError: (e) => { qc.invalidateQueries({ queryKey: ['offers'] }); toast((e as Error).message, 'error'); setOne(null); setBulk(null) },
@@ -188,7 +191,6 @@ export default function Offers() {
   })
 
   const badges = (o: Offer) => (<>
-    {!o.active && <Badge tone="gray">{tr('Switched off')}</Badge>}
     {o.ends_at && new Date(o.ends_at) < new Date() && <Badge tone="gray">{tr('Ended')}</Badge>}
     {o.may_cross_floor && <Badge tone="amber">{tr('Can go below lowest price')}</Badge>}
   </>)
@@ -216,8 +218,8 @@ export default function Offers() {
           {selecting && chosen.length > 0 && (
             <div className="sticky top-[68px] z-20 flex flex-wrap items-center gap-2 rounded-2xl border border-brand/40 bg-brand-soft px-4 py-3 shadow-card" role="region" aria-label={tr('Selected offers')}>
               <b className="mr-1 text-sm">{tr('{n} selected', { n: chosen.length })}</b>
-              <button className="btn btn-primary btn-sm" onClick={() => setBulk(true)}>{tr('Switch on')}</button>
-              <button className="btn btn-outline btn-sm" onClick={() => setBulk(false)}>{tr('Switch off')}</button>
+              <button className="btn btn-primary btn-sm" onClick={() => setBulk(true)}>{tr('Resume')}</button>
+              <button className="btn btn-outline btn-sm" onClick={() => setBulk(false)}>{tr('Pause')}</button>
               <button className="btn btn-outline btn-sm text-danger" onClick={() => setBulkDel(true)}><Trash2 className="h-3.5 w-3.5" /> {tr('Delete')}</button>
               <button className="btn btn-ghost btn-sm ml-auto" onClick={() => setPicked(new Set())}>{tr('Clear')}</button>
             </div>)}
@@ -230,18 +232,17 @@ export default function Offers() {
               {items.map((o) => {
                 const K = KINDS.find((k) => k.value === o.kind)!
                 return (
-                  <div key={o.id} onClick={() => (selecting ? toggleOne(o.id, !picked.has(o.id)) : setEdit(o))}
-                    className={cx('card card-pad flex cursor-pointer flex-col transition hover:border-brand/40 hover:shadow-pop', picked.has(o.id) && 'border-brand ring-2 ring-brand/30', editing === o.id && 'border-brand bg-brand-soft/30', !o.active && 'opacity-80')}>
+                  <div key={o.id} onClick={() => (selecting ? toggleOne(o.id, !picked.has(o.id)) : setViewing(o))}
+                    className={cx('card card-pad flex h-[196px] cursor-pointer flex-col transition hover:border-brand/40 hover:shadow-pop', picked.has(o.id) && 'border-brand ring-2 ring-brand/30', editing === o.id && 'border-brand bg-brand-soft/30', !o.active && '!border-dashed bg-surface2/60')}>
                     <div className="flex items-start gap-3">
                       {selecting && <Tick checked={picked.has(o.id)} onChange={(v) => toggleOne(o.id, v)} label={tr('Select {name}', { name: o.name })} />}
-                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-[rgb(150_92_0)]"><K.icon className="h-4 w-4" /></span>
-                      <div className="min-w-0 flex-1"><div className="truncate font-display text-[17px] font-bold">{o.name}</div><div className="text-[13px] text-muted">{describe(o)}</div></div>
-                      <span onClick={(e) => e.stopPropagation()}><Switch checked={!!o.active} onChange={(v) => setOne({ o, to: v })} label={tr('{name} is on', { name: o.name })} /></span>
+                      <span className={cx('grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-[rgb(150_92_0)]', !o.active && 'opacity-60 grayscale')}><K.icon className="h-4 w-4" /></span>
+                      <div className={cx('min-w-0 flex-1', !o.active && 'opacity-60')}><div className="flex items-center font-display text-[17px] font-bold">{!o.active && <Pause className="mr-1.5 h-4 w-4 shrink-0 text-muted" aria-label={tr('Paused')} />}<span className="truncate">{o.name}</span></div><div className="truncate text-[13px] text-muted">{describe(o)}</div></div>
+                      {!selecting && <KebabMenu label={tr('More actions for {name}', { name: o.name })} items={[{ label: tr('Edit'), icon: <Pencil className="h-4 w-4" />, onClick: () => setEdit(o) }, { label: o.active ? tr('Pause') : tr('Resume'), icon: o.active ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />, onClick: () => setOne({ o, to: !o.active }) }, { label: tr('Delete'), icon: <Trash2 className="h-4 w-4" />, danger: true, onClick: () => setDelOne(o) }]} />}
                     </div>
-                    <div className="mt-3 text-[13px]"><span className="text-muted">{tr('Applies to')}: </span><b>{appliesTo(o, products)}</b></div>
-                    <div className="text-[13px] text-muted">{when(o)}</div>
-                    <div className="mt-2 flex flex-wrap gap-1.5">{badges(o)}</div>
-                    <div className="mt-4 flex items-center justify-between border-t border-line/60 pt-3"><span className="text-xs font-semibold text-muted">{o.active ? tr('On') : tr('Off')}</span>{actions(o)}</div>
+                    <div className="mt-3 truncate text-[13px]"><span className="text-muted">{tr('Applies to')}: </span><b>{appliesTo(o, products)}</b></div>
+                    <div className="truncate text-[13px] text-muted">{when(o)}</div>
+                    <div className="mt-2 flex max-h-[52px] flex-wrap content-start gap-1.5 overflow-hidden">{badges(o)}</div>
                   </div>)
               })}
             </div>)}
@@ -250,18 +251,16 @@ export default function Offers() {
             <div className="card overflow-hidden"><div className="overflow-x-auto">
               <table className="w-full min-w-[820px] text-left text-sm">
                 <thead className="border-b border-line/70 bg-surface2/60 text-[11.5px] font-bold uppercase tracking-wide text-muted">
-                  <tr>{selecting && <th className="w-12 px-4 py-3"><Tick checked={allTicked} onChange={toggleAll} label={tr('Select all offers')} /></th>}<th className="px-3 py-3">{tr('Offer')}</th><th className="px-3 py-3">{tr('Deal')}</th><th className="px-3 py-3">{tr('Applies to')}</th><th className="px-3 py-3">{tr('Dates')}</th><th className="px-3 py-3 text-center">{tr('On')}</th><th className="px-3 py-3 text-right">{tr('Actions')}</th></tr>
+                  <tr>{selecting && <th className="w-12 px-4 py-3"><Tick checked={allTicked} onChange={toggleAll} label={tr('Select all offers')} /></th>}<th className="px-3 py-3">{tr('Offer')}</th><th className="px-3 py-3">{tr('Deal')}</th><th className="px-3 py-3">{tr('Applies to')}</th><th className="px-3 py-3">{tr('Dates')}</th></tr>
                 </thead>
                 <tbody className="divide-y divide-line/60">
                   {items.map((o) => (
-                    <tr key={o.id} onClick={() => (selecting ? toggleOne(o.id, !picked.has(o.id)) : setEdit(o))} className={cx('cursor-pointer hover:bg-surface2/50', picked.has(o.id) && 'bg-brand-soft/60', editing === o.id && 'bg-brand-soft/40', !o.active && 'opacity-80')}>
+                    <tr key={o.id} onClick={() => (selecting ? toggleOne(o.id, !picked.has(o.id)) : setEdit(o))} className={cx('cursor-pointer hover:bg-surface2/50', picked.has(o.id) && 'bg-brand-soft/60', editing === o.id && 'bg-brand-soft/40', !o.active && 'bg-surface2/60 [&>td:not(:first-child)]:opacity-60')}>
                       {selecting && <td className="px-4 py-3"><Tick checked={picked.has(o.id)} onChange={(v) => toggleOne(o.id, v)} label={tr('Select {name}', { name: o.name })} /></td>}
                       <td className="px-3 py-3"><div className="font-bold">{o.name}</div><div className="mt-1 flex flex-wrap gap-1.5">{badges(o)}</div></td>
                       <td className="px-3 py-3 text-muted">{describe(o)}</td>
                       <td className="px-3 py-3 font-semibold">{appliesTo(o, products)}</td>
                       <td className="px-3 py-3 text-muted">{when(o)}</td>
-                      <td className="px-3 py-3 text-center" onClick={(e) => e.stopPropagation()}><Switch checked={!!o.active} onChange={(v) => setOne({ o, to: v })} label={tr('{name} is on', { name: o.name })} /></td>
-                      <td className="px-3 py-3"><div className="flex justify-end">{actions(o, true)}</div></td>
                     </tr>))}
                 </tbody>
               </table></div></div>)}
@@ -270,15 +269,26 @@ export default function Offers() {
         {edit && <OfferPanel key={edit === 'new' ? 'new' : edit.id} offer={edit} products={products} onClose={() => setEdit(null)} />}
       </div>
 
+      <Modal open={!!viewing} onClose={() => setViewing(null)} title={viewing?.name}
+        footer={<><button className="btn btn-primary" onClick={() => { const v = viewing; setViewing(null); if (v) setEdit(v) }}><Pencil className="h-4 w-4" /> {tr('Edit')}</button><button className="btn btn-ghost" onClick={() => setViewing(null)}>{tr('Close')}</button></>}>
+        {viewing && (<div className="space-y-3">
+          <div className="text-[15px] font-semibold">{describe(viewing)}</div>
+          <div className="flex flex-wrap gap-1.5">{badges(viewing)}</div>
+          <div className="space-y-1.5 rounded-xl border border-line/70 px-3.5 py-3 text-sm">
+            <div><span className="text-muted">{tr('Applies to')}: </span><b>{appliesTo(viewing, products)}</b></div>
+            <div><span className="text-muted">{tr('Dates')}: </span><b>{when(viewing)}</b></div>
+          </div>
+        </div>)}
+      </Modal>
       <Confirm open={!!one} onClose={() => setOne(null)} busy={setActive.isPending} danger={one ? !one.to : false}
-        title={one?.to ? tr('Switch on “{name}”?', { name: one.o.name }) : tr('Switch off “{name}”?', { name: one?.o.name ?? '' })}
+        title={one?.to ? tr('Resume “{name}”?', { name: one.o.name }) : tr('Pause “{name}”?', { name: one?.o.name ?? '' })}
         body={one?.to ? tr('The assistant will start using this offer again.') : tr('The assistant will stop mentioning this offer.')}
-        confirmLabel={one?.to ? tr('Switch on') : tr('Switch off')} onConfirm={() => one && setActive.mutate({ list: [one.o], active: one.to })} />
+        confirmLabel={one?.to ? tr('Resume') : tr('Pause')} onConfirm={() => one && setActive.mutate({ list: [one.o], active: one.to })} />
       <Confirm open={bulk !== null} onClose={() => setBulk(null)} busy={setActive.isPending} danger={bulk === false}
-        title={bulk ? tr('Switch on {n} offers?', { n: chosen.length }) : tr('Switch off {n} offers?', { n: chosen.length })}
+        title={bulk ? tr('Resume {n} offers?', { n: chosen.length }) : tr('Pause {n} offers?', { n: chosen.length })}
         body={<div><p>{bulk ? tr('The assistant will start using all of these again:') : tr('The assistant will stop mentioning all of these:')}</p>
           <ul className="mt-2 max-h-40 list-disc space-y-0.5 overflow-y-auto pl-5">{chosen.map((o) => <li key={o.id} className="font-semibold text-ink">{o.name}</li>)}</ul></div>}
-        confirmLabel={bulk ? tr('Yes, switch on {n}', { n: chosen.length }) : tr('Yes, switch off {n}', { n: chosen.length })} onConfirm={() => bulk !== null && setActive.mutate({ list: chosen, active: bulk })} />
+        confirmLabel={bulk ? tr('Yes, resume {n}', { n: chosen.length }) : tr('Yes, pause {n}', { n: chosen.length })} onConfirm={() => bulk !== null && setActive.mutate({ list: chosen, active: bulk })} />
       <Confirm open={!!delOne} onClose={() => setDelOne(null)} busy={remove.isPending} danger
         title={tr('Delete “{name}”?', { name: delOne?.name ?? '' })} body={tr('The assistant will stop mentioning it.')}
         confirmLabel={tr('Delete')} onConfirm={() => delOne && remove.mutate([delOne.id])} />

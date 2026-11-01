@@ -26,7 +26,7 @@ export function CategoryField({ value, onChange, options, placeholder }: { value
   return (
     <div ref={box} className="relative" onBlur={(e) => { if (!box.current?.contains(e.relatedTarget as Node)) setOpen(false) }}>
       <div className="relative">
-        <input className="input pr-11" role="combobox" aria-label={tr('Category')} aria-expanded={open} aria-controls={`${id}-list`} aria-autocomplete="list" autoComplete="off"
+        <input maxLength={60} className="input pr-11" role="combobox" aria-label={tr('Category')} aria-expanded={open} aria-controls={`${id}-list`} aria-autocomplete="list" autoComplete="off"
           value={value} placeholder={placeholder} onChange={(e) => { onChange(e.target.value); setTyped(true); setOpen(true); setActive(-1) }} onFocus={() => setTyped(false)} onKeyDown={onKeyDown} />
         {options.length > 0 && (
           <button type="button" tabIndex={-1} aria-label={tr('Show your categories')} onMouseDown={(e) => e.preventDefault()} onClick={() => { setTyped(false); setOpen((o) => !o) }}

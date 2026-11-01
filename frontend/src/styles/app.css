@@ -92,3 +92,10 @@
 .phone { position: relative; width: 304px; height: 620px; border-radius: 42px; padding: 11px; background: linear-gradient(145deg, #1b2622, #0b110e); box-shadow: 0 30px 60px -20px rgb(0 0 0 / .45), inset 0 0 0 2px #2a3a34; flex-shrink: 0; }
 .phone-screen { position: relative; height: 100%; border-radius: 32px; overflow: hidden; background: rgb(var(--surface)); display: flex; flex-direction: column; }
 .phone-notch { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); width: 88px; height: 22px; background: #0b110e; border-radius: 14px; z-index: 5; }
+
+/* Touch screens: comfortable tap targets (desktop sizes stay as they are) */
+@media (pointer: coarse) {
+  .btn-sm, .chip, [role='tab'] { min-height: 40px; }
+  .bubble-meta { font-size: 11px; }
+  input:not([type='checkbox']):not([type='radio']), select, textarea { font-size: 16px; } /* stops iOS zooming into fields */
+}

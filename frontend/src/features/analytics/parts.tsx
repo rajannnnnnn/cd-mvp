@@ -50,7 +50,7 @@ export function Hours({ rows }: { rows: { hour: number; n: number }[] }) {
       <div className="flex h-28 items-end gap-[3px]" role="img" aria-label={tr('Messages by hour of the day')}>
         {rows.map((r) => <div key={r.hour} title={`${label(r.hour)}: ${r.n}`} className="flex-1 rounded-t bg-brand/80 transition-all hover:bg-brand" style={{ height: `${Math.max(r.n ? 6 : 2, (r.n / max) * 100)}%`, opacity: r.n ? 1 : 0.25 }} />)}
       </div>
-      <div className="mt-1 flex justify-between text-[10px] text-muted"><span>12a</span><span>6a</span><span>12p</span><span>6p</span><span>11p</span></div>
+      <div className="mt-1 flex justify-between text-[11px] text-muted"><span>12a</span><span>6a</span><span>12p</span><span>6p</span><span>11p</span></div>
     </div>
   )
 }

@@ -8,7 +8,7 @@ import { Avatar, Badge, Confirm, EmptyState, ErrorNote, MessageTicks, Skeleton, 
 import { ago, clock, cx, dayLabel, inr, phone as fmtPhone } from '@/lib/format'
 import { HANDOFF_LABEL, HANDOFF_TONE, STAGES, STAGE_LABEL, STAGE_TONE, type Stage } from '@/lib/stages'
 import { tr } from '@/i18n/tr'
-import { CHAT_TABS, SectionTabs, TryButton } from '@/app/SectionTabs'
+import { CHAT_TABS, TabBar, TryButton, useTabSwitch } from '@/app/SectionTabs'
 
 type Summary = Schemas['ConversationSummary']
 type Detail = Schemas['ConversationDetail']
@@ -43,15 +43,14 @@ function ChatList({ activeId }: { activeId?: string }) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface">
       <div className="space-y-3 border-b border-line/70 p-4">
-        <div className="flex items-center justify-between gap-2"><h1 className="font-display text-2xl font-extrabold">{t('chat.title', 'Chats')}</h1><TryButton /></div>
-        <SectionTabs tabs={CHAT_TABS()} />
-        <div className="relative"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input className="input !pl-10" placeholder={t('chat.search', 'Search name or number')} value={search} onChange={(e) => setSearch(e.target.value)} /></div>
+        <div className="flex items-center justify-between gap-2"><h1 className="font-display text-2xl font-extrabold">{t('chat.title', 'Chats')}</h1></div>
+        <div className="flex items-center gap-2"><div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input maxLength={80} className="input !pl-10" placeholder={t('chat.search', 'Search name or number')} value={search} onChange={(e) => setSearch(e.target.value)} /></div><TryButton compact className="shrink-0" /></div>
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5">{FILTERS.map((f) => <button key={f.id} className={cx('chip', filter === f.id && 'chip-active')} onClick={() => setFilter(f.id)}>{t(f.key, f.label)}</button>)}</div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {q.isLoading && Array.from({ length: 6 }, (_, i) => <div key={i} className="flex gap-3 p-4"><Skeleton className="h-11 w-11 !rounded-full" /><div className="flex-1 space-y-2"><Skeleton className="h-4 w-1/2" /><Skeleton className="h-3 w-4/5" /></div></div>)}
         {q.error && <div className="p-4"><ErrorNote error={q.error} retry={() => q.refetch()} /></div>}
-        {!q.isLoading && items.length === 0 && <EmptyState icon={<MessageCircle className="h-6 w-6" />} title={t('chat.empty', 'No conversations here')} body={filter === 'all' ? tr('Customer chats will appear here as soon as someone messages your number.') : tr('Nothing matches this filter.')} />}
+        {!q.isLoading && items.length === 0 && <EmptyState icon={debounced ? <Search className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />} title={debounced ? tr('No chats match “{q}”', { q: debounced }) : t('chat.empty', 'No conversations here')} body={debounced ? tr('Check the spelling, or search by a name or phone number.') : filter === 'all' ? tr('Customer chats will appear here as soon as someone messages your number.') : tr('Nothing matches this filter.')} />}
         {items.map((c) => <ChatRow key={c.id} c={c} active={c.id === activeId} />)}
         {q.hasNextPage && <div className="p-3"><button className="btn btn-outline w-full" onClick={() => q.fetchNextPage()} disabled={q.isFetchingNextPage}>{q.isFetchingNextPage ? <Spinner /> : tr('Load more')}</button></div>}
       </div>
@@ -89,8 +88,8 @@ function Bubble({ m }: { m: Schemas['MessageOut'] }) {
   return (
     <div className={cx('flex flex-col', out ? 'items-end' : 'items-start')}>
       <div className={cx('bubble', out ? 'bubble-out' : 'bubble-in', m.status === 'cancelled' && 'opacity-50', m.status === 'failed' && 'ring-1 ring-danger/50')}>
-        {m.sender === 'ai' && <div className="mb-0.5 flex items-center gap-1 text-[10.5px] font-bold uppercase tracking-wide text-brand-ink"><Bot className="h-3 w-3" />{tr('AI assistant')}</div>}
-        {m.sender === 'owner' && <div className="mb-0.5 flex items-center gap-1 text-[10.5px] font-bold uppercase tracking-wide text-info"><UserRound className="h-3 w-3" />{tr('You')}</div>}
+        {m.sender === 'ai' && <div className="mb-0.5 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-brand-ink"><Bot className="h-3 w-3" />{tr('AI assistant')}</div>}
+        {m.sender === 'owner' && <div className="mb-0.5 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-info"><UserRound className="h-3 w-3" />{tr('You')}</div>}
         {m.kind === 'audio' ? <span className="italic opacity-80">{tr('🎤 Voice note (not transcribed)')}</span> : m.kind === 'image' ? <span className="italic opacity-80">{tr('🖼️ Photo')}{m.body ? `: ${m.body}` : ''}</span> : m.body}
         <div className="bubble-meta">{m.status === 'cancelled' ? <span>{tr('not sent · customer replied')}</span> : clock(m.created_at)}{out && m.status !== 'cancelled' && <MessageTicks status={m.status} />}</div>
       </div>
@@ -183,7 +182,7 @@ function Thread({ id, onBack }: { id: string; onBack: () => void }) {
               <div className="mb-2 flex items-center gap-2 text-xs text-muted"><Pause className="h-3.5 w-3.5" />{paused ? (d.ai_paused_reason === 'owner_reply' ? tr('AI paused because you replied') : d.ai_paused_reason === 'handoff' ? tr('AI paused for the handoff') : tr('AI paused')) : tr('Personal contact — the AI never replies here')}<span>· {t('chat.windowOpen', 'You can reply until {time}', { time: clock(d.window_closes_at) })}</span>
                 {paused && <button className="ml-auto font-semibold text-brand-ink hover:underline" onClick={() => resume.mutate()}>{t('chat.handBack', 'Hand back to AI')}</button>}</div>
               <form className="flex items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (text.trim()) send.mutate(text.trim()) }}>
-                <textarea ref={area} rows={1} value={text} onChange={(e) => { setText(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(140, e.target.scrollHeight) + 'px' }}
+                <textarea maxLength={1500} ref={area} rows={1} value={text} onChange={(e) => { setText(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(140, e.target.scrollHeight) + 'px' }}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && window.innerWidth > 900) { e.preventDefault(); if (text.trim()) send.mutate(text.trim()) } }}
                   placeholder={t('chat.type', 'Type a reply to the customer…')} className="input max-h-36 flex-1 resize-none !py-3" />
                 <button className="btn btn-primary btn-icon !h-11 !w-11 !rounded-xl" disabled={!text.trim() || send.isPending} aria-label={t('chat.send', 'Send')}>{send.isPending ? <Spinner /> : <Send className="h-[18px] w-[18px]" />}</button>
@@ -218,7 +217,7 @@ function InfoPanel({ d, onClose, onChange }: { d: Detail; onClose: () => void; o
 
       <div>
         <div className="panel-title mb-3">{tr('Lead stage')}</div>
-        <div className="flex items-center gap-1">{STAGES.slice(0, 5).map((s, i) => <div key={s} className="flex-1"><div className={cx('h-1.5 rounded-full', i <= idx && idx < 5 ? 'bg-brand' : 'bg-line')} /><div className={cx('mt-1.5 text-center text-[9.5px] font-semibold leading-tight', i === idx ? 'text-brand-ink' : 'text-muted')}>{t(`stage.${s}`, tr(STAGE_LABEL[s]))}</div></div>)}</div>
+        <div className="flex items-center gap-1">{STAGES.slice(0, 5).map((s, i) => <div key={s} className="flex-1"><div className={cx('h-1.5 rounded-full', i <= idx && idx < 5 ? 'bg-brand' : 'bg-line')} /><div className={cx('mt-1.5 text-center text-[11px] font-semibold leading-tight', i === idx ? 'text-brand-ink' : 'text-muted')}>{t(`stage.${s}`, tr(STAGE_LABEL[s]))}</div></div>)}</div>
         {(d.lead_stage === 'won' || d.lead_stage === 'lost') && <div className="mt-3"><Badge tone={STAGE_TONE[d.lead_stage as Stage]}>{tr(STAGE_LABEL[d.lead_stage as Stage])}</Badge></div>}
       </div>
 
@@ -265,9 +264,11 @@ function InfoPanel({ d, onClose, onChange }: { d: Detail; onClose: () => void; o
 export default function Chats() {
   const { id } = useParams()
   const nav = useNavigate()
+  const switched = useTabSwitch(CHAT_TABS())
   return (
-    <div className="h-[calc(100dvh-57px-76px)] lg:h-[calc(100dvh-57px)]">
-      <div className="grid h-full lg:grid-cols-[360px_1fr]">
+    <div className={cx('flex h-[calc(100dvh-57px-76px)] flex-col lg:h-[calc(100dvh-57px)]', switched)}>
+      <TabBar tabs={CHAT_TABS()} className={id ? 'hidden lg:flex' : undefined} />
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] lg:grid-cols-[360px_minmax(0,1fr)]">
         <div className={cx('min-h-0 border-r border-line/70', id ? 'hidden lg:block' : 'block')}><ChatList activeId={id} /></div>
         <div className={cx('min-h-0', id ? 'block' : 'hidden lg:block')}>
           {id ? <Thread key={id} id={id} onBack={() => nav('/chats')} /> : (

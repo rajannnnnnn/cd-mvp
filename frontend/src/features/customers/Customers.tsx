@@ -30,12 +30,12 @@ export default function Customers() {
     <div className="mx-auto max-w-[980px] space-y-5 px-4 py-6 lg:px-8 lg:py-8">
       <div><h1 className="text-[28px] font-extrabold">{t('nav.customers', 'Customers')}</h1><p className="text-[15px] text-muted">{tr('Everyone who has messaged your number. Mark family and friends as personal and the assistant will never reply to them.')}</p></div>
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative min-w-[220px] flex-1 sm:max-w-xs"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input className="input pl-10" placeholder={tr('Search name or number')} value={search} onChange={(e) => setSearch(e.target.value)} /></div>
+        <div className="relative min-w-[220px] flex-1 sm:max-w-xs"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input maxLength={80} className="input pl-10" placeholder={tr('Search name or number')} value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         <Segmented value={filter} onChange={setFilter} options={[{ value: 'all', label: tr('All') }, { value: 'personal', label: tr('Personal') }, { value: 'opted_out', label: tr('Opted out') }]} />
       </div>
       {q.error && <ErrorNote error={q.error} retry={() => q.refetch()} />}
       {q.isLoading && <Skeleton className="h-64 rounded-2xl" />}
-      {!q.isLoading && !q.error && items.length === 0 && <div className="card"><EmptyState icon={<Users className="h-6 w-6" />} title={tr('No customers found')} body={filter === 'all' ? tr('Customers appear here after their first message.') : tr('Nobody matches this filter.')} /></div>}
+      {!q.isLoading && !q.error && items.length === 0 && <div className="card"><EmptyState icon={deb ? <Search className="h-6 w-6" /> : <Users className="h-6 w-6" />} title={deb ? tr('No customers match “{q}”', { q: deb }) : tr('No customers found')} body={deb ? tr('Check the spelling, or search by a name or phone number.') : filter === 'all' ? tr('Customers appear here after their first message.') : tr('Nobody matches this filter.')} /></div>}
       {items.length > 0 && (
         <div className="card divide-y divide-line/60 overflow-hidden">
           {items.map((c) => (

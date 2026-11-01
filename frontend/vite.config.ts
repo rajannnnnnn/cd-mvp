@@ -96,6 +96,6 @@ export default defineConfig({
       '/webhooks': { target: process.env.INGRESS_PROXY ?? 'http://localhost:8001', changeOrigin: true },
     },
   },
-  preview: { port: 4173, host: true },
+  preview: { port: 4173, host: true, allowedHosts: ['.trycloudflare.com'] },
   test: { environment: 'node', include: ['src/**/*.test.ts'] },
 })

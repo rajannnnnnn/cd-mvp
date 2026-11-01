@@ -65,7 +65,7 @@ export default function Shell() {
   const flipTheme = () => { const n: Theme = theme === 'dark' ? 'light' : 'dark'; setTheme(n); setThemeState(n) }
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[264px_1fr]">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[264px_minmax(0,1fr)]">
       <aside className="sticky top-0 hidden h-dvh flex-col gap-1 border-r border-line/70 bg-surface px-3 py-4 lg:flex">
         <div className="px-3 pb-4 pt-1"><Logo /></div>
         {isOwner && (
@@ -99,7 +99,7 @@ export default function Shell() {
           <div className="hidden flex-1 lg:block" />
           {me?.impersonated && <button className="badge badge-amber cursor-pointer hover:brightness-95" onClick={backToConsole}>{tr('Viewing as owner (support) · Back to console')}</button>}
           <button className="btn btn-ghost btn-icon lg:hidden" onClick={flipTheme} aria-label={tr('Theme')}>{theme === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}</button>
-          <button className="lg:hidden" onClick={() => setMenu(true)} aria-label={tr('Account')}><Avatar name={me?.name ?? me?.phone} size={32} /></button>
+          <button className="grid h-11 w-11 place-items-center lg:hidden" onClick={() => setMenu(true)} aria-label={tr('Account')}><Avatar name={me?.name ?? me?.phone} size={32} /></button>
         </header>
         {banner && <Link to="/billing" className={cx('block px-4 py-2 text-center text-[13px] font-semibold lg:px-8', banner.tone === 'bad' ? 'bg-danger text-white' : 'bg-accent-soft text-[rgb(150_92_0)]')}>{banner.text} <span className="underline">{tr('Open billing')}</span></Link>}
         <main className="min-w-0 flex-1"><Outlet /></main>
@@ -109,7 +109,7 @@ export default function Shell() {
         {mobile.map((i) => (
           <NavLink key={i.to} to={i.to} className={({ isActive }) => cx('relative flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold', isActive || sibling(i) ? 'text-brand-ink' : 'text-muted')}>
             <i.icon className="h-5 w-5" />{t(i.key, i.label)}
-            {!!i.badge && <span className="absolute right-[26%] top-1.5 grid min-w-4 place-items-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">{i.badge}</span>}
+            {!!i.badge && <span className="absolute right-[26%] top-1.5 grid min-w-4 place-items-center rounded-full bg-danger px-1 text-[11px] font-bold text-white">{i.badge}</span>}
           </NavLink>))}
         {isOwner && <button onClick={() => setMore(true)} className="flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-semibold text-muted"><MoreHorizontal className="h-5 w-5" />{tr('More')}</button>}
       </nav>

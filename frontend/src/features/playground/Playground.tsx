@@ -1,3 +1,5 @@
+import { PhoneInput } from '@/ui/inputs'
+import { cleanPhone, isPhone, toE164 } from '@/lib/phone'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Eye, FlaskConical, Image as ImageIcon, Plug, Send, Shuffle, Smartphone, WifiOff } from 'lucide-react'
@@ -10,9 +12,9 @@ import { tr } from '@/i18n/tr'
 
 type Msg = Schemas['SimMessage']
 const LS = 'chatdeal.playground.customer'
-const randomPhone = () => `+91 9${String(Math.floor(Math.random() * 1e9)).padStart(9, '0').replace(/^(\d{4})(\d{5})$/, '$1$2')}`.slice(0, 16)
+const randomPhone = () => `9${String(Math.floor(Math.random() * 1e9)).padStart(9, '0')}`   // a valid 10-digit mobile number
 const digits = (s: string) => s.replace(/\D/g, '')
-const asE164 = (s: string) => { const d = digits(s); return d.length === 10 ? `+91${d}` : `+${d}` }
+const asE164 = (s: string) => toE164(s)
 
 /** One simulated handset: polls its thread, shows the typing indicator, and (unless offline) acknowledges delivery and read like a real phone. */
 function Handset({ title, subtitle, phone, business, offline, onSend, placeholder, extraBar, tone }: {
@@ -24,7 +26,7 @@ function Handset({ title, subtitle, phone, business, offline, onSend, placeholde
   const [now, setNow] = useState(Date.now())
   const acked = useRef(new Set<string>())
   const endRef = useRef<HTMLDivElement>(null)
-  const valid = digits(phone).length >= 10
+  const valid = isPhone(phone) || digits(phone).length >= 10
   const q = useQuery({
     queryKey: ['sim-thread', phone, business], enabled: valid && !!business, refetchInterval: 1100,
     queryFn: () => ok(api.GET('/api/v1/sim/thread', { params: { query: { phone: asE164(phone), business_phone: business } } })),
@@ -76,7 +78,7 @@ function Handset({ title, subtitle, phone, business, offline, onSend, placeholde
       </div>
       {extraBar}
       <form className="flex items-center gap-2 border-t border-line/60 bg-surface px-3 py-2.5" onSubmit={(e) => { e.preventDefault(); submit() }}>
-        <input className="input !min-h-[40px] !rounded-full !py-2" value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} disabled={!valid} />
+        <input maxLength={1500} className="input !min-h-[40px] !rounded-full !py-2" value={text} onChange={(e) => setText(e.target.value)} placeholder={placeholder} disabled={!valid} />
         <button className="btn btn-primary btn-icon !rounded-full" type="submit" disabled={!valid || !text.trim() || busy} aria-label={tr('Send')}><Send className="h-4 w-4" /></button>
       </form>
     </PhoneFrame>
@@ -90,7 +92,7 @@ export default function Playground() {
   const nums = useQuery({ queryKey: ['sim-numbers'], queryFn: () => ok(api.GET('/api/v1/sim/numbers')), retry: false })
   const [bizIdx, setBizIdx] = useState(0)
   const biz = nums.data?.[bizIdx]
-  const [custPhone, setCustPhone] = useState(() => { try { return localStorage.getItem(LS) || '+91 98765 43210' } catch { return '+91 98765 43210' } })
+  const [custPhone, setCustPhone] = useState(() => { try { return cleanPhone(localStorage.getItem(LS) ?? '') || '9876543210' } catch { return '9876543210' } })
   const [custName, setCustName] = useState('Priya')
   const [offline, setOffline] = useState(false)
   const [asOwner, setAsOwner] = useState(false)
@@ -120,8 +122,8 @@ export default function Playground() {
       {biz && (
         <>
           <div className="card card-pad grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-            <Field label={tr('Customer’s phone number')}><div className="flex gap-2"><input className="input" value={custPhone} onChange={(e) => setCustPhone(e.target.value)} inputMode="tel" /><button className="btn btn-outline btn-icon" title={tr('New random customer')} onClick={() => setCustPhone(randomPhone())}><Shuffle className="h-4 w-4" /></button></div></Field>
-            <Field label={tr('Their WhatsApp name')}><input className="input" value={custName} onChange={(e) => setCustName(e.target.value)} /></Field>
+            <Field label={tr('Customer’s phone number')} required><div className="flex gap-2"><PhoneInput className="flex-1" value={custPhone} onChange={setCustPhone} /><button className="btn btn-outline btn-icon" title={tr('New random customer')} onClick={() => setCustPhone(randomPhone())}><Shuffle className="h-4 w-4" /></button></div></Field>
+            <Field label={tr('Their WhatsApp name')}><input maxLength={80} className="input" value={custName} onChange={(e) => setCustName(e.target.value)} /></Field>
             <label className="flex min-h-[44px] items-center gap-3 rounded-xl border border-line px-3.5 text-sm font-semibold"><WifiOff className="h-4 w-4 text-muted" />{tr('Phone offline')}<Switch checked={offline} onChange={setOffline} label={tr('Customer phone offline')} /></label>
           </div>
           <div className="flex flex-wrap items-start justify-center gap-8 lg:gap-14">

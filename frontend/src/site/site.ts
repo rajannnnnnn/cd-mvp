@@ -1,38 +1,31 @@
 import '@/styles/fonts'
 import '@/styles/app.css'
 import './site.css'
-import { HI } from './hi'
 import { ladderLevels, stepFor } from './ladder'
 
-type Lang = 'en' | 'hi'
-const LANG_KEY = 'chatdeal.lang'
 const $ = <T extends HTMLElement>(s: string, r: ParentNode = document) => r.querySelector<T>(s)
 const $$ = <T extends HTMLElement>(s: string, r: ParentNode = document) => Array.from(r.querySelectorAll<T>(s))
 const safe = <T>(f: () => T, d: T): T => { try { return f() } catch { return d } }
 
-/* ------------------------------------------------------------------ language */
+/* English only: the site has no language switch. */
 const brand = document.querySelector<HTMLMetaElement>('meta[name="brand"]')?.content ?? 'ChatDeal'
-function applyLang(lang: Lang) {
-  document.documentElement.lang = lang
-  for (const el of $$('[data-i18n],[data-i18n-html]')) {
-    const key = el.dataset.i18n ?? el.dataset.i18nHtml!
-    if (el.dataset.en === undefined) el.dataset.en = el.innerHTML
-    el.innerHTML = lang === 'hi' && HI[key] ? HI[key].replaceAll('%BRAND%', brand) : el.dataset.en
-  }
-  const lbl = $('#lang-label'); if (lbl) lbl.textContent = lang === 'hi' ? 'EN' : 'हिं'
-  safe(() => localStorage.setItem(LANG_KEY, lang), undefined)
-  document.dispatchEvent(new CustomEvent('langchange', { detail: lang }))
-}
-const initialLang = (): Lang => safe(() => (localStorage.getItem(LANG_KEY) as Lang) || (navigator.language.startsWith('hi') ? 'hi' : 'en'), 'en')
-let lang: Lang = initialLang()
-$('#lang-toggle')?.addEventListener('click', () => { lang = lang === 'en' ? 'hi' : 'en'; applyLang(lang) })
-if (lang === 'hi') applyLang('hi')
+void brand
+safe(() => localStorage.removeItem('chatdeal.lang'), undefined)
 
 /* ------------------------------------------------------------------ theme + misc */
-$('#theme-toggle')?.addEventListener('click', () => {
+const flipTheme = () => {
   const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'
   document.documentElement.dataset.theme = next; safe(() => localStorage.setItem('chatdeal.theme', next), undefined)
-})
+}
+$('#theme-toggle')?.addEventListener('click', flipTheme)
+$('#theme-toggle-m')?.addEventListener('click', flipTheme)
+
+/* phone menu */
+const menuBtn = $('#menu-toggle'), menu = $('#mobile-menu')
+const setMenu = (open: boolean) => { menu?.classList.toggle('hidden', !open); menuBtn?.setAttribute('aria-expanded', String(open)); menuBtn?.setAttribute('aria-label', open ? 'Close menu' : 'Open menu') }
+menuBtn?.addEventListener('click', () => setMenu(menu?.classList.contains('hidden') ?? false))
+menu?.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('a')) setMenu(false) })
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') setMenu(false) })
 const yr = $('#year'); if (yr) yr.textContent = String(new Date().getFullYear())
 
 /* ------------------------------------------------------------------ scroll reveal */
@@ -85,7 +78,7 @@ function ladderDemo() {
   const out = $('#ld-path')!, note = $('#ld-note')!, reply = $('#ld-reply')!
   const inr = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`
   const render = () => {
-    const t = (en: string, hi: string) => (lang === 'hi' ? hi : en)
+    const t = (en: string, _hi?: string) => en
     let l = +list.value, f = +floor.value
     if (f > l) { f = l; floor.value = String(f) }
     floor.max = String(l)
@@ -112,7 +105,6 @@ function ladderDemo() {
     reply.textContent = msg
   }
   ;[list, floor, steps, ask].forEach((el) => el.addEventListener('input', render))
-  document.addEventListener('langchange', render)
   render()
 }
 ladderDemo()
