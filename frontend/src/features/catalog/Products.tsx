@@ -323,7 +323,7 @@ export default function Products() {
         <div className="min-w-0 flex-1 space-y-5">
           {(q.data?.items.length ?? 0) > 0 && (
             <div className="flex flex-wrap items-center gap-3">
-              {(q.data?.items.length ?? 0) > 4 && <div className="relative min-w-[200px] max-w-sm flex-1"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input maxLength={80} className="input pl-10" placeholder={tr('Search products')} value={search} onChange={(e) => setSearch(e.target.value)} /></div>}
+              <div className="relative min-w-[200px] max-w-sm flex-1"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input maxLength={80} className="input pl-10" placeholder={tr('Search products')} value={search} onChange={(e) => setSearch(e.target.value)} /></div>
               {selecting && <div className="flex items-center gap-2 text-sm font-semibold"><Tick checked={allTicked} onChange={toggleAll} label={tr('Select all products')} /><span className="cursor-pointer" onClick={() => toggleAll(!allTicked)}>{tr('Select all')}</span></div>}
               <div className="ml-auto flex items-center gap-2"><SelectToggle selecting={selecting} onToggle={toggleSelecting} /><ViewToggle value={view} onChange={setView} /></div>
             </div>)}

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Gift, Pause, Play, Megaphone, Pencil, Percent, Plus, Tag, Trash2 } from 'lucide-react'
+import { Check, Gift, Pause, Play, Search, Megaphone, Pencil, Percent, Plus, Tag, Trash2 } from 'lucide-react'
 import { api, ok, type Schemas } from '@/api/client'
 import { useT } from '@/i18n'
 import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, KebabMenu, Modal, RequiredNote, Skeleton, Spinner, Switch, useToast } from '@/ui'
@@ -162,7 +162,9 @@ export default function Offers() {
   const q = useQuery({ queryKey: ['offers'], queryFn: () => ok(api.GET('/api/v1/offers')) })
   const prods = useQuery({ queryKey: ['products'], queryFn: () => ok(api.GET('/api/v1/products', { params: { query: { limit: 100 } } })) })
   const products = prods.data?.items ?? []
-  const items = q.data ?? []
+  const all = q.data ?? []
+  const [search, setSearch] = useState('')
+  const items = useMemo(() => all.filter((o) => !search || `${o.name} ${describe(o)}`.toLowerCase().includes(search.toLowerCase())), [all, search])
   const chosen = useMemo(() => items.filter((o) => picked.has(o.id)), [items, picked])
   const allTicked = items.length > 0 && items.every((o) => picked.has(o.id))
   const toggleOne = (id: string, on: boolean) => setPicked((s) => { const n = new Set(s); if (on) n.add(id); else n.delete(id); return n })
@@ -210,8 +212,9 @@ export default function Offers() {
 
       <div className="lg:flex lg:items-start lg:gap-6">
         <div className="min-w-0 flex-1 space-y-5">
-          {items.length > 0 && (
+          {all.length > 0 && (
             <div className="flex flex-wrap items-center gap-3">
+              <div className="relative min-w-[200px] max-w-sm flex-1"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input maxLength={80} className="input pl-10" placeholder={tr('Search offers')} value={search} onChange={(e) => setSearch(e.target.value)} /></div>
               {selecting && <div className="flex items-center gap-2 text-sm font-semibold"><Tick checked={allTicked} onChange={toggleAll} label={tr('Select all offers')} /><span className="cursor-pointer" onClick={() => toggleAll(!allTicked)}>{tr('Select all')}</span></div>}
               <div className="ml-auto flex items-center gap-2"><SelectToggle selecting={selecting} onToggle={toggleSelecting} /><ViewToggle value={view} onChange={setView} /></div>
             </div>)}
@@ -225,7 +228,8 @@ export default function Offers() {
             </div>)}
           {q.error && <ErrorNote error={q.error} retry={() => q.refetch()} />}
           {q.isLoading && <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}</div>}
-          {!q.isLoading && !q.error && items.length === 0 && <div className="card"><EmptyState icon={<Megaphone className="h-6 w-6" />} title={tr('No offers yet')} body={tr('Create a festive discount or a free gift. The assistant will use it at the right moment, within the limits you set.')} action={<button className="btn btn-primary" onClick={() => setEdit('new')}><Plus className="h-4 w-4" /> {tr('Create an offer')}</button>} /></div>}
+          {!q.isLoading && !q.error && all.length > 0 && items.length === 0 && <div className="card"><EmptyState icon={<Search className="h-6 w-6" />} title={tr('No offers match “{q}”', { q: search })} body={tr('Check the spelling, or try a shorter word.')} action={<button className="btn btn-outline" onClick={() => setSearch('')}>{tr('Clear search')}</button>} /></div>}
+          {!q.isLoading && !q.error && all.length === 0 && <div className="card"><EmptyState icon={<Megaphone className="h-6 w-6" />} title={tr('No offers yet')} body={tr('Create a festive discount or a free gift. The assistant will use it at the right moment, within the limits you set.')} action={<button className="btn btn-primary" onClick={() => setEdit('new')}><Plus className="h-4 w-4" /> {tr('Create an offer')}</button>} /></div>}
 
           {view === 'cards' && (
             <div className={cx('grid gap-4 sm:grid-cols-2', docked ? 'xl:grid-cols-2' : 'lg:grid-cols-3')}>

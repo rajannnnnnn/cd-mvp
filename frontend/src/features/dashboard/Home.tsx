@@ -107,7 +107,6 @@ export default function Home() {
             <dl className="grid flex-1 gap-3 text-sm">
               <div className="flex justify-between"><dt className="text-muted">{tr('Replies planned')}</dt><dd className="tnum font-semibold">{ai.turns_30d ?? '–'}</dd></div>
               <div className="flex justify-between"><dt className="text-muted">{tr('Avg. thinking time')}</dt><dd className="tnum font-semibold">{ov.data ? ((ai.avg_latency_ms ?? 0) < 1000 ? tr('under 1 s') : `${((ai.avg_latency_ms ?? 0) / 1000).toFixed(1)} s`) : '–'}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted">{tr('AI cost')}</dt><dd className="tnum font-semibold">{ov.data ? inr(ai.cost_inr_30d ?? 0) : '–'}</dd></div>
             </dl>
           </div>
           <div className="mt-4 rounded-xl bg-brand-soft px-3.5 py-3 text-xs leading-relaxed text-brand-ink">{tr('Every price the assistant quoted came from your price rules — never invented by the AI.')}</div>
