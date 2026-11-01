@@ -102,7 +102,7 @@ test.describe('owner app', () => {
 
   test('settings: shop details save and the assistant tab has no reply-speed control', async ({ page }) => {
     await page.goto(`${SHOP}/settings`)
-    const save = page.getByRole('button', { name: /^(Save changes|Saved)$/ }).first()
+    const save = page.getByRole('button', { name: 'Save changes' }).first()
     await expect(save).toBeDisabled()                                                              // nothing changed yet: nothing to save
     await page.getByLabel('Shop phone').fill(`+91 99999 000${10 + Math.floor(Math.random() * 80)}`)
     await expect(save).toBeEnabled()

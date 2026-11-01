@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BellRing, Building2, Check, Copy, LifeBuoy, Lock, Mic2, Laptop, Phone, Plus, ShieldCheck, Sliders, Smartphone, Trash2, Users, X } from 'lucide-react'
+import { BellRing, Building2, Copy, LifeBuoy, Lock, Mic2, Laptop, Phone, Plus, ShieldCheck, Sliders, Smartphone, Trash2, Users, X } from 'lucide-react'
 import { api, ok, type Schemas } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
 import { useBusiness, usePublicConfig } from '@/api/hooks'
@@ -32,13 +32,9 @@ function useBaseline(values: unknown) {
   const [base, setBase] = useState(now)
   return { dirty: now !== base, commit: () => setBase(now) }
 }
-/** Green and clickable only when something changed; otherwise a quiet "Saved". */
+/** Greyed out and not clickable until something changed. The label never changes. */
 function SaveButton({ dirty, busy, disabled, onClick, label }: { dirty: boolean; busy: boolean; disabled?: boolean; onClick: () => void; label: string }) {
-  return (
-    <button className={cx('btn', dirty || busy ? 'btn-primary' : 'btn-soft')} disabled={!dirty || busy || disabled} onClick={onClick}>
-      {busy ? <Spinner /> : !dirty && <Check className="h-4 w-4" />} {dirty || busy ? label : tr('Saved')}
-    </button>
-  )
+  return <button className="btn btn-primary" disabled={!dirty || busy || disabled} onClick={onClick}>{busy && <Spinner />} {label}</button>
 }
 /** The shop's full link as one piece, with a copy button. */
 function CopyLink({ url }: { url: string }) {
