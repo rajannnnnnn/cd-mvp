@@ -10,6 +10,7 @@ import { cx, inr } from '@/lib/format'
 import { tr } from '@/i18n/tr'
 import { categoriesOf } from './category'
 import { DockPanel, SelectToggle, Tick, useView, ViewToggle } from './shared'
+import { CardGridSkeleton } from '@/ui/skeletons'
 
 type Offer = Schemas['OfferOut']
 const KINDS: { value: Offer['kind']; label: string; icon: typeof Percent; help: string }[] = [
@@ -205,21 +206,20 @@ export default function Offers() {
 
   return (
     <div className={cx('mx-auto space-y-5 px-4 py-6 lg:px-8 lg:py-8', docked ? 'max-w-[1560px]' : 'max-w-[1180px]')}>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div><h1 className="text-[28px] font-extrabold">{t('nav.offers', 'Offers')}</h1><p className="text-[15px] text-muted">{tr('Deals the assistant may mention. It only uses offers you create here.')}</p></div>
-        <div className="flex w-full items-center gap-2 sm:w-auto">
-          <div className="relative min-w-0 flex-1 sm:w-72 sm:flex-none"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input maxLength={80} className="input pl-10" placeholder={tr('Search offers')} value={search} onChange={(e) => setSearch(e.target.value)} aria-label={tr('Search offers')} /></div>
-          <button className="btn btn-primary shrink-0" onClick={() => setEdit('new')}><Plus className="h-4 w-4" /> {tr('New offer')}</button>
-        </div>
-      </div>
+      <div><h1 className="text-[28px] font-extrabold">{t('nav.offers', 'Offers')}</h1><p className="text-[15px] text-muted">{tr('Deals the assistant may mention. It only uses offers you create here.')}</p></div>
 
       <div className="lg:flex lg:items-start lg:gap-6">
         <div className="min-w-0 flex-1 space-y-5">
-          {all.length > 0 && (
-            <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="order-2 flex items-center gap-2 sm:order-1">
+              {all.length > 0 && <><SelectToggle selecting={selecting} onToggle={toggleSelecting} /><ViewToggle value={view} onChange={setView} /></>}
               {selecting && <div className="flex items-center gap-2 text-sm font-semibold"><Tick checked={allTicked} onChange={toggleAll} label={tr('Select all offers')} /><span className="cursor-pointer" onClick={() => toggleAll(!allTicked)}>{tr('Select all')}</span></div>}
-              <div className="ml-auto flex items-center gap-2"><SelectToggle selecting={selecting} onToggle={toggleSelecting} /><ViewToggle value={view} onChange={setView} /></div>
-            </div>)}
+            </div>
+            <div className="order-1 flex w-full items-center gap-2 sm:order-2 sm:w-auto">
+              <div className="relative min-w-0 flex-1 sm:w-72 sm:flex-none"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input maxLength={80} className="input pl-10" placeholder={tr('Search offers')} aria-label={tr('Search offers')} value={search} onChange={(e) => setSearch(e.target.value)} /></div>
+              <button className="btn btn-primary shrink-0" onClick={() => setEdit('new')}><Plus className="h-4 w-4" /> {tr('New offer')}</button>
+            </div>
+          </div>
           {selecting && chosen.length > 0 && (
             <div className="sticky top-[68px] z-20 flex flex-wrap items-center gap-2 rounded-2xl border border-brand/40 bg-brand-soft px-4 py-3 shadow-card" role="region" aria-label={tr('Selected offers')}>
               <b className="mr-1 text-sm">{tr('{n} selected', { n: chosen.length })}</b>
@@ -229,7 +229,7 @@ export default function Offers() {
               <button className="btn btn-ghost btn-sm ml-auto" onClick={() => setPicked(new Set())}>{tr('Clear')}</button>
             </div>)}
           {q.error && <ErrorNote error={q.error} retry={() => q.refetch()} />}
-          {q.isLoading && <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}</div>}
+          {q.isLoading && <CardGridSkeleton count={6} height={196} />}
           {!q.isLoading && !q.error && all.length > 0 && items.length === 0 && <div><EmptyState icon={<Search className="h-6 w-6" />} title={tr('No offers match “{q}”', { q: search })} body={tr('Check the spelling, or try a shorter word.')} action={<button className="btn btn-outline" onClick={() => setSearch('')}>{tr('Clear search')}</button>} /></div>}
           {!q.isLoading && !q.error && all.length === 0 && <div className="card"><EmptyState icon={<Megaphone className="h-6 w-6" />} title={tr('No offers yet')} body={tr('Create a festive discount or a free gift. The assistant will use it at the right moment, within the limits you set.')} action={<button className="btn btn-primary" onClick={() => setEdit('new')}><Plus className="h-4 w-4" /> {tr('Create an offer')}</button>} /></div>}
 

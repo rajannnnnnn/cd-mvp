@@ -1,13 +1,14 @@
 import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { I18nProvider } from '@/i18n'
 import { AuthProvider, useAuth } from '@/auth/AuthProvider'
-import { ToastProvider, Spinner } from '@/ui'
+import { ToastProvider } from '@/ui'
 import { appBase, currentSlug, shopUrl } from '@/lib/slug'
 import { api, ok } from '@/api/client'
 import { useQuery } from '@tanstack/react-query'
 import Shell from './Shell'
+import { LoginSkeleton, ShellSkeleton } from '@/ui/skeletons'
 
 const Login = lazy(() => import('@/auth/LoginPage'))
 const Home = lazy(() => import('@/features/dashboard/Home'))
@@ -27,9 +28,14 @@ const Reports = lazy(() => import('@/features/analytics/Reports'))
 
 const qc = new QueryClient({ defaultOptions: { queries: { staleTime: 15_000, retry: 1, refetchOnWindowFocus: true } } })
 
-const Fallback = () => <div className="grid min-h-[50dvh] place-items-center text-muted"><Spinner className="h-6 w-6" /></div>
-
-const Splash = () => <div className="grid min-h-dvh place-items-center text-muted"><Spinner className="h-6 w-6" /></div>
+/** Shown while we find out who is signed in. The real frame is drawn at once; only the page area waits. */
+const Splash = () => {
+  const p = useLocation().pathname
+  if (p.startsWith('/login')) return <LoginSkeleton />
+  if (p.startsWith('/onboarding')) return <ShellSkeleton />
+  return <Shell booting />
+}
+const Fallback = Splash
 
 /** Moves the browser to the address of the signed-in shop (a full navigation, because the router's basename is fixed per page load). */
 function GoToShop({ slug, rest }: { slug: string; rest?: string }) {

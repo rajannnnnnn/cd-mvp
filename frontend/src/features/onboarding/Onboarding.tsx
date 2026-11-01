@@ -14,6 +14,7 @@ import { shopUrl } from '@/lib/slug'
 import { cx } from '@/lib/format'
 import { Field, focusFirstInvalid, Logo, RequiredNote, Segmented, Spinner, Switch, useToast } from '@/ui'
 import { tr } from '@/i18n/tr'
+import { FormSkeleton } from '@/ui/skeletons'
 
 type Onb = Schemas['OnboardingOut']
 type StepKey = Onb['steps'][number]['key']
@@ -343,7 +344,7 @@ export default function Onboarding() {
           </ol>
         </nav>
         <main className="card min-w-0 p-5 sm:p-8">
-          {q.isLoading && <div className="grid place-items-center py-16"><Spinner className="h-6 w-6" /></div>}
+          {q.isLoading && <FormSkeleton fields={5} />}
           {data && active === 'business' && <BusinessStep />}
           {data && active === 'details' && <DetailsStep onDone={next} />}
           {data && active === 'products' && <ProductsStep onDone={next} onBack={() => go('details')} />}

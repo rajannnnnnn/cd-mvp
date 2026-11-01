@@ -16,6 +16,7 @@ import { useSearchParams } from 'react-router-dom'
 import Voice from '@/features/voice/Voice'
 import Support from '@/features/support/Support'
 import { TryButton } from '@/app/SectionTabs'
+import { FormSkeleton } from '@/ui/skeletons'
 
 type Tab = 'shop' | 'assistant' | 'team' | 'numbers' | 'devices' | 'support'
 const TABS: Tab[] = ['shop', 'assistant', 'team', 'numbers', 'devices', 'support']
@@ -306,7 +307,7 @@ export default function Settings() {
       <div><h1 className="text-[28px] font-extrabold">{t('nav.settings', 'Settings')}</h1><p className="text-[15px] text-muted">{canEdit ? tr('Everything about how your shop and assistant work.') : tr('You can view settings. Only owners can change them.')}</p></div>
       <div className="-mx-4 overflow-x-auto px-4"><Segmented value={tab} onChange={setTab} options={tabs} className="w-max" /></div>
       {biz.error && <ErrorNote error={biz.error} retry={() => biz.refetch()} />}
-      {biz.isLoading && <Skeleton className="h-80 rounded-2xl" />}
+      {biz.isLoading && <div className="card card-pad"><FormSkeleton fields={5} /></div>}
       {biz.data && tab === 'shop' && <ShopTab key={dataKey} b={biz.data} canEdit={canEdit} />}
       {biz.data && tab === 'assistant' && <AssistantTab key={dataKey} b={biz.data} canEdit={canEdit} />}
       {tab === 'support' && <Support />}

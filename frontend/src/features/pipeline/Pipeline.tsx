@@ -9,6 +9,7 @@ import { ago, cx } from '@/lib/format'
 import { STAGES, STAGE_COLOR, STAGE_LABEL, type Stage } from '@/lib/stages'
 import { tr } from '@/i18n/tr'
 import { CHAT_TABS, TabBar, TryButton, useTabSwitch } from '@/app/SectionTabs'
+import { ColumnsSkeleton } from '@/ui/skeletons'
 
 type Conv = Schemas['ConversationSummary']
 
@@ -87,7 +88,7 @@ export default function Pipeline() {
       <TabBar tabs={CHAT_TABS()} left={<><h1 className="truncate font-display text-xl font-extrabold">{t('nav.pipeline', 'Pipeline')}</h1><span className="hidden sm:block"><div className="flex items-center gap-2 rounded-lg border border-line/70 bg-surface px-2.5 py-1 text-sm"><TrendingUp className="h-4 w-4 text-brand" /><span className="text-muted">{tr('{active} active of {total}', { active, total })}</span></div></span><TryButton compact /></>} />
       <div className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-3 lg:px-8">
       {q.error && <ErrorNote error={q.error} retry={() => q.refetch()} />}
-      {q.isLoading && <div className="flex gap-4">{STAGES.slice(0, 4).map((s) => <Skeleton key={s} className="h-72 w-72 shrink-0 rounded-2xl" />)}</div>}
+      {q.isLoading && <ColumnsSkeleton />}
       {!q.isLoading && total === 0 && <div className="card"><EmptyState title={tr('No conversations yet')} body={tr('When customers message your WhatsApp number they will appear here, grouped by stage.')} /></div>}
       {total > 0 && <p className="mb-2 text-[12.5px] text-muted">{tr('Drag a customer to Exploring, Interested or Lost, or use the ⋮ menu on a card. The assistant and your confirmed orders set the other stages.')}</p>}
       {total > 0 && (
@@ -105,7 +106,7 @@ export default function Pipeline() {
               </header>
               <div className="flex-1 space-y-2.5 overflow-y-auto pr-0.5">
                 {cols[s].map((c) => <Card key={c.id} c={c} onMove={ask} onDragStart={setDrag} onDragEnd={() => { setDrag(null); setOver(null) }} dragging={drag?.id === c.id} />)}
-                {cols[s].length === 0 && <div className="rounded-xl border border-dashed border-line px-3 py-6 text-center text-xs text-muted">{drag && canMove(drag, s) ? tr('Drop here') : tr('Nobody here')}</div>}
+                {cols[s].length === 0 && <div className="px-3 py-6 text-center text-xs text-muted">{drag && canMove(drag, s) ? tr('Drop here') : tr('Nobody here')}</div>}
               </div>
             </section>
           ))}

@@ -10,6 +10,7 @@ import { tokens } from '@/auth/tokens'
 import { Badge, Confirm, EmptyState, ErrorNote, Field, Modal, RequiredNote, Segmented, Skeleton, Spinner, Stat, Switch, useToast } from '@/ui'
 import { ago, cx, inr, phone as fmtPhone } from '@/lib/format'
 import { StatusBadge, Thread } from '@/features/support/Thread'
+import { TableSkeleton } from '@/ui/skeletons'
 
 export const STASH_KEY = 'chatdeal.operator.stash'
 type Tab = 'tenants' | 'alerts' | 'queues' | 'webhooks' | 'turns' | 'costs' | 'billing' | 'support'
@@ -86,7 +87,7 @@ function Tenants() {
       </div>
       <div className="flex justify-end"><button className="btn btn-primary" onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> Onboard business</button></div>
       {q.error && <ErrorNote error={q.error} retry={() => q.refetch()} />}
-      {q.isLoading ? <Skeleton className="h-48 rounded-2xl" /> : (
+      {q.isLoading ? <TableSkeleton rows={5} cols={5} /> : (
         <Table head={['Business', 'Number', 'Status', 'AI', '24h', 'Needs owner', '']}>
           {rows.map((t) => (
             <tr key={t.id} className="hover:bg-surface2/40">

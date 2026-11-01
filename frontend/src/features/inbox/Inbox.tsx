@@ -8,6 +8,7 @@ import { Avatar, Badge, Confirm, EmptyState, ErrorNote, Modal, Segmented, Skelet
 import { ago, inr } from '@/lib/format'
 import { HANDOFF_LABEL, HANDOFF_TONE } from '@/lib/stages'
 import { tr } from '@/i18n/tr'
+import { CardListSkeleton } from '@/ui/skeletons'
 
 type Tab = 'handoffs' | 'deals' | 'gaps'
 
@@ -20,7 +21,7 @@ function Handoffs() {
   const toast = useToast(); const refresh = useRefresh()
   const q = useQuery({ queryKey: ['handoffs', 'open', 'all'], queryFn: () => ok(api.GET('/api/v1/handoffs', { params: { query: { status: 'open', limit: 100 } } })) })
   const resolve = useMutation({ mutationFn: (id: string) => ok(api.POST('/api/v1/handoffs/{handoff_id}/resolve', { params: { path: { handoff_id: id } } })), onSuccess: () => { refresh(); toast(tr('Marked as handled')) }, onError: (e) => toast((e as Error).message, 'error') })
-  if (q.isLoading) return <Skeleton className="h-40 rounded-2xl" />
+  if (q.isLoading) return <CardListSkeleton count={3} />
   if (q.error) return <ErrorNote error={q.error} retry={() => q.refetch()} />
   if (!q.data?.length) return <div className="card"><EmptyState icon={<Hand className="h-6 w-6" />} title={tr('No customers are waiting for you')} body={tr('When a customer asks for you, complains, or needs a price only you can give, they’ll show up here.')} /></div>
   return (
@@ -51,7 +52,7 @@ function Deals() {
     mutationFn: (v: { id: string; status: 'won' | 'lost' }) => ok(api.POST('/api/v1/deals/{deal_id}/close', { params: { path: { deal_id: v.id } }, body: { status: v.status } })),
     onSuccess: (_d, v) => { refresh(); setLost(null); toast(v.status === 'won' ? tr('Order confirmed') : tr('Marked as lost')) }, onError: (e) => toast((e as Error).message, 'error'),
   })
-  if (q.isLoading) return <Skeleton className="h-40 rounded-2xl" />
+  if (q.isLoading) return <CardListSkeleton count={3} />
   if (q.error) return <ErrorNote error={q.error} retry={() => q.refetch()} />
   if (!q.data?.length) return <div className="card"><EmptyState icon={<ShoppingBag className="h-6 w-6" />} title={tr('No orders or visits to confirm')} body={tr('When a customer agrees to buy or book a visit, the AI records it here for you to confirm.')} /></div>
   return (
@@ -97,7 +98,7 @@ function Gaps() {
     onSuccess: () => { refresh(); setTarget(null); setAnswer(''); toast(tr('Saved. The AI will use this from now on.')) }, onError: (e) => toast((e as Error).message, 'error'),
   })
   const dismiss = useMutation({ mutationFn: (id: string) => ok(api.POST('/api/v1/knowledge-gaps/{gap_id}/dismiss', { params: { path: { gap_id: id } } })), onSuccess: () => { refresh(); toast(tr('Dismissed')) } })
-  if (q.isLoading) return <Skeleton className="h-40 rounded-2xl" />
+  if (q.isLoading) return <CardListSkeleton count={3} />
   if (q.error) return <ErrorNote error={q.error} retry={() => q.refetch()} />
   if (!q.data?.length) return <div className="card"><EmptyState icon={<CircleHelp className="h-6 w-6" />} title={tr('No unanswered questions')} body={tr('Questions the AI couldn’t answer from your shop details land here. Answer once and it knows forever.')} /></div>
   return (

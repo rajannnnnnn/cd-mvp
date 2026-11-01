@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { BarChart3, Building2, ChevronDown, CreditCard, FileText, Home, Inbox, KanbanSquare, LogOut, Megaphone, MessageCircle, Mic2, Moon, MoreHorizontal, Package, Play, Settings, ShieldCheck, Sun, Users } from 'lucide-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { useT } from '@/i18n'
-import { Avatar, Logo, Switch, Modal, useToast } from '@/ui'
+import { Avatar, Logo, Skeleton, Switch, Modal, useToast } from '@/ui'
 import { cx } from '@/lib/format'
 import { tokens } from '@/auth/tokens'
 import { startLive } from '@/api/live'
@@ -13,11 +13,14 @@ import { api, ok } from '@/api/client'
 import { currentTheme, setTheme, type Theme } from '@/lib/theme'
 import { tr } from '@/i18n/tr'
 import { useBilling } from '@/features/billing/hooks'
+import { RouteSkeleton } from '@/ui/skeletons'
 
 type Item = { to: string; icon: any; key: string; label: string; badge?: number; dev?: boolean; owner?: boolean; also?: string[] }
 
-export default function Shell() {
-  const { me, role, logout, switchBusiness, reload } = useAuth()
+/** `booting`: we are still finding out who is signed in. The frame (menu, buttons) is drawn for real from the stored sign-in; only the names and the page area are placeholders. */
+export default function Shell({ booting = false }: { booting?: boolean }) {
+  const { me, role: authRole, logout, switchBusiness, reload } = useAuth()
+  const role = authRole ?? tokens.get()?.role ?? 'owner'
   const { t } = useT()
   const qc = useQueryClient()
   const nav = useNavigate()
@@ -31,14 +34,14 @@ export default function Shell() {
   const toast = useToast()
   const cfg = usePublicConfig()
   const isOwner = role === 'owner' || role === 'staff'
-  const biz = useBusiness(isOwner)
-  const ov = useOverview(14, isOwner)
-  const bill = useBilling(role === 'owner')
+  const biz = useBusiness(isOwner && !booting)
+  const ov = useOverview(14, isOwner && !booting)
+  const bill = useBilling(role === 'owner' && !booting)
   const [theme, setThemeState] = useState<Theme>(currentTheme())
   const [more, setMore] = useState(false)
   const [menu, setMenu] = useState(false)
 
-  useEffect(() => (isOwner ? startLive(qc) : undefined), [qc, isOwner])
+  useEffect(() => (isOwner && !booting ? startLive(qc) : undefined), [qc, isOwner, booting])
   useEffect(() => { setMore(false); setMenu(false) }, [loc.pathname])
 
   const needs = (ov.data?.today.open_handoffs ?? 0) + (ov.data?.today.pending_deals ?? 0)
@@ -71,7 +74,7 @@ export default function Shell() {
         {isOwner && (
           <div className="mx-1 mb-3 rounded-2xl border border-line/70 bg-surface2/60 p-3">
             <div className="flex items-center justify-between gap-2">
-              <div className="min-w-0"><div className="truncate text-sm font-bold">{me?.business?.name ?? '—'}</div>
+              <div className="min-w-0">{booting ? <Skeleton className="h-4 w-32" /> : <div className="truncate text-sm font-bold">{me?.business?.name ?? '—'}</div>}
                 {aiPaused && <div className="flex items-center gap-1.5 text-xs text-muted"><span className="h-2 w-2 rounded-full bg-muted" />{t('ai.paused', 'AI assistant paused')}</div>}</div>
             </div>
           </div>)}
@@ -84,8 +87,8 @@ export default function Shell() {
         </nav>
         <div className="mt-2 flex items-center gap-1 border-t border-line/70 pt-3">
           <button className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-surface2" onClick={() => setMenu(true)}>
-            <Avatar name={me?.name ?? me?.phone} size={34} />
-            <div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{me?.name ?? tr('You')}</div><div className="truncate text-xs text-muted">{me?.phone}</div></div>
+            {booting ? <Skeleton className="h-[34px] w-[34px] shrink-0 !rounded-full" /> : <Avatar name={me?.name ?? me?.phone} size={34} />}
+            <div className="min-w-0 flex-1">{booting ? <div className="space-y-1.5"><Skeleton className="h-3.5 w-24" /><Skeleton className="h-3 w-28" /></div> : <><div className="truncate text-sm font-semibold">{me?.name ?? tr('You')}</div><div className="truncate text-xs text-muted">{me?.phone}</div></>}</div>
             <ChevronDown className="h-4 w-4 text-muted" />
           </button>
           <button className="btn btn-ghost btn-icon shrink-0" onClick={flipTheme} aria-label={tr('Theme')}>{theme === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}</button>
@@ -95,14 +98,14 @@ export default function Shell() {
       <div className="flex min-w-0 flex-col pb-[76px] lg:pb-0">
         <header className={cx('sticky top-0 z-30 flex items-center gap-3 border-b border-line/70 bg-bg/85 px-4 py-2.5 backdrop-blur lg:px-8', !me?.impersonated && 'lg:hidden')}>
           <div className="lg:hidden"><Logo size={28} wordmark={false} /></div>
-          <div className="min-w-0 flex-1 lg:hidden"><div className="truncate text-sm font-bold">{me?.business?.name ?? t('nav.operator', 'Operator console')}</div></div>
+          <div className="min-w-0 flex-1 lg:hidden">{booting ? <Skeleton className="h-4 w-40" /> : <div className="truncate text-sm font-bold">{me?.business?.name ?? t('nav.operator', 'Operator console')}</div>}</div>
           <div className="hidden flex-1 lg:block" />
           {me?.impersonated && <button className="badge badge-amber cursor-pointer hover:brightness-95" onClick={backToConsole}>{tr('Viewing as owner (support) · Back to console')}</button>}
           <button className="btn btn-ghost btn-icon lg:hidden" onClick={flipTheme} aria-label={tr('Theme')}>{theme === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}</button>
           <button className="grid h-11 w-11 place-items-center lg:hidden" onClick={() => setMenu(true)} aria-label={tr('Account')}><Avatar name={me?.name ?? me?.phone} size={32} /></button>
         </header>
         {banner && <Link to="/billing" className={cx('block px-4 py-2 text-center text-[13px] font-semibold lg:px-8', banner.tone === 'bad' ? 'bg-danger text-white' : 'bg-accent-soft text-[rgb(150_92_0)]')}>{banner.text} <span className="underline">{tr('Open billing')}</span></Link>}
-        <main className="min-w-0 flex-1"><Outlet /></main>
+        <main className="min-w-0 flex-1">{booting ? <RouteSkeleton /> : <Suspense fallback={<RouteSkeleton />}><Outlet /></Suspense>}</main>
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-40 grid border-t border-line/70 bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" style={{ gridTemplateColumns: `repeat(${isOwner ? 5 : 1}, 1fr)` }}>

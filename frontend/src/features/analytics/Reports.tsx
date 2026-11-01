@@ -8,6 +8,7 @@ import { tr } from '@/i18n/tr'
 import { INSIGHT_TABS, SectionTabs } from '@/app/SectionTabs'
 import { Bars, inr, Panel, PlanGate, pct, secs } from './parts'
 import { HANDOFF_LABEL, STAGE_LABEL, type Stage } from '@/lib/stages'
+import { TableSkeleton } from '@/ui/skeletons'
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 type Preset = 'month' | 'last' | '30' | 'custom'
@@ -47,7 +48,7 @@ export default function Reports() {
         {preset === 'custom' && <><Field label={tr('From')}><input type="date" className="input" value={from} max={to || iso(new Date())} onChange={(e) => { const v = e.target.value; setFrom(v); if (v && to && v > to) setTo(v) }} /></Field><Field label={tr('To')}><input type="date" className="input" value={to} min={from} max={iso(new Date())} onChange={(e) => { const v = e.target.value > iso(new Date()) ? iso(new Date()) : e.target.value; setTo(v); if (v && from && v < from) setFrom(v) }} /></Field></>}
       </div>
       {q.error && <PlanGate error={q.error} retry={() => q.refetch()} />}
-      {q.isLoading && <Skeleton className="h-72 rounded-2xl" />}
+      {q.isLoading && <TableSkeleton rows={6} cols={5} />}
       {r && (
         <article className="card card-pad space-y-6 print:border-0 print:shadow-none">
           <header className="border-b border-line/60 pb-4"><div className="text-xs font-bold uppercase tracking-wide text-muted">{tr('Business report')}</div>

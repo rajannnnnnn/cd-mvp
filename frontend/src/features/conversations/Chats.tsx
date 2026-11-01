@@ -9,6 +9,7 @@ import { ago, clock, cx, dayLabel, inr, phone as fmtPhone } from '@/lib/format'
 import { HANDOFF_LABEL, HANDOFF_TONE, STAGES, STAGE_LABEL, STAGE_TONE, type Stage } from '@/lib/stages'
 import { tr } from '@/i18n/tr'
 import { CHAT_TABS, TabBar, TryButton, useTabSwitch } from '@/app/SectionTabs'
+import { ListRowsSkeleton, ThreadSkeleton } from '@/ui/skeletons'
 
 type Summary = Schemas['ConversationSummary']
 type Detail = Schemas['ConversationDetail']
@@ -43,12 +44,11 @@ function ChatList({ activeId }: { activeId?: string }) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-surface">
       <div className="space-y-3 border-b border-line/70 p-4">
-        <div className="flex items-center justify-between gap-2"><h1 className="font-display text-2xl font-extrabold">{t('chat.title', 'Chats')}</h1></div>
         <div className="flex items-center gap-2"><div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input maxLength={80} className="input !pl-10" placeholder={t('chat.search', 'Search name or number')} value={search} onChange={(e) => setSearch(e.target.value)} /></div><TryButton compact className="shrink-0" /></div>
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5">{FILTERS.map((f) => <button key={f.id} className={cx('chip', filter === f.id && 'chip-active')} onClick={() => setFilter(f.id)}>{t(f.key, f.label)}</button>)}</div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {q.isLoading && Array.from({ length: 6 }, (_, i) => <div key={i} className="flex gap-3 p-4"><Skeleton className="h-11 w-11 !rounded-full" /><div className="flex-1 space-y-2"><Skeleton className="h-4 w-1/2" /><Skeleton className="h-3 w-4/5" /></div></div>)}
+        {q.isLoading && <ListRowsSkeleton />}
         {q.error && <div className="p-4"><ErrorNote error={q.error} retry={() => q.refetch()} /></div>}
         {!q.isLoading && items.length === 0 && <EmptyState icon={debounced ? <Search className="h-6 w-6" /> : <MessageCircle className="h-6 w-6" />} title={debounced ? tr('No chats match “{q}”', { q: debounced }) : t('chat.empty', 'No conversations here')} body={debounced ? tr('Check the spelling, or search by a name or phone number.') : filter === 'all' ? tr('Customer chats will appear here as soon as someone messages your number.') : tr('Nothing matches this filter.')} />}
         {items.map((c) => <ChatRow key={c.id} c={c} active={c.id === activeId} />)}
@@ -124,7 +124,7 @@ function Thread({ id, onBack }: { id: string; onBack: () => void }) {
     return out
   }, [d?.messages])
 
-  if (det.isLoading) return <div className="grid h-full place-items-center"><Spinner className="h-6 w-6" /></div>
+  if (det.isLoading) return <ThreadSkeleton />
   if (det.error || !d) return <div className="p-6"><ErrorNote error={det.error ?? new Error('Not found')} retry={() => det.refetch()} /></div>
 
   const paused = !!d.ai_paused_until && new Date(d.ai_paused_until) > new Date()
@@ -262,12 +262,13 @@ function InfoPanel({ d, onClose, onChange }: { d: Detail; onClose: () => void; o
 
 /* ------------------------------------------------------------------ page */
 export default function Chats() {
+  const { t } = useT()
   const { id } = useParams()
   const nav = useNavigate()
   const switched = useTabSwitch(CHAT_TABS())
   return (
     <div className={cx('flex h-[calc(100dvh-57px-76px)] flex-col lg:h-[calc(100dvh-57px)]', switched)}>
-      <TabBar tabs={CHAT_TABS()} className={id ? 'hidden lg:flex' : undefined} />
+      <TabBar tabs={CHAT_TABS()} className={id ? 'hidden lg:flex' : undefined} left={<h1 className="truncate font-display text-xl font-extrabold">{t('chat.title', 'Chats')}</h1>} />
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] lg:grid-cols-[360px_minmax(0,1fr)]">
         <div className={cx('min-h-0 border-r border-line/70', id ? 'hidden lg:block' : 'block')}><ChatList activeId={id} /></div>
         <div className={cx('min-h-0', id ? 'block' : 'hidden lg:block')}>
