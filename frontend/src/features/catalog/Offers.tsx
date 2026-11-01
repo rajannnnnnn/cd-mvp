@@ -207,14 +207,16 @@ export default function Offers() {
     <div className={cx('mx-auto space-y-5 px-4 py-6 lg:px-8 lg:py-8', docked ? 'max-w-[1560px]' : 'max-w-[1180px]')}>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div><h1 className="text-[28px] font-extrabold">{t('nav.offers', 'Offers')}</h1><p className="text-[15px] text-muted">{tr('Deals the assistant may mention. It only uses offers you create here.')}</p></div>
-        <button className="btn btn-primary" onClick={() => setEdit('new')}><Plus className="h-4 w-4" /> {tr('New offer')}</button>
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <div className="relative min-w-0 flex-1 sm:w-72 sm:flex-none"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input maxLength={80} className="input pl-10" placeholder={tr('Search offers')} value={search} onChange={(e) => setSearch(e.target.value)} aria-label={tr('Search offers')} /></div>
+          <button className="btn btn-primary shrink-0" onClick={() => setEdit('new')}><Plus className="h-4 w-4" /> {tr('New offer')}</button>
+        </div>
       </div>
 
       <div className="lg:flex lg:items-start lg:gap-6">
         <div className="min-w-0 flex-1 space-y-5">
           {all.length > 0 && (
             <div className="flex flex-wrap items-center gap-3">
-              <div className="relative min-w-[200px] max-w-sm flex-1"><Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" /><input maxLength={80} className="input pl-10" placeholder={tr('Search offers')} value={search} onChange={(e) => setSearch(e.target.value)} /></div>
               {selecting && <div className="flex items-center gap-2 text-sm font-semibold"><Tick checked={allTicked} onChange={toggleAll} label={tr('Select all offers')} /><span className="cursor-pointer" onClick={() => toggleAll(!allTicked)}>{tr('Select all')}</span></div>}
               <div className="ml-auto flex items-center gap-2"><SelectToggle selecting={selecting} onToggle={toggleSelecting} /><ViewToggle value={view} onChange={setView} /></div>
             </div>)}
