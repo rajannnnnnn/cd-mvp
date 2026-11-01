@@ -470,8 +470,20 @@ async def test_only_the_owner_signs_other_devices_out(world, client):
     assert (await client.post(f"{V1}/team", headers=hdr(tok), json={"phone": "+919876500003", "name": "Raju", "role": "staff"})).status_code == 201
     staff = await login(client, "+919876500003")
     await login(client, "+919876500003")                                              # a second device of the same team member
-    other = next(d for d in (await client.get(f"{V1}/auth/sessions", headers=hdr(staff))).json() if not d["current"])
+    mine = (await client.get(f"{V1}/auth/sessions", headers=hdr(staff))).json()
+    assert {d["phone"] for d in mine} == {"+919876500003"}                            # staff see their own devices only, each with its number
+    other = next(d for d in mine if not d["current"])
     assert (await client.delete(f"{V1}/auth/sessions/{other['id']}", headers=hdr(staff))).status_code == 403   # staff cannot sign devices out
     owner2 = await login(client, shop.owner_phone)                                    # the owner has two devices now
-    spare = next(d for d in (await client.get(f"{V1}/auth/sessions", headers=hdr(owner2))).json() if not d["current"])
-    assert (await client.delete(f"{V1}/auth/sessions/{spare['id']}", headers=hdr(owner2))).status_code == 204  # the owner can
+    ours = (await client.get(f"{V1}/auth/sessions", headers=hdr(owner2))).json()
+    assert {"+919876500003", shop.owner_phone} <= {d["phone"] for d in ours}          # the owner sees everyone's devices, with whose number it is
+    assert next(d for d in ours if d["phone"] == "+919876500003")["name"] == "Raju"
+    assert (await client.delete(f"{V1}/auth/sessions/{other['id']}", headers=hdr(owner2))).status_code == 204  # and can sign a team member's device out
+
+
+async def test_owner_can_teach_the_assistant_when_to_hand_over(world, client):
+    shop, tok = await owner(world, client)
+    r = await client.patch(f"{V1}/business", headers=hdr(tok), json={"sales_settings": {"handover_instructions": "Hand over anything about wedding orders or custom sizes."}})
+    assert r.status_code == 200, r.text
+    assert r.json()["sales_settings"]["handover_instructions"].startswith("Hand over anything")
+    assert (await client.patch(f"{V1}/business", headers=hdr(tok), json={"sales_settings": {"handover_instructions": "x" * 1001}})).status_code == 422

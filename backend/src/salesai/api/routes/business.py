@@ -34,6 +34,7 @@ class SalesSettingsIn(BaseModel):
     may_mention_offers: bool | None = None
     honorific: str | None = Field(default=None, max_length=12)
     handoff_value_threshold: Decimal | None = Field(default=None, ge=0, le=Decimal("100000000"))
+    handover_instructions: str | None = Field(default=None, max_length=1000)     # the owner's own words: when the assistant must hand the chat over
     language_default: Literal["en", "hi", "hinglish"] | None = None
 
 

@@ -69,3 +69,31 @@ async def test_tickets_are_part_of_the_owner_data_export(world, client):
     await client.post(f"{V1}/support/tickets", headers=hdr(tok), json=TICKET)
     data = (await client.get(f"{V1}/business/export", headers=hdr(tok))).json()
     assert len(data["support_tickets"]) == 1 and data["support_messages"][0]["body"].startswith("Since this morning")
+
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+
+
+async def test_a_picture_can_be_attached_and_only_that_shop_can_see_it(world, client):
+    shop, tok = await owner(world, client)
+    other_shop, other_tok = await owner(world, client, name="Gupta Mobile Point")
+    ticket = (await client.post(f"{V1}/support/tickets", headers=hdr(tok), json=TICKET)).json()
+    mid = ticket["messages"][0]["id"]
+    url = f"{V1}/support/tickets/{ticket['id']}/messages/{mid}/attachments"
+    made = await client.post(url, headers=hdr(tok), files={"file": ("shot.png", PNG, "image/png")})
+    assert made.status_code == 201, made.text
+    pic = made.json()
+    assert pic["content_type"] == "image/png" and pic["size_bytes"] == len(PNG)
+    detail = (await client.get(f"{V1}/support/tickets/{ticket['id']}", headers=hdr(tok))).json()
+    assert [a["id"] for a in detail["messages"][0]["attachments"]] == [pic["id"]]
+    got = await client.get(f"{V1}/support/attachments/{pic['id']}", headers=hdr(tok))
+    assert got.status_code == 200 and got.content == PNG and got.headers["content-type"] == "image/png"
+    assert got.headers["x-content-type-options"] == "nosniff"
+    assert (await client.get(f"{V1}/support/attachments/{pic['id']}", headers=hdr(other_tok))).status_code == 404     # another shop cannot see it
+    # only real pictures, not too big, not too many
+    assert (await client.post(url, headers=hdr(tok), files={"file": ("x.png", b"<html>not a picture</html>", "image/png")})).status_code == 415
+    assert (await client.post(url, headers=hdr(tok), files={"file": ("big.png", PNG + b"\x00" * (3 * 1024 * 1024), "image/png")})).status_code == 413
+    for _ in range(2):
+        assert (await client.post(url, headers=hdr(tok), files={"file": ("a.png", PNG, "image/png")})).status_code == 201
+    assert (await client.post(url, headers=hdr(tok), files={"file": ("a.png", PNG, "image/png")})).status_code == 409
+    assert (await client.post(f"{V1}/support/tickets/{ticket['id']}/messages/999999/attachments", headers=hdr(tok), files={"file": ("a.png", PNG, "image/png")})).status_code == 404

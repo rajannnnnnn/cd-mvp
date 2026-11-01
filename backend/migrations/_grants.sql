@@ -53,3 +53,5 @@ GRANT SELECT, INSERT ON support_messages TO app_user;
 GRANT USAGE ON SEQUENCE support_messages_id_seq TO app_user, app_system;
 GRANT SELECT, INSERT, UPDATE ON support_tickets TO app_system;
 GRANT SELECT, INSERT ON support_messages TO app_system;
+GRANT SELECT, INSERT ON support_attachments TO app_user;
+GRANT SELECT ON support_attachments TO app_system;

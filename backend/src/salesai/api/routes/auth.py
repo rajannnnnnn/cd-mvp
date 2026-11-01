@@ -80,6 +80,8 @@ class DeviceOut(BaseModel):
     ip: str | None
     signed_in_at: Any
     current: bool
+    phone: str
+    name: str | None = None
 
 
 def _tokens(pair: TokenPair) -> Tokens:

@@ -181,6 +181,30 @@
         "title": "AnswerIn",
         "type": "object"
       },
+      "AttachmentOut": {
+        "properties": {
+          "content_type": {
+            "title": "Content Type",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "content_type",
+          "size_bytes"
+        ],
+        "title": "AttachmentOut",
+        "type": "object"
+      },
       "BillingOut": {
         "properties": {
           "assistant_paused_by_billing": {
@@ -332,6 +356,20 @@
           "payment_mode"
         ],
         "title": "BillingOut",
+        "type": "object"
+      },
+      "Body_add_picture_api_v1_support_tickets__ticket_id__messages__message_id__attachments_post": {
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_add_picture_api_v1_support_tickets__ticket_id__messages__message_id__attachments_post",
         "type": "object"
       },
       "BusinessBrief": {
@@ -1813,6 +1851,21 @@
             ],
             "title": "Ip"
           },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "phone": {
+            "title": "Phone",
+            "type": "string"
+          },
           "signed_in_at": {
             "title": "Signed In At"
           }
@@ -1822,7 +1875,8 @@
           "device",
           "ip",
           "signed_in_at",
-          "current"
+          "current",
+          "phone"
         ],
         "title": "DeviceOut",
         "type": "object"
@@ -4481,6 +4535,18 @@
             ],
             "title": "Handoff Value Threshold"
           },
+          "handover_instructions": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handover Instructions"
+          },
           "honorific": {
             "anyOf": [
               {
@@ -5490,6 +5556,14 @@
       },
       "TicketMessageOut": {
         "properties": {
+          "attachments": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/AttachmentOut"
+            },
+            "title": "Attachments",
+            "type": "array"
+          },
           "author": {
             "enum": [
               "shop",
@@ -10500,6 +10574,61 @@
         ]
       }
     },
+    "/api/v1/operator/support/attachments/{attachment_id}": {
+      "get": {
+        "operationId": "picture_for_support_api_v1_operator_support_attachments__attachment_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/*": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "A picture on any ticket",
+        "tags": [
+          "support"
+        ]
+      }
+    },
     "/api/v1/operator/support/{ticket_id}": {
       "get": {
         "operationId": "ticket_for_support_api_v1_operator_support__ticket_id__get",
@@ -12163,6 +12292,61 @@
         ]
       }
     },
+    "/api/v1/support/attachments/{attachment_id}": {
+      "get": {
+        "operationId": "my_picture_api_v1_support_attachments__attachment_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/*": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "A picture on one of your tickets",
+        "tags": [
+          "support"
+        ]
+      }
+    },
     "/api/v1/support/tickets": {
       "get": {
         "operationId": "my_tickets_api_v1_support_tickets_get",
@@ -12396,6 +12580,84 @@
           }
         },
         "summary": "Add to a ticket (reopens it if it was resolved)",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/api/v1/support/tickets/{ticket_id}/messages/{message_id}/attachments": {
+      "post": {
+        "operationId": "add_picture_api_v1_support_tickets__ticket_id__messages__message_id__attachments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Ticket Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "message_id",
+            "required": true,
+            "schema": {
+              "title": "Message Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_add_picture_api_v1_support_tickets__ticket_id__messages__message_id__attachments_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attach a picture (PNG, JPEG or WebP, up to 3 MB, up to 3 per message) to one of your own messages",
         "tags": [
           "support"
         ]

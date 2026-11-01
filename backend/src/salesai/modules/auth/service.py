@@ -297,19 +297,30 @@ class AuthService:
         self._revoked_cache.pop(principal.session_id, None)
 
     async def sessions(self, principal: Principal) -> list[dict[str, Any]]:
+        """The shop owner sees every device signed in to the shop, with whose number it is; everyone else sees their own."""
+        owner_view = principal.role == "owner" and principal.business_id is not None
+        cond, args = ("s.business_id=%s", (principal.business_id,)) if owner_view else ("s.account_id=%s", (principal.account_id,))
         async with self.db.system_tx() as c:
             rows = await (await c.execute(
-                """SELECT DISTINCT ON (family_id) id, family_id, device_label, ip, created_at, last_used_at FROM auth_sessions
-                   WHERE account_id=%s AND revoked_at IS NULL AND expires_at > now() ORDER BY family_id, created_at DESC""", (principal.account_id,))).fetchall()
+                f"""SELECT DISTINCT ON (s.family_id) s.id, s.family_id, s.device_label, s.ip, s.created_at, s.last_used_at, a.phone,
+                           COALESCE(bu.name, a.name) AS name
+                    FROM auth_sessions s JOIN accounts a ON a.id = s.account_id
+                    LEFT JOIN business_users bu ON bu.account_id = s.account_id AND bu.business_id = s.business_id
+                    WHERE {cond} AND s.revoked_at IS NULL AND s.expires_at > now() ORDER BY s.family_id, s.created_at DESC""", args)).fetchall()  # noqa: S608 (cond is one of two fixed strings)
+        rows = sorted(rows, key=lambda x: x["created_at"], reverse=True)
         cur = None
         async with self.db.system_tx() as c:
             r = await (await c.execute("SELECT family_id FROM auth_sessions WHERE id=%s", (principal.session_id,))).fetchone()
             cur = r["family_id"] if r else None
-        return [{"id": str(x["family_id"]), "device": x["device_label"], "ip": x["ip"], "signed_in_at": x["created_at"], "current": x["family_id"] == cur} for x in rows]
+        return [{"id": str(x["family_id"]), "device": x["device_label"], "ip": x["ip"], "signed_in_at": x["created_at"], "current": x["family_id"] == cur,
+                 "phone": x["phone"], "name": x["name"]} for x in rows]
 
     async def revoke_family(self, principal: Principal, family_id: uuid.UUID) -> bool:
         async with self.db.system_tx() as c:
-            r = await c.execute("UPDATE auth_sessions SET revoked_at = now() WHERE family_id=%s AND account_id=%s AND revoked_at IS NULL", (family_id, principal.account_id))
+            if principal.role == "owner" and principal.business_id is not None:       # the owner signs out any device of the shop
+                r = await c.execute("UPDATE auth_sessions SET revoked_at = now() WHERE family_id=%s AND business_id=%s AND revoked_at IS NULL", (family_id, principal.business_id))
+            else:
+                r = await c.execute("UPDATE auth_sessions SET revoked_at = now() WHERE family_id=%s AND account_id=%s AND revoked_at IS NULL", (family_id, principal.account_id))
         self._revoked_cache.clear()
         return r.rowcount > 0
 

@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Response, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 
 from salesai.api.deps import RT, Operator, Tenant, tx
@@ -19,6 +19,8 @@ router = APIRouter(tags=["support"])
 
 Category = Literal["question", "problem", "billing", "whatsapp", "other"]
 Status = Literal["open", "answered", "resolved"]
+MAX_PICTURE = 3 * 1024 * 1024          # bytes per picture
+MAX_PICTURES = 3                      # per message
 MAX_PER_DAY = 20          # per shop: a runaway script or a bored teenager cannot fill the support queue
 
 
@@ -39,11 +41,18 @@ class StatusIn(BaseModel):
     status: Status
 
 
+class AttachmentOut(BaseModel):
+    id: uuid.UUID
+    content_type: str
+    size_bytes: int
+
+
 class TicketMessageOut(BaseModel):
     id: int
     author: Literal["shop", "support"]
     body: str
     created_at: datetime
+    attachments: list[AttachmentOut] = []
 
 
 class TicketOut(BaseModel):
@@ -78,9 +87,27 @@ _LIST = """SELECT t.id, t.number, t.subject, t.category, t.status, t.created_at,
 _KEYS = ("id", "number", "subject", "category", "status", "created_at", "updated_at", "last_message", "last_author")
 
 
+def sniff_picture(head: bytes) -> str | None:
+    """The type of a picture from its first bytes. What the browser claims is ignored: only a real PNG, JPEG or WebP is kept."""
+    if head.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if head[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
 async def _messages(c: Conn, ticket_id: uuid.UUID) -> list[TicketMessageOut]:
     rows = await (await c.execute("SELECT id, author, body, created_at FROM support_messages WHERE ticket_id=%s ORDER BY id", (ticket_id,))).fetchall()
-    return [TicketMessageOut(**r) for r in rows]
+    pics = await (await c.execute("SELECT id, message_id, content_type, size_bytes FROM support_attachments WHERE ticket_id=%s ORDER BY created_at", (ticket_id,))).fetchall()
+    return [TicketMessageOut(**m, attachments=[AttachmentOut(id=a["id"], content_type=a["content_type"], size_bytes=a["size_bytes"]) for a in pics if a["message_id"] == m["id"]]) for m in rows]
+
+
+def _picture_response(row: Any) -> Response:
+    return Response(content=bytes(row["data"]), media_type=row["content_type"], headers={
+        "Content-Disposition": "inline", "X-Content-Type-Options": "nosniff", "Cache-Control": "private, max-age=3600",
+        "Content-Security-Policy": "default-src 'none'; sandbox"})
 
 
 async def _detail(c: Conn, ticket_id: uuid.UUID) -> TicketDetail:
@@ -135,6 +162,37 @@ async def add_message(ticket_id: uuid.UUID, body: ReplyIn, rt: RT, p: Tenant) ->
         return await _detail(c, ticket_id)
 
 
+@router.post("/support/tickets/{ticket_id}/messages/{message_id}/attachments", response_model=AttachmentOut, status_code=201,
+             summary="Attach a picture (PNG, JPEG or WebP, up to 3 MB, up to 3 per message) to one of your own messages")
+async def add_picture(ticket_id: uuid.UUID, message_id: int, file: UploadFile, rt: RT, p: Tenant) -> AttachmentOut:
+    data = await file.read(MAX_PICTURE + 1)
+    if len(data) > MAX_PICTURE:
+        raise ApiError(413, "picture_too_large", "That picture is over 3 MB. Please attach a smaller one.")
+    kind = sniff_picture(data[:16])
+    if kind is None:
+        raise ApiError(415, "not_a_picture", "Please attach a PNG, JPEG or WebP picture.")
+    async with tx(rt, p) as c:
+        own = await (await c.execute("SELECT 1 FROM support_messages WHERE id=%s AND ticket_id=%s AND author='shop'", (message_id, ticket_id))).fetchone()
+        if own is None:
+            raise ApiError(404, "not_found", "That message doesn't exist.")
+        have = (await (await c.execute("SELECT count(*) AS n FROM support_attachments WHERE message_id=%s", (message_id,))).fetchone())["n"]
+        if have >= MAX_PICTURES:
+            raise ApiError(409, "too_many_pictures", f"You can attach up to {MAX_PICTURES} pictures to a message.")
+        row = await (await c.execute(
+            "INSERT INTO support_attachments (business_id, ticket_id, message_id, content_type, size_bytes, data) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id, content_type, size_bytes",
+            (p.bid, ticket_id, message_id, kind, len(data), data))).fetchone()
+    return AttachmentOut(**row)
+
+
+@router.get("/support/attachments/{attachment_id}", response_class=Response, responses={200: {"content": {"image/*": {}}}}, summary="A picture on one of your tickets")
+async def my_picture(attachment_id: uuid.UUID, rt: RT, p: Tenant) -> Response:
+    async with tx(rt, p) as c:
+        row = await (await c.execute("SELECT content_type, data FROM support_attachments WHERE id=%s", (attachment_id,))).fetchone()
+    if row is None:
+        raise ApiError(404, "not_found", "That picture doesn't exist.")
+    return _picture_response(row)
+
+
 @router.post("/support/tickets/{ticket_id}/resolve", response_model=TicketDetail, summary="Mark your own ticket as sorted")
 async def resolve(ticket_id: uuid.UUID, rt: RT, p: Tenant) -> TicketDetail:
     async with tx(rt, p) as c:
@@ -152,8 +210,7 @@ async def _op_detail(c: Conn, ticket_id: uuid.UUID) -> OperatorTicketDetail:
     r = await (await c.execute(f"{_OP} WHERE t.id=%s", (ticket_id,))).fetchone()  # noqa: S608
     if r is None:
         raise ApiError(404, "not_found", "That ticket doesn't exist.")
-    msgs = await (await c.execute("SELECT id, author, body, created_at FROM support_messages WHERE ticket_id=%s ORDER BY id", (ticket_id,))).fetchall()
-    return OperatorTicketDetail(**{k: r[k] for k in (*_KEYS, "business_id", "business_name")}, messages=[TicketMessageOut(**m) for m in msgs])
+    return OperatorTicketDetail(**{k: r[k] for k in (*_KEYS, "business_id", "business_name")}, messages=await _messages(c, ticket_id))
 
 
 @router.get("/operator/support", response_model=list[OperatorTicket], summary="All tickets, waiting-for-support first")
@@ -168,6 +225,15 @@ async def all_tickets(rt: RT, p: Operator, status: Annotated[Status | None, Quer
 async def ticket_for_support(ticket_id: uuid.UUID, rt: RT, p: Operator) -> OperatorTicketDetail:
     async with rt.db.system_tx() as c:
         return await _op_detail(c, ticket_id)
+
+
+@router.get("/operator/support/attachments/{attachment_id}", response_class=Response, responses={200: {"content": {"image/*": {}}}}, summary="A picture on any ticket")
+async def picture_for_support(attachment_id: uuid.UUID, rt: RT, p: Operator) -> Response:
+    async with rt.db.system_tx() as c:
+        row = await (await c.execute("SELECT content_type, data FROM support_attachments WHERE id=%s", (attachment_id,))).fetchone()
+    if row is None:
+        raise ApiError(404, "not_found", "That picture doesn't exist.")
+    return _picture_response(row)
 
 
 @router.post("/operator/support/{ticket_id}/messages", response_model=OperatorTicketDetail, status_code=201, summary="Answer a ticket")

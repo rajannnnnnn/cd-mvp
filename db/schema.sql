@@ -4,10 +4,10 @@
 -- PostgreSQL database dump
 --
 
-\restrict 0tF4UX3202nT0IA28KBaTr46KfkaCgkDqWKONiyuPdeIqMQcgn6SYn0mJHxm2cB
+\restrict 3fbcedPaci0DK5I7tW2sE6Y5kejphUoX8jEr2yBByCNwIqaA8gcX6jbK61gNYDf
 
--- Dumped from database version 16.14 (Ubuntu 16.14-0ubuntu0.24.04.1)
--- Dumped by pg_dump version 16.14 (Ubuntu 16.14-0ubuntu0.24.04.1)
+-- Dumped from database version 16.10
+-- Dumped by pg_dump version 16.10
 
 
 --
@@ -679,10 +679,12 @@ CREATE TABLE public.offers (
     may_cross_floor boolean DEFAULT false NOT NULL,
     active boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    category text,
     CONSTRAINT offers_check CHECK (((ends_at IS NULL) OR (starts_at IS NULL) OR (ends_at > starts_at))),
     CONSTRAINT offers_check1 CHECK (((kind <> ALL (ARRAY['percent'::text, 'flat'::text])) OR (value IS NOT NULL))),
     CONSTRAINT offers_check2 CHECK (((kind <> 'percent'::text) OR (value <= (100)::numeric))),
     CONSTRAINT offers_kind_check CHECK ((kind = ANY (ARRAY['percent'::text, 'flat'::text, 'bundle'::text, 'free_item'::text]))),
+    CONSTRAINT offers_one_target CHECK (((variant_id IS NULL) OR (category IS NULL))),
     CONSTRAINT offers_value_check CHECK (((value IS NULL) OR (value >= (0)::numeric)))
 );
 
@@ -953,6 +955,100 @@ ALTER TABLE ONLY public.subscriptions FORCE ROW LEVEL SECURITY;
 
 
 --
+-- Name: support_attachments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.support_attachments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    business_id uuid NOT NULL,
+    ticket_id uuid NOT NULL,
+    message_id bigint NOT NULL,
+    content_type text NOT NULL,
+    size_bytes integer NOT NULL,
+    data bytea NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT support_attachments_content_type_check CHECK ((content_type = ANY (ARRAY['image/png'::text, 'image/jpeg'::text, 'image/webp'::text]))),
+    CONSTRAINT support_attachments_size_bytes_check CHECK (((size_bytes >= 1) AND (size_bytes <= 3145728)))
+);
+
+ALTER TABLE ONLY public.support_attachments FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: support_messages; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.support_messages (
+    id bigint NOT NULL,
+    business_id uuid NOT NULL,
+    ticket_id uuid NOT NULL,
+    author text NOT NULL,
+    author_account uuid,
+    body text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT support_messages_author_check CHECK ((author = ANY (ARRAY['shop'::text, 'support'::text]))),
+    CONSTRAINT support_messages_body_check CHECK (((length(body) >= 1) AND (length(body) <= 4000)))
+);
+
+ALTER TABLE ONLY public.support_messages FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: support_messages_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.support_messages_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: support_messages_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.support_messages_id_seq OWNED BY public.support_messages.id;
+
+
+--
+-- Name: support_tickets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.support_tickets (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    business_id uuid NOT NULL,
+    number bigint NOT NULL,
+    opened_by uuid,
+    subject text NOT NULL,
+    category text NOT NULL,
+    status text DEFAULT 'open'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT support_tickets_category_check CHECK ((category = ANY (ARRAY['question'::text, 'problem'::text, 'billing'::text, 'whatsapp'::text, 'other'::text]))),
+    CONSTRAINT support_tickets_status_check CHECK ((status = ANY (ARRAY['open'::text, 'answered'::text, 'resolved'::text]))),
+    CONSTRAINT support_tickets_subject_check CHECK (((length(subject) >= 1) AND (length(subject) <= 160)))
+);
+
+ALTER TABLE ONLY public.support_tickets FORCE ROW LEVEL SECURITY;
+
+
+--
+-- Name: support_tickets_number_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.support_tickets ALTER COLUMN number ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.support_tickets_number_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: turns; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -989,9 +1085,11 @@ CREATE TABLE public.webhook_events (
     received_at timestamp with time zone DEFAULT now() NOT NULL,
     source text DEFAULT 'whatsapp_cloud'::text NOT NULL,
     signature_valid boolean NOT NULL,
-    payload jsonb NOT NULL,
+    payload jsonb,
     processed_at timestamp with time zone,
-    error text
+    error text,
+    raw_body bytea,
+    signature text
 );
 
 
@@ -1074,6 +1172,13 @@ ALTER TABLE ONLY public.outbox ALTER COLUMN seq SET DEFAULT nextval('public.outb
 --
 
 ALTER TABLE ONLY public.sim_messages ALTER COLUMN id SET DEFAULT nextval('public.sim_messages_id_seq'::regclass);
+
+
+--
+-- Name: support_messages id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.support_messages ALTER COLUMN id SET DEFAULT nextval('public.support_messages_id_seq'::regclass);
 
 
 --
@@ -1316,6 +1421,14 @@ ALTER TABLE ONLY public.offers
 
 
 --
+-- Name: offers offers_value_positive; Type: CHECK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE public.offers
+    ADD CONSTRAINT offers_value_positive CHECK (((value IS NULL) OR (value > (0)::numeric))) NOT VALID;
+
+
+--
 -- Name: operator_alerts operator_alerts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1372,6 +1485,14 @@ ALTER TABLE ONLY public.payments
 
 
 --
+-- Name: price_floors price_floors_floor_positive; Type: CHECK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE public.price_floors
+    ADD CONSTRAINT price_floors_floor_positive CHECK ((floor_price > (0)::numeric)) NOT VALID;
+
+
+--
 -- Name: price_floors price_floors_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1380,11 +1501,35 @@ ALTER TABLE ONLY public.price_floors
 
 
 --
+-- Name: pricing_policies pricing_policies_list_price_positive; Type: CHECK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE public.pricing_policies
+    ADD CONSTRAINT pricing_policies_list_price_positive CHECK (((list_price IS NULL) OR (list_price > (0)::numeric))) NOT VALID;
+
+
+--
 -- Name: pricing_policies pricing_policies_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.pricing_policies
     ADD CONSTRAINT pricing_policies_pkey PRIMARY KEY (variant_id);
+
+
+--
+-- Name: pricing_policies pricing_policies_range_max_positive; Type: CHECK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE public.pricing_policies
+    ADD CONSTRAINT pricing_policies_range_max_positive CHECK (((range_max IS NULL) OR (range_max > (0)::numeric))) NOT VALID;
+
+
+--
+-- Name: pricing_policies pricing_policies_range_min_positive; Type: CHECK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE public.pricing_policies
+    ADD CONSTRAINT pricing_policies_range_min_positive CHECK (((range_min IS NULL) OR (range_min > (0)::numeric))) NOT VALID;
 
 
 --
@@ -1468,6 +1613,38 @@ ALTER TABLE ONLY public.subscriptions
 
 
 --
+-- Name: support_attachments support_attachments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.support_attachments
+    ADD CONSTRAINT support_attachments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: support_messages support_messages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.support_messages
+    ADD CONSTRAINT support_messages_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: support_tickets support_tickets_business_id_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.support_tickets
+    ADD CONSTRAINT support_tickets_business_id_id_key UNIQUE (business_id, id);
+
+
+--
+-- Name: support_tickets support_tickets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.support_tickets
+    ADD CONSTRAINT support_tickets_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: turns turns_business_id_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1530,10 +1707,24 @@ CREATE INDEX auth_sessions_account_idx ON public.auth_sessions USING btree (acco
 
 
 --
+-- Name: auth_sessions_business_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX auth_sessions_business_idx ON public.auth_sessions USING btree (business_id) WHERE (business_id IS NOT NULL);
+
+
+--
 -- Name: auth_sessions_family_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX auth_sessions_family_idx ON public.auth_sessions USING btree (family_id);
+
+
+--
+-- Name: business_users_account_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX business_users_account_idx ON public.business_users USING btree (account_id);
 
 
 --
@@ -1562,6 +1753,20 @@ CREATE INDEX conversations_list_idx ON public.conversations USING btree (busines
 --
 
 CREATE INDEX deals_biz_idx ON public.deals USING btree (business_id, status, created_at DESC);
+
+
+--
+-- Name: deals_conversation_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX deals_conversation_idx ON public.deals USING btree (business_id, conversation_id);
+
+
+--
+-- Name: handoffs_conversation_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX handoffs_conversation_idx ON public.handoffs USING btree (business_id, conversation_id);
 
 
 --
@@ -1628,6 +1833,27 @@ CREATE INDEX jobs_running_idx ON public.jobs USING btree (queue, ordering_key) W
 
 
 --
+-- Name: knowledge_gaps_biz_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX knowledge_gaps_biz_idx ON public.knowledge_gaps USING btree (business_id, status, created_at DESC);
+
+
+--
+-- Name: knowledge_gaps_conversation_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX knowledge_gaps_conversation_idx ON public.knowledge_gaps USING btree (business_id, conversation_id) WHERE (conversation_id IS NOT NULL);
+
+
+--
+-- Name: messages_biz_time_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX messages_biz_time_idx ON public.messages USING btree (business_id, created_at);
+
+
+--
 -- Name: messages_conv_time_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1639,6 +1865,13 @@ CREATE INDEX messages_conv_time_idx ON public.messages USING btree (business_id,
 --
 
 CREATE INDEX messages_out_time_idx ON public.messages USING btree (business_id, created_at) WHERE (direction = 'out'::text);
+
+
+--
+-- Name: messages_turn_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX messages_turn_idx ON public.messages USING btree (business_id, turn_id) WHERE (turn_id IS NOT NULL);
 
 
 --
@@ -1656,10 +1889,31 @@ CREATE UNIQUE INDEX negotiations_one_open_idx ON public.negotiations USING btree
 
 
 --
+-- Name: negotiations_variant_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX negotiations_variant_idx ON public.negotiations USING btree (business_id, variant_id);
+
+
+--
 -- Name: offers_biz_id_uq; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX offers_biz_id_uq ON public.offers USING btree (business_id, id);
+
+
+--
+-- Name: offers_variant_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX offers_variant_idx ON public.offers USING btree (business_id, variant_id) WHERE (variant_id IS NOT NULL);
+
+
+--
+-- Name: operator_alerts_business_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX operator_alerts_business_idx ON public.operator_alerts USING btree (business_id) WHERE (business_id IS NOT NULL);
 
 
 --
@@ -1716,6 +1970,55 @@ CREATE INDEX products_name_trgm ON public.products USING gin ((((((name || ' '::
 --
 
 CREATE INDEX sim_messages_phone_idx ON public.sim_messages USING btree (phone, business_phone, id);
+
+
+--
+-- Name: style_examples_business_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX style_examples_business_idx ON public.style_examples USING btree (business_id);
+
+
+--
+-- Name: support_attachments_message_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX support_attachments_message_idx ON public.support_attachments USING btree (message_id);
+
+
+--
+-- Name: support_attachments_ticket_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX support_attachments_ticket_idx ON public.support_attachments USING btree (business_id, ticket_id);
+
+
+--
+-- Name: support_messages_ticket_biz_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX support_messages_ticket_biz_idx ON public.support_messages USING btree (business_id, ticket_id, id);
+
+
+--
+-- Name: support_messages_ticket_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX support_messages_ticket_idx ON public.support_messages USING btree (ticket_id, id);
+
+
+--
+-- Name: support_tickets_business_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX support_tickets_business_idx ON public.support_tickets USING btree (business_id, updated_at DESC);
+
+
+--
+-- Name: support_tickets_open_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX support_tickets_open_idx ON public.support_tickets USING btree (status, updated_at DESC);
 
 
 --
@@ -2086,6 +2389,54 @@ ALTER TABLE ONLY public.subscriptions
 
 
 --
+-- Name: support_attachments support_attachments_business_id_ticket_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.support_attachments
+    ADD CONSTRAINT support_attachments_business_id_ticket_id_fkey FOREIGN KEY (business_id, ticket_id) REFERENCES public.support_tickets(business_id, id) ON DELETE CASCADE;
+
+
+--
+-- Name: support_attachments support_attachments_message_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.support_attachments
+    ADD CONSTRAINT support_attachments_message_id_fkey FOREIGN KEY (message_id) REFERENCES public.support_messages(id) ON DELETE CASCADE;
+
+
+--
+-- Name: support_messages support_messages_author_account_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.support_messages
+    ADD CONSTRAINT support_messages_author_account_fkey FOREIGN KEY (author_account) REFERENCES public.accounts(id) ON DELETE SET NULL;
+
+
+--
+-- Name: support_messages support_messages_business_id_ticket_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.support_messages
+    ADD CONSTRAINT support_messages_business_id_ticket_id_fkey FOREIGN KEY (business_id, ticket_id) REFERENCES public.support_tickets(business_id, id) ON DELETE CASCADE;
+
+
+--
+-- Name: support_tickets support_tickets_business_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.support_tickets
+    ADD CONSTRAINT support_tickets_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.businesses(id) ON DELETE CASCADE;
+
+
+--
+-- Name: support_tickets support_tickets_opened_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.support_tickets
+    ADD CONSTRAINT support_tickets_opened_by_fkey FOREIGN KEY (opened_by) REFERENCES public.accounts(id) ON DELETE SET NULL;
+
+
+--
 -- Name: turns turns_business_id_conversation_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2255,6 +2606,24 @@ ALTER TABLE public.style_examples ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: support_attachments; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.support_attachments ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: support_messages; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.support_messages ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: support_tickets; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.support_tickets ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: outbox tenant_insert; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -2416,6 +2785,27 @@ CREATE POLICY tenant_isolation ON public.subscriptions USING ((business_id = pub
 
 
 --
+-- Name: support_attachments tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.support_attachments USING ((business_id = public.current_business_id())) WITH CHECK ((business_id = public.current_business_id()));
+
+
+--
+-- Name: support_messages tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.support_messages USING ((business_id = public.current_business_id())) WITH CHECK ((business_id = public.current_business_id()));
+
+
+--
+-- Name: support_tickets tenant_isolation; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY tenant_isolation ON public.support_tickets USING ((business_id = public.current_business_id())) WITH CHECK ((business_id = public.current_business_id()));
+
+
+--
 -- Name: turns tenant_isolation; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -2445,5 +2835,5 @@ ALTER TABLE public.whatsapp_numbers ENABLE ROW LEVEL SECURITY;
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 0tF4UX3202nT0IA28KBaTr46KfkaCgkDqWKONiyuPdeIqMQcgn6SYn0mJHxm2cB
+\unrestrict 3fbcedPaci0DK5I7tW2sE6Y5kejphUoX8jEr2yBByCNwIqaA8gcX6jbK61gNYDf
 
