@@ -1,0 +1,23 @@
+{
+  "name": "e2e-automation",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Playwright + Cucumber + TypeScript BDD automation framework",
+  "scripts": {
+    "test": "cucumber-js",
+    "test:headed": "HEADLESS=false cucumber-js",
+    "test:smoke": "cucumber-js --tags \"@smoke\"",
+    "test:firefox": "BROWSER=firefox cucumber-js",
+    "test:webkit": "BROWSER=webkit cucumber-js",
+    "typecheck": "tsc --noEmit",
+    "install:browsers": "playwright install chromium firefox webkit"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^13.3.0",
+    "@playwright/test": "^1.64.1",
+    "@types/node": "^26.6.6",
+    "dotenv": "^18.0.9",
+    "ts-node": "^10.9.2",
+    "typescript": "5.9"
+  }
+}
