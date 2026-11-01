@@ -237,7 +237,7 @@ function AssistantTab({ b, canEdit, goTo }: { b: Schemas['BusinessOut']; canEdit
   const nudgeErr = +nudge >= 30 && +nudge <= 1380 ? undefined : tr('Enter 30 to 1380 minutes')
   return (
     <div className="space-y-5">
-      {!live && <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm"><span className="min-w-0 flex-1 font-semibold">{tr('The assistant cannot answer customers until your WhatsApp number is connected. Connecting it also sets up the webhook that delivers their messages.')}</span><button className="btn btn-primary btn-sm" onClick={() => goTo('numbers')}>{tr('Connect WhatsApp')}</button></div>}
+      {!live && <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm"><span className="min-w-0 flex-1 font-semibold">{tr('Connect your WhatsApp number so the assistant can answer customers.')}</span><button className="btn btn-primary btn-sm" onClick={() => goTo('numbers')}>{tr('Connect WhatsApp')}</button></div>}
       <TrySection />
       <Section title={tr('Selling style')} footer={canEdit && sellBl.dirty && <SaveButton dirty={sellBl.dirty} busy={save.isPending} onClick={() => save.mutate({ sales_settings: { honorific: honorific.trim() || null, language_default: lang as any, proactiveness: pro as any, may_mention_offers: offers, handoff_value_threshold: thr || null } }, { onSuccess: sellBl.commit })} label={tr('Save')} />}>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -275,7 +275,7 @@ function TeamTab({ canEdit }: { canEdit: boolean }) {
   const patch = useMutation({ mutationFn: (v: { id: string; notify: boolean }) => ok(api.PATCH('/api/v1/team/{member_id}', { params: { path: { member_id: v.id } }, body: { notify: v.notify } })), onSuccess: () => qc.invalidateQueries({ queryKey: ['team'] }) })
   const remove = useMutation({ mutationFn: (id: string) => ok(api.DELETE('/api/v1/team/{member_id}', { params: { path: { member_id: id } } })), onSuccess: () => { qc.invalidateQueries({ queryKey: ['team'] }); setDel(null); toast(tr('Removed')) }, onError: (e) => toast((e as Error).message, 'error') })
   return (
-    <Section title={tr('People who can sign in')} sub={tr('Each person signs in to this dashboard with their own WhatsApp number. Staff can chat with customers; only owners change prices and settings. This is not the number your customers message: that one is under WhatsApp.')}
+    <Section title={tr('People')} sub={tr('Who can sign in here. Staff can chat with customers; only owners can change settings.')}
       footer={canEdit && <button className="btn btn-primary" onClick={() => setAdd(true)}><Plus className="h-4 w-4" /> {tr('Add team member')}</button>}>
       {q.error && <ErrorNote error={q.error} retry={() => q.refetch()} />}
       {q.isLoading && <Skeleton className="h-24" />}
@@ -315,8 +315,7 @@ function NumbersTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolea
   }
   const tone = (s: string) => (s === 'connected' || s === 'active' ? 'green' : s === 'disconnected' ? 'red' : 'amber') as 'green' | 'red' | 'amber'
   return (
-    <Section title={tr('The assistant’s WhatsApp number')} sub={tr('The number your customers message. The assistant answers on it, and your WhatsApp Business app keeps working alongside it. People who sign in to this dashboard are under People.')}>
-      <div className="rounded-xl bg-surface2/60 px-4 py-3 text-[13.5px] leading-relaxed text-muted"><b className="text-ink">{tr('How messages reach the assistant.')}</b> {tr('When a customer messages this number, WhatsApp passes the message to ChatDeal through a webhook and the assistant replies. Connecting your number sets the webhook up for you, so there is nothing to configure by hand.')}</div>
+    <Section title={tr('WhatsApp number')} sub={tr('The number your customers message. The assistant answers on it.')}>
       {!b.numbers.length && <EmptyState icon={<Phone className="h-6 w-6" />} title={tr('No number connected yet')} body={signup ? tr('Connect your WhatsApp Business number in a few taps.') : tr('Your ChatDeal contact will connect your WhatsApp number with you.')} />}
       {!!cfg.data?.simulator_enabled && canEdit && <div className="flex justify-end"><button className="btn btn-outline" onClick={async () => { try { await ok(api.POST('/api/v1/numbers/test')); await qc.invalidateQueries({ queryKey: ['business'] }); toast(tr('Test number added')) } catch (e) { toast((e as Error).message, 'error') } }}><Plus className="h-4 w-4" /> {tr('Add a test number')}</button></div>}
       {signup && canEdit && <div className="flex justify-end"><button className="btn btn-primary" disabled={connecting} onClick={connect}>{connecting ? <Spinner /> : <Plus className="h-4 w-4" />} {tr('Connect a WhatsApp number')}</button></div>}
@@ -325,7 +324,7 @@ function NumbersTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolea
           <div key={n.id} className="flex flex-wrap items-center gap-3 py-3">
             <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-soft text-brand-ink"><Phone className="h-5 w-5" /></span>
             <div className="min-w-0 flex-1"><div className="font-bold">{fmtPhone(n.display_phone)}</div><div className="text-[13px] text-muted">{n.verified_name ?? tr('Unverified name')} · {n.channel === 'simulator' ? tr('Test number') : tr('WhatsApp Business')}{n.coexistence ? tr(' · works with your app') : ''}</div></div>
-            <div className="flex flex-wrap gap-1.5"><Badge tone={tone(n.status)} dot>{n.status === 'connected' || n.status === 'active' ? tr('Receiving messages') : n.status === 'disconnected' ? tr('Not receiving: reconnect this number') : n.status}</Badge>{n.quality_rating && <Badge tone={n.quality_rating === 'GREEN' ? 'green' : n.quality_rating === 'RED' ? 'red' : 'amber'}>{tr('Quality')} {n.quality_rating.toLowerCase()}</Badge>}</div>
+            <div className="flex flex-wrap gap-1.5"><Badge tone={tone(n.status)} dot>{n.status === 'connected' || n.status === 'active' ? tr('Receiving messages') : n.status === 'disconnected' ? tr('Not connected') : n.status}</Badge>{n.quality_rating && <Badge tone={n.quality_rating === 'GREEN' ? 'green' : n.quality_rating === 'RED' ? 'red' : 'amber'}>{tr('Quality')} {n.quality_rating.toLowerCase()}</Badge>}</div>
             {n.status_reason && <p className="w-full text-[13px] text-danger">{n.status_reason}</p>}
           </div>
         ))}
