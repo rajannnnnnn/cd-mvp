@@ -6,13 +6,14 @@ import { EmptyState, ErrorNote, Field, focusFirstInvalid, RequiredNote, Skeleton
 import { ago, cx } from '@/lib/format'
 import { tr } from '@/i18n/tr'
 import { CATEGORY_LABEL, StatusBadge, Thread } from './Thread'
+import { useDraft } from '@/lib/drafts'
 
 type Category = keyof typeof CATEGORY_LABEL
 
 /** Settings → Support. Sending the form opens the ticket on the spot; support answers in the same thread. */
 export default function Support() {
   const toast = useToast(); const qc = useQueryClient()
-  const [subject, setSubject] = useState(''); const [category, setCategory] = useState<Category>('question'); const [message, setMessage] = useState('')
+  const [subject, setSubject] = useDraft('support.subject', ''); const [category, setCategory] = useDraft<Category>('support.category', 'question'); const [message, setMessage] = useDraft('support.message', '')
   const [err, setErr] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const list = useQuery({ queryKey: ['support'], queryFn: () => ok(api.GET('/api/v1/support/tickets')), refetchInterval: 20_000 })

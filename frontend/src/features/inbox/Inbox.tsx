@@ -9,6 +9,7 @@ import { ago, inr } from '@/lib/format'
 import { HANDOFF_LABEL, HANDOFF_TONE } from '@/lib/stages'
 import { tr } from '@/i18n/tr'
 import { CardListSkeleton } from '@/ui/skeletons'
+import { clearDraftGroup, useDraft } from '@/lib/drafts'
 
 type Tab = 'handoffs' | 'deals' | 'gaps'
 
@@ -91,11 +92,11 @@ function Deals() {
 function Gaps() {
   const toast = useToast(); const refresh = useRefresh()
   const [target, setTarget] = useState<Schemas['GapOut'] | null>(null)
-  const [answer, setAnswer] = useState('')
+  const [answer, setAnswer] = useDraft(target ? `inbox.answer.${target.id}` : null, '')
   const q = useQuery({ queryKey: ['gaps', 'open', 'all'], queryFn: () => ok(api.GET('/api/v1/knowledge-gaps', { params: { query: { status: 'open' } } })) })
   const send = useMutation({
     mutationFn: (v: { id: string; answer: string }) => ok(api.POST('/api/v1/knowledge-gaps/{gap_id}/answer', { params: { path: { gap_id: v.id } }, body: { answer: v.answer, confirm: true } })),
-    onSuccess: () => { refresh(); setTarget(null); setAnswer(''); toast(tr('Saved. The AI will use this from now on.')) }, onError: (e) => toast((e as Error).message, 'error'),
+    onSuccess: () => { refresh(); if (target) clearDraftGroup(`inbox.answer.${target.id}`); setTarget(null); toast(tr('Saved. The AI will use this from now on.')) }, onError: (e) => toast((e as Error).message, 'error'),
   })
   const dismiss = useMutation({ mutationFn: (id: string) => ok(api.POST('/api/v1/knowledge-gaps/{gap_id}/dismiss', { params: { path: { gap_id: id } } })), onSuccess: () => { refresh(); toast(tr('Dismissed')) } })
   if (q.isLoading) return <CardListSkeleton count={3} />
@@ -107,7 +108,7 @@ function Gaps() {
         <div key={g.id} className="card card-pad flex flex-wrap items-center gap-4">
           <span className="grid h-11 w-11 place-items-center rounded-xl bg-info-soft text-info"><CircleHelp className="h-5 w-5" /></span>
           <div className="min-w-0 flex-1"><p className="font-semibold">“{g.question}”</p><p className="text-xs text-muted">{tr('Asked')} {ago(g.created_at)}</p></div>
-          <div className="flex gap-2"><button className="btn btn-primary btn-sm" onClick={() => { setTarget(g); setAnswer('') }}>{tr('Answer')}</button><button className="btn btn-ghost btn-sm" onClick={() => dismiss.mutate(g.id)}>{tr('Dismiss')}</button></div>
+          <div className="flex gap-2"><button className="btn btn-primary btn-sm" onClick={() => { setTarget(g) }}>{tr('Answer')}</button><button className="btn btn-ghost btn-sm" onClick={() => dismiss.mutate(g.id)}>{tr('Dismiss')}</button></div>
         </div>
       ))}
       <Modal open={!!target} onClose={() => setTarget(null)} title={tr('Teach the assistant')}

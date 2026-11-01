@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { useQueryClient } from '@tanstack/react-query'
 import { api, ok, type Schemas } from '@/api/client'
 import { fromResponse, tokens } from './tokens'
+import { clearAllDrafts } from '@/lib/drafts'
 
 export type Me = Schemas['MeOut']
 type Status = 'loading' | 'anon' | 'authed'
@@ -41,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     selectBusiness: async (ticket, id) => { await adopt(await ok(api.POST('/api/v1/auth/select-business', { body: { ticket, business_id: id } }))) },
     switchBusiness: async (id) => { await adopt(await ok(api.POST('/api/v1/auth/switch-business', { body: { business_id: id } }))) },
-    logout: async () => { try { await api.POST('/api/v1/auth/logout') } catch { /* already gone */ } tokens.set(null); qc.clear(); setMe(null); setStatus('anon') },
+    logout: async () => { try { await api.POST('/api/v1/auth/logout') } catch { /* already gone */ } tokens.set(null); clearAllDrafts(); qc.clear(); setMe(null); setStatus('anon') },
   }), [status, me, load, adopt, qc])
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

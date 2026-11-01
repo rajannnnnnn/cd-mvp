@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { BellRing, Building2, Copy, LifeBuoy, Lock, Pencil, Mic2, Laptop, Phone, Plus, ShieldCheck, Sliders, Smartphone, Trash2, Users, X } from 'lucide-react'
 import { api, ok, type Schemas } from '@/api/client'
@@ -12,6 +12,7 @@ import { PhoneInput } from '@/ui/inputs'
 import { isPhone, toE164 } from '@/lib/phone'
 import { tr } from '@/i18n/tr'
 import { currentSlug, shopUrl } from '@/lib/slug'
+import { useDraft } from '@/lib/drafts'
 import { useSearchParams } from 'react-router-dom'
 import Voice from '@/features/voice/Voice'
 import Support from '@/features/support/Support'
@@ -27,9 +28,9 @@ function Section({ title, sub, children, footer, action }: { title: string; sub?
   return <section className="card"><div className="flex items-start justify-between gap-3 border-b border-line/60 px-5 py-4"><div className="min-w-0"><h2 className="font-display text-lg font-bold">{title}</h2>{sub && <p className="text-[13.5px] text-muted">{sub}</p>}</div>{action}</div><div className="space-y-4 px-5 py-5">{children}</div>{footer && <div className="flex justify-end gap-2 border-t border-line/60 px-5 py-3.5">{footer}</div>}</section>
 }
 /** "Is there anything to save?": compares the form with how it looked when it was loaded or last saved. */
-function useBaseline(values: unknown) {
+function useBaseline(values: unknown, initial?: unknown) {
   const now = JSON.stringify(values)
-  const [base, setBase] = useState(now)
+  const [base, setBase] = useState(initial === undefined ? now : JSON.stringify(initial))
   return { dirty: now !== base, commit: () => setBase(now) }
 }
 /** Greyed out and not clickable until something changed. The label never changes. */
@@ -113,17 +114,23 @@ function HoursEditor({ hours, setHours, errs, canEdit }: { hours: DayHours; setH
 
 function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }) {
   const p = b.profile as any
-  const [address, setAddress] = useState<string>(p.address ?? '')
-  const [shopPhone, setShopPhone] = useState<string>(p.phone ?? '')
-  const [delivery, setDelivery] = useState<string>(p.delivery ?? '')
-  const [returns, setReturns] = useState<string>(p.returns ?? '')
-  const [pay, setPay] = useState<string[]>(p.payment_modes ?? [])
-  const [areas, setAreas] = useState<string[]>(p.delivery_areas ?? [])
-  const [facts, setFacts] = useState<string[]>(p.facts ?? [])
-  const [hours, setHours] = useState(() => parseHours(p.hours))
-  const [editing, setEditing] = useState(false)
+  type ShopForm = { address: string; shopPhone: string; delivery: string; returns: string; pay: string[]; areas: string[]; facts: string[]; hours: ReturnType<typeof parseHours> }
+  const fromServer = (): ShopForm => ({ address: p.address ?? '', shopPhone: p.phone ?? '', delivery: p.delivery ?? '', returns: p.returns ?? '', pay: p.payment_modes ?? [], areas: p.delivery_areas ?? [], facts: p.facts ?? [], hours: parseHours(p.hours) })
+  const [kept, setKept] = useDraft<ShopForm | null>(canEdit ? 'settings.shop' : null, null)        // an edit that was not saved is picked up again
+  const [address, setAddress] = useState<string>(kept?.address ?? p.address ?? '')
+  const [shopPhone, setShopPhone] = useState<string>(kept?.shopPhone ?? p.phone ?? '')
+  const [delivery, setDelivery] = useState<string>(kept?.delivery ?? p.delivery ?? '')
+  const [returns, setReturns] = useState<string>(kept?.returns ?? p.returns ?? '')
+  const [pay, setPay] = useState<string[]>(kept?.pay ?? p.payment_modes ?? [])
+  const [areas, setAreas] = useState<string[]>(kept?.areas ?? p.delivery_areas ?? [])
+  const [facts, setFacts] = useState<string[]>(kept?.facts ?? p.facts ?? [])
+  const [hours, setHours] = useState(() => kept?.hours ?? parseHours(p.hours))
+  const [editing, setEditing] = useState(!!kept && canEdit)
   const save = useSaveBusiness()
-  const bl = useBaseline({ address, shopPhone, delivery, returns, pay, areas, facts, hours })
+  const form: ShopForm = { address, shopPhone, delivery, returns, pay, areas, facts, hours }
+  const bl = useBaseline(form, fromServer())
+  const formKey = JSON.stringify(form)
+  useEffect(() => { setKept(editing && bl.dirty ? form : null) }, [editing, formKey])   // eslint-disable-line react-hooks/exhaustive-deps
   const [tried, setTried] = useState(false)
   const cancel = () => { setAddress(p.address ?? ''); setShopPhone(p.phone ?? ''); setDelivery(p.delivery ?? ''); setReturns(p.returns ?? ''); setPay(p.payment_modes ?? []); setAreas(p.delivery_areas ?? []); setFacts(p.facts ?? []); setHours(parseHours(p.hours)); setTried(false); setEditing(false) }
   const menu = canEdit && !editing ? <KebabMenu label={tr('More actions for your shop details')} items={[{ label: tr('Edit'), icon: <Pencil className="h-4 w-4" />, onClick: () => setEditing(true) }]} /> : undefined
@@ -148,7 +155,7 @@ function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }
           <Field label={tr('Your web address')} hint={tr('Where you sign in to your shop. To change it, contact support.')}><div className="flex items-center gap-1 py-0.5"><p className="min-w-0 flex-1 break-all text-[15px] font-semibold">{window.location.origin}/app/{b.slug}</p><Lock className="h-3.5 w-3.5 shrink-0 text-muted" aria-label={tr('Cannot be changed here')} /><CopyLink url={`${window.location.origin}/app/${b.slug}`} /></div></Field>
           <Field label={tr('Shop phone')} hint={edit ? tr('Shown to customers who ask') : undefined}>{edit ? <PhoneInput value={shopPhone} onChange={setShopPhone} /> : <Val>{shopPhone ? fmtPhone(shopPhone) : ''}</Val>}</Field>
         </div>
-        <Field label={tr('Address')}>{edit ? <textarea maxLength={500} className="textarea min-h-[70px]" value={address} onChange={(e) => setAddress(e.target.value)} /> : <Val>{address}</Val>}</Field>
+        <Field label={tr('Address')}>{edit ? <textarea maxLength={500} autoComplete="street-address" className="textarea min-h-[70px]" value={address} onChange={(e) => setAddress(e.target.value)} /> : <Val>{address}</Val>}</Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={tr('Delivery')}>{edit ? <textarea maxLength={1000} className="textarea min-h-[84px]" value={delivery} onChange={(e) => setDelivery(e.target.value)} placeholder={tr('Delivery details')} /> : <Val>{delivery}</Val>}</Field>
           <Field label={tr('Returns & exchange')}>{edit ? <textarea maxLength={1500} className="textarea min-h-[84px]" value={returns} onChange={(e) => setReturns(e.target.value)} /> : <Val>{returns}</Val>}</Field>

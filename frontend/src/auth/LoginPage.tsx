@@ -40,7 +40,7 @@ export default function LoginPage() {
   const cfg = usePublicConfig()
   const dev = !!cfg.data?.simulator_enabled
   const [step, setStep] = useState<'phone' | 'code' | 'choose'>('phone')
-  const [local, setLocal] = useState('')
+  const [local, setLocal] = useState(() => { try { return localStorage.getItem('chatdeal.lastPhone') ?? '' } catch { return '' } })
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -69,7 +69,7 @@ export default function LoginPage() {
     try {
       let base = 0
       if (dev) { try { const all = await ok(api.GET('/api/v1/sim/inbox', { params: { query: { phone: full } } })); base = Math.max(0, ...all.filter((m) => m.template_name === 'otp_login').map((m) => m.id)) } catch { /* inbox unavailable */ } }
-      await requestOtp(full); setBaseline(base); setStep('code'); setCode(''); setAutofilled(false); setWait(30)
+      await requestOtp(full); try { localStorage.setItem('chatdeal.lastPhone', local) } catch { /* ignore */ }; setBaseline(base); setStep('code'); setCode(''); setAutofilled(false); setWait(30)
     }
     catch (e) { setErr((e as ApiError).message) } finally { setBusy(false) }
   }

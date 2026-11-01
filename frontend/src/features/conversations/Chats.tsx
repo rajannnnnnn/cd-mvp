@@ -14,6 +14,7 @@ import { ChatRowsSkeleton, ThreadSkeleton } from '@/ui/skeletons'
 type Summary = Schemas['ConversationSummary']
 type Detail = Schemas['ConversationDetail']
 import { FILTERS } from './filters'
+import { useDraft } from '@/lib/drafts'
 
 function filterQuery(f: string, search: string) {
   const q: Record<string, any> = { limit: 30 }
@@ -100,7 +101,7 @@ function Thread({ id, onBack }: { id: string; onBack: () => void }) {
   const toast = useToast()
   const qc = useQueryClient()
   const det = useQuery({ queryKey: ['conversation', id], queryFn: () => ok(api.GET('/api/v1/conversations/{conversation_id}', { params: { path: { conversation_id: id } } })), refetchInterval: 20_000 })
-  const [text, setText] = useState('')
+  const [text, setText] = useDraft(`reply.${id}`, '')
   const [info, setInfo] = useState(false)
   const bottom = useRef<HTMLDivElement>(null)
   const area = useRef<HTMLTextAreaElement>(null)

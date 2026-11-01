@@ -12,6 +12,7 @@ import { CategoryField } from './CategoryField'
 import { DockPanel, SelectToggle, Tick, useView, ViewToggle } from './shared'
 import { categoriesOf } from './category'
 import { CardGridSkeleton } from '@/ui/skeletons'
+import { clearDraftGroup, useDraft } from '@/lib/drafts'
 
 type Product = Schemas['ProductOut']
 type Variant = Schemas['VariantOut']
@@ -139,14 +140,15 @@ function VariantEditor({ d, kind, set, onRemove, canRemove, single, errors }: { 
 }
 
 /* ------------------------------------------------------------ product panel (docked beside the list, never over it) */
+const noFloor = (a: Draft[]) => a.map((v) => ({ ...v, floor_price: '' }))
 function ProductPanel({ product, categories, onClose }: { product: Product | 'new'; categories: string[]; onClose: () => void }) {
   const toast = useToast(); const qc = useQueryClient()
   const isNew = product === 'new'
-  const [name, setName] = useState(isNew ? '' : product.name)
-  const [category, setCategory] = useState(isNew ? '' : product.category ?? '')
-  const [description, setDescription] = useState(isNew ? '' : product.description ?? '')
+  const [name, setName] = useDraft(isNew ? 'product.name' : null, isNew ? '' : product.name)
+  const [category, setCategory] = useDraft(isNew ? 'product.category' : null, isNew ? '' : product.category ?? '')
+  const [description, setDescription] = useDraft(isNew ? 'product.description' : null, isNew ? '' : product.description ?? '')
   const [active, setActiveFlag] = useState(isNew ? true : product.active)   // on or off lives in the editor; bulk on/off is in Select mode
-  const [vs, setVs] = useState<Draft[]>(isNew ? [blank(true)] : product.variants.filter((v) => v.active).map(fromVariant))
+  const [vs, setVs] = useDraft<Draft[]>(isNew ? 'product.variants' : null, isNew ? [blank(true)] : product.variants.filter((v) => v.active).map(fromVariant), noFloor)   // the private lowest price is never kept as a draft
   const [kind, setKindState] = useState<Disclosure>(vs.find((v) => v.is_default)?.disclosure ?? vs[0]?.disclosure ?? 'fixed')   // one way of showing the price per product
   const setKind = (k: Disclosure) => { setKindState(k); setVs((a) => a.map((x) => ({ ...x, disclosure: k }))) }
   const [removed, setRemoved] = useState<string[]>([])
@@ -190,7 +192,7 @@ function ProductPanel({ product, categories, onClose }: { product: Product | 'ne
       }
       for (const id of removed) await ok(api.PATCH('/api/v1/variants/{variant_id}', { params: { path: { variant_id: id } }, body: { active: false } }))
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); toast(isNew ? tr('Product added') : tr('Saved')); onClose() },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['products'] }); toast(isNew ? tr('Product added') : tr('Saved')); clearDraftGroup('product.'); onClose() },
     onError: (e) => {
       setError((e as Error).message)
       if (e instanceof ApiError && Array.isArray(e.details)) {           // the server names the field: put the message under it
@@ -215,7 +217,7 @@ function ProductPanel({ product, categories, onClose }: { product: Product | 'ne
   return (
     <DockPanel title={title} onClose={onClose} footer={<>
       {!isNew && <button className="btn btn-ghost mr-auto text-danger" onClick={() => setConfirmDel(true)}><Trash2 className="h-4 w-4" /> {tr('Delete')}</button>}
-      <button className="btn btn-ghost" onClick={onClose}>{tr('Cancel')}</button>
+      <button className="btn btn-ghost" onClick={() => { if (isNew) clearDraftGroup('product.'); onClose() }}>{tr('Cancel')}</button>
       <button className="btn btn-primary" disabled={save.isPending} onClick={submit}>{save.isPending && <Spinner />} {isNew ? tr('Add product') : tr('Save changes')}</button></>}>
       <div className="space-y-4" ref={body}>
         <RequiredNote />

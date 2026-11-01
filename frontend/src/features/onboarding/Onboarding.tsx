@@ -15,6 +15,7 @@ import { cx } from '@/lib/format'
 import { Field, focusFirstInvalid, Logo, RequiredNote, Segmented, SignOutConfirm, Spinner, Switch, useToast } from '@/ui'
 import { tr } from '@/i18n/tr'
 import { FormSkeleton } from '@/ui/skeletons'
+import { clearDraftGroup, useDraft } from '@/lib/drafts'
 
 type Onb = Schemas['OnboardingOut']
 type StepKey = Onb['steps'][number]['key']
@@ -42,8 +43,8 @@ function Nav({ back, next, nextLabel, busy, nextDisabled, skip }: { back?: () =>
 function BusinessStep({ onLeave }: { onLeave: () => void }) {
   const { adopt } = useAuth(); const toast = useToast()
   const cats = useQuery({ queryKey: ['ob-cats'], queryFn: () => ok(api.GET('/api/v1/onboarding/categories')), staleTime: Infinity })
-  const [name, setName] = useState(''); const [owner, setOwner] = useState(''); const [category, setCategory] = useState(''); const [city, setCity] = useState('')
-  const [language, setLanguage] = useState<'en' | 'hi' | 'hinglish'>('hinglish')
+  const [name, setName] = useDraft('setup.name', ''); const [owner, setOwner] = useDraft('setup.owner', ''); const [category, setCategory] = useDraft('setup.category', ''); const [city, setCity] = useDraft('setup.city', '')
+  const [language, setLanguage] = useDraft<'en' | 'hi' | 'hinglish'>('setup.language', 'hinglish')
   const [slug, setSlug] = useState(''); const [slugTouched, setSlugTouched] = useState(false)
   const [check, setCheck] = useState<Schemas['SlugCheck'] | null>(null)
   useEffect(() => { if (!slugTouched) setSlug(name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 34)) }, [name, slugTouched])
@@ -55,6 +56,7 @@ function BusinessStep({ onLeave }: { onLeave: () => void }) {
   const create = useMutation({
     mutationFn: async () => {
       const r = await ok(api.POST('/api/v1/onboarding/business', { body: { name: name.trim(), owner_name: owner.trim(), category: category || null, city: city.trim() || null, slug: check?.available ? check.slug : (check?.suggestion ?? null), language } }))
+      clearDraftGroup('setup.')
       await adopt(r)
       const me = await ok(api.GET('/api/v1/auth/me'))
       window.location.assign(shopUrl(me.business!.slug!, '/onboarding?step=details'))      // the shop's own address from here on
@@ -76,11 +78,11 @@ function BusinessStep({ onLeave }: { onLeave: () => void }) {
       <p className="mt-1.5 text-[15px] text-muted">{tr('This takes about five minutes. You can change everything later.')}</p>
       <div className="mt-6 space-y-4">
         <RequiredNote />
-        <Field label={tr('Business name')} hint={tr('The name your customers know')} required error={tried ? errs.name : undefined}><input maxLength={80} className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('Business name')} /></Field>
-        <Field label={tr('Your name')} required error={tried ? errs.owner : undefined}><input maxLength={80} className="input" value={owner} onChange={(e) => setOwner(e.target.value)} placeholder={tr('Your name')} /></Field>
+        <Field label={tr('Business name')} hint={tr('The name your customers know')} required error={tried ? errs.name : undefined}><input maxLength={80} className="input" autoFocus autoComplete="organization" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('Business name')} /></Field>
+        <Field label={tr('Your name')} required error={tried ? errs.owner : undefined}><input maxLength={80} className="input" autoComplete="name" value={owner} onChange={(e) => setOwner(e.target.value)} placeholder={tr('Your name')} /></Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={tr('What do you sell?')}><select className="select" value={category} onChange={(e) => setCategory(e.target.value)}><option value="">{tr('Choose…')}</option>{cats.data?.map((c) => <option key={c}>{c}</option>)}</select></Field>
-          <Field label={tr('City')}><input maxLength={80} className="input" value={city} onChange={(e) => setCity(e.target.value)} placeholder={tr('City')} /></Field>
+          <Field label={tr('City')}><input maxLength={80} className="input" autoComplete="address-level2" value={city} onChange={(e) => setCity(e.target.value)} placeholder={tr('City')} /></Field>
         </div>
         <Field label={tr('How do your customers talk?')} hint={tr('The assistant still follows each customer’s own language')}>
           <Segmented value={language} onChange={setLanguage} options={[{ value: 'hinglish', label: 'Hinglish' }, { value: 'hi', label: 'हिन्दी' }, { value: 'en', label: 'English' }]} />

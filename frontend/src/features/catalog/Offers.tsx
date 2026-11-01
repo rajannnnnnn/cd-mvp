@@ -11,6 +11,7 @@ import { tr } from '@/i18n/tr'
 import { categoriesOf } from './category'
 import { DockPanel, SelectToggle, Tick, useView, ViewToggle } from './shared'
 import { CardGridSkeleton } from '@/ui/skeletons'
+import { clearDraftGroup, useDraft } from '@/lib/drafts'
 
 type Offer = Schemas['OfferOut']
 const KINDS: { value: Offer['kind']; label: string; icon: typeof Percent; help: string }[] = [
@@ -51,10 +52,10 @@ const asBody = (o: Offer, over: Partial<Schemas['OfferIn']> = {}): Schemas['Offe
 function OfferPanel({ offer, products, onClose }: { offer: Offer | 'new'; products: Product[]; onClose: () => void }) {
   const isNew = offer === 'new'
   const toast = useToast(); const qc = useQueryClient()
-  const [name, setName] = useState(isNew ? '' : offer.name)
-  const [kind, setKind] = useState<Offer['kind']>(isNew ? 'percent' : offer.kind)
-  const [value, setValue] = useState(isNew || offer.value == null ? '' : String(+offer.value))
-  const [freeItem, setFreeItem] = useState(isNew ? '' : offer.free_item ?? '')
+  const [name, setName] = useDraft(isNew ? 'offer.name' : null, isNew ? '' : offer.name)
+  const [kind, setKind] = useDraft<Offer['kind']>(isNew ? 'offer.kind' : null, isNew ? 'percent' : offer.kind)
+  const [value, setValue] = useDraft(isNew ? 'offer.value' : null, isNew || offer.value == null ? '' : String(+offer.value))
+  const [freeItem, setFreeItem] = useDraft(isNew ? 'offer.freeItem' : null, isNew ? '' : offer.free_item ?? '')
   const [target, setTarget] = useState(targetOf(offer))
   const cond = (isNew ? {} : offer.conditions ?? {}) as { min_qty?: number; first_order?: boolean }
   const [minQty, setMinQty] = useState(cond.min_qty ? String(cond.min_qty) : '')
@@ -96,7 +97,7 @@ function OfferPanel({ offer, products, onClose }: { offer: Offer | 'new'; produc
       }
       return isNew ? ok(api.POST('/api/v1/offers', { body })) : ok(api.PUT('/api/v1/offers/{offer_id}', { params: { path: { offer_id: offer.id } }, body }))
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['offers'] }); toast(isNew ? tr('Offer created') : tr('Offer saved')); onClose() },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['offers'] }); clearDraftGroup('offer.'); toast(isNew ? tr('Offer created') : tr('Offer saved')); onClose() },
     onError: (e) => { setErr((e as Error).message); setTimeout(() => focusFirstInvalid(body.current), 30) },
   })
   const del = useMutation({
@@ -107,7 +108,7 @@ function OfferPanel({ offer, products, onClose }: { offer: Offer | 'new'; produc
   return (
     <DockPanel title={isNew ? tr('New offer') : tr('Edit offer')} onClose={onClose} footer={<>
       {!isNew && <button className="btn btn-ghost mr-auto text-danger" onClick={() => setConfirmDel(true)}><Trash2 className="h-4 w-4" /> {tr('Delete')}</button>}
-      <button className="btn btn-ghost" onClick={onClose}>{tr('Cancel')}</button>
+      <button className="btn btn-ghost" onClick={() => { if (isNew) clearDraftGroup('offer.'); onClose() }}>{tr('Cancel')}</button>
       <button className="btn btn-primary" disabled={save.isPending} onClick={submit}>{save.isPending && <Spinner />} {tr('Save offer')}</button></>}>
       <div className="space-y-4" ref={body}>
         <RequiredNote />
