@@ -43,7 +43,7 @@ function NewBusinessModal({ onClose }: { onClose: () => void }) {
         <div className="grid gap-4 sm:grid-cols-2"><Field label="Owner’s name" required><input maxLength={80} className="input" value={f.owner_name} onChange={set('owner_name')} /></Field><Field label="Owner’s WhatsApp number" hint="This is their login" required><PhoneInput value={f.owner_phone} onChange={(v) => setF((x) => ({ ...x, owner_phone: v }))} /></Field></div>
         <div className="grid gap-4 sm:grid-cols-2"><Field label="Plan"><select className="select" value={f.plan} onChange={set('plan')}><option value="pilot">Pilot</option><option value="starter">Starter</option><option value="growth">Growth</option></select></Field>
           <Field label="Owner language"><select className="select" value={f.language} onChange={set('language')}><option value="en">English</option><option value="hi">हिन्दी</option></select></Field></div>
-        <Field label="Test number (optional)" hint="Adds a simulated WhatsApp number so the owner can try the assistant"><PhoneInput value={f.sim} onChange={(v) => setF((x) => ({ ...x, sim: v }))} placeholder="99999 00000" /></Field>
+        <Field label="Test number (optional)" hint="Adds a simulated WhatsApp number so the owner can try the assistant"><PhoneInput value={f.sim} onChange={(v) => setF((x) => ({ ...x, sim: v }))} placeholder="Mobile number" /></Field>
       </div>
     </Modal>
   )

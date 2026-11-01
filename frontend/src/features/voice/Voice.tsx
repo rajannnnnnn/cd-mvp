@@ -23,8 +23,8 @@ function AddModal({ onClose }: { onClose: () => void }) {
       <div className="space-y-4">
         <RequiredNote />
         <Field label={tr('Situation')}><select className="select" value={situation} onChange={(e) => setSituation(e.target.value)}>{SITUATIONS.map((s) => <option key={s}>{s}</option>)}</select></Field>
-        <Field label={tr('What the customer said')} hint={tr('Optional')}><input maxLength={500} className="input" value={customer} onChange={(e) => setCustomer(e.target.value)} placeholder={tr('e.g. Bhaiya thoda kam karo na')} /></Field>
-        <Field label={tr('What you would reply')} required hint={tr('Write it exactly as you’d type it on WhatsApp')}><textarea maxLength={800} className="textarea min-h-[100px]" value={reply} onChange={(e) => setReply(e.target.value)} placeholder={tr('e.g. Ji aapke liye best price hi lagaya hai, phir bhi 2 saree le rahe ho toh dekhta hoon 🙏')} autoFocus /></Field>
+        <Field label={tr('What the customer said')} hint={tr('Optional')}><input maxLength={500} className="input" value={customer} onChange={(e) => setCustomer(e.target.value)} placeholder={tr('A message a customer might send')} /></Field>
+        <Field label={tr('What you would reply')} required hint={tr('Write it exactly as you’d type it on WhatsApp')}><textarea maxLength={800} className="textarea min-h-[100px]" value={reply} onChange={(e) => setReply(e.target.value)} placeholder={tr('How you would reply')} autoFocus /></Field>
         <p className="text-[12.5px] text-muted">{tr('Don’t put your lowest price in an example. The assistant copies your style, not your numbers.')}</p>
       </div>
     </Modal>

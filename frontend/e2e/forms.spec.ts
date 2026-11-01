@@ -14,7 +14,7 @@ test.describe('prices and mandatory fields', () => {
 
   test('DEAL-118: the Price field rejects alphabets and accepts a valid number', async ({ page }) => {
     const panel = await openNewProduct(page)
-    const price = panel.getByPlaceholder('e.g. 7650')
+    const price = panel.getByPlaceholder('Price in ₹', { exact: true })
     await price.fill('abc')
     await expect(price).toHaveValue('')                                                       // Scenario: alphabets are rejected
     await price.pressSequentially('12abc')

@@ -80,8 +80,8 @@ test.describe('owner app', () => {
   test('offers can be created, paused and deleted', async ({ page }) => {
     await page.goto(`${SHOP}/offers`)
     await page.getByRole('button', { name: 'New offer' }).click()
-    await page.getByPlaceholder('e.g. Festive 10% off').fill('E2E test offer')
-    await page.getByPlaceholder('10', { exact: true }).fill('5')
+    await page.getByPlaceholder('Offer name').fill('E2E test offer')
+    await page.getByPlaceholder('Percent', { exact: true }).fill('5')
     await page.getByRole('button', { name: 'Save offer' }).click()
     await expect(page.getByText('E2E test offer')).toBeVisible()
     const row = page.locator('div.card', { hasText: 'E2E test offer' })
@@ -176,7 +176,7 @@ test.describe('owner app', () => {
     await expect(page.getByRole('switch', { name: /is for sale/ }).first()).toBeVisible()
     await panel.getByLabel('Product name').fill(`E2E Kurta ${stamp}`)
     await panel.getByRole('combobox', { name: 'Category' }).fill(cat)
-    await panel.getByPlaceholder('e.g. 7650').fill('500')
+    await panel.getByPlaceholder('Price in ₹', { exact: true }).fill('500')
     await panel.getByRole('button', { name: 'Add product' }).click()
     await expect(page.getByText('Product added')).toBeVisible()
     await expect(panel).toHaveCount(0)
@@ -194,7 +194,7 @@ test.describe('owner app', () => {
     await second.getByRole('option', { name: cat }).click()
     await expect(box).toHaveValue(cat)
     await second.getByLabel('Product name').fill(`E2E Dupatta ${stamp}`)
-    await second.getByPlaceholder('e.g. 7650').fill('600')
+    await second.getByPlaceholder('Price in ₹', { exact: true }).fill('600')
     await second.getByRole('button', { name: 'Add product' }).click()
     await expect(page.getByText('Product added').first()).toBeVisible()
 

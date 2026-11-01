@@ -31,7 +31,7 @@ test.describe('number-centric authentication', () => {
     const pub = await (await request.get(`${cfg.apiBase ?? ''}/api/v1/public/config`)).json()
     test.skip(!!pub.otp_accept_any, 'demo mode accepts any code by design')
     await page.goto('/app/login')
-    await page.getByPlaceholder('98765 43210').fill('99999 00001')
+    await page.getByPlaceholder('Mobile number').fill('99999 00001')
     // intercept the auto-filled code so the test types a wrong one
     await page.route('**/api/v1/sim/inbox*', (r) => r.fulfill({ json: [] }))
     await page.getByRole('button', { name: /continue with whatsapp/i }).click()

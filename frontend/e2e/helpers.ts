@@ -9,7 +9,7 @@ export const OPERATOR = '+919999900000'
 export async function login(page: Page, phone: string) {
   await page.goto('/app/login')
   const local = phone.replace('+91', '')
-  await page.getByPlaceholder('98765 43210').fill(local)
+  await page.getByPlaceholder('Mobile number').fill(local)
   await page.getByRole('button', { name: /continue with whatsapp/i }).click()
   // signed in: a shop's home, the setup wizard, or the operator console (the bare /app first hops to the shop address)
   await expect(page).toHaveURL(/\/app\/(?:[a-z0-9-]+\/(?:home|onboarding)|onboarding|operator)/, { timeout: 30_000 })

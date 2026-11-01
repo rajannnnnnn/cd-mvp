@@ -119,7 +119,7 @@ export default function Pipeline() {
         body={pending && (
           <div className="space-y-3">
             <p>{tr('From')} <b className="text-ink">{tr(STAGE_LABEL[pending.c.lead_stage as Stage])}</b> {tr('to')} <b className="text-ink">{tr(STAGE_LABEL[pending.to])}</b>. {tr('The assistant can move them again if the conversation changes.')}</p>
-            {pending.to === 'lost' && <label className="block"><span className="mb-1 block text-[13px] font-semibold text-ink">{tr('Why was it lost? (optional)')}</span><input maxLength={200} className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={tr('e.g. Found a cheaper price')} /></label>}
+            {pending.to === 'lost' && <label className="block"><span className="mb-1 block text-[13px] font-semibold text-ink">{tr('Why was it lost? (optional)')}</span><input maxLength={200} className="input" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={tr('Reason')} /></label>}
           </div>)} />
     </div>
   )

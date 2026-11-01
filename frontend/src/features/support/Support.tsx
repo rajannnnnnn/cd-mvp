@@ -68,7 +68,7 @@ export default function Support() {
           </div>
         </Field>
         <RequiredNote />
-        <Field label={tr('Title')} required error={tried ? errs.subject : undefined}><input className="input" maxLength={160} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={tr('e.g. Customers are not getting replies')} /></Field>
+        <Field label={tr('Title')} required error={tried ? errs.subject : undefined}><input className="input" maxLength={160} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={tr('Short title')} /></Field>
         <Field label={tr('Tell us more')} required error={tried ? errs.message : undefined}><textarea className="textarea min-h-[110px]" maxLength={4000} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={tr('What happened, what you expected, and when it started.')} /></Field>
         <div className="flex justify-end"><button className="btn btn-primary" disabled={create.isPending} onClick={submit}>{create.isPending ? <Spinner /> : <LifeBuoy className="h-4 w-4" />} {tr('Open a ticket')}</button></div>
       </section>

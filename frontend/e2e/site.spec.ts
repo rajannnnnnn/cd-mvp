@@ -51,7 +51,7 @@ test.describe('marketing site', () => {
     await page.goto('/')
     await page.getByRole('link', { name: 'Log in' }).first().click()
     await expect(page).toHaveURL(/\/app\/login/)
-    await expect(page.getByPlaceholder('98765 43210')).toBeVisible()
+    await expect(page.getByPlaceholder('Mobile number')).toBeVisible()
   })
 
   test('FAQ answers open and the product is never described as chatting with AI (CR-1)', async ({ page }) => {

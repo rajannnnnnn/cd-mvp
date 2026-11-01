@@ -111,7 +111,7 @@ function OfferPanel({ offer, products, onClose }: { offer: Offer | 'new'; produc
       <div className="space-y-4" ref={body}>
         <RequiredNote />
         {err && <div className="rounded-xl border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-sm font-medium text-danger">{err}</div>}
-        <Field label={tr('Offer name')} hint={tr('Customers may see this')} required error={shown.name}><input maxLength={120} className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Festive 10% off')} autoFocus={isNew} /></Field>
+        <Field label={tr('Offer name')} hint={tr('Customers may see this')} required error={shown.name}><input maxLength={120} className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('Offer name')} autoFocus={isNew} /></Field>
         <div className="grid grid-cols-2 gap-2">
           {KINDS.map((k) => (
             <button key={k.value} type="button" onClick={() => { setKind(k.value); setValue((v) => cleanNumber(v, k.value === 'percent' ? PERCENT : MONEY)) }} className={`rounded-xl border p-3 text-left transition ${kind === k.value ? 'border-brand bg-brand-soft' : 'border-line hover:bg-surface2'}`}>
@@ -120,9 +120,9 @@ function OfferPanel({ offer, products, onClose }: { offer: Offer | 'new'; produc
           ))}
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          {kind === 'free_item' ? <Field label={tr('What’s free?')} required error={shown.free}><input maxLength={120} className="input" value={freeItem} onChange={(e) => setFreeItem(e.target.value)} placeholder={tr('e.g. matching dupatta')} /></Field>
+          {kind === 'free_item' ? <Field label={tr('What’s free?')} required error={shown.free}><input maxLength={120} className="input" value={freeItem} onChange={(e) => setFreeItem(e.target.value)} placeholder={tr('Name of the free item')} /></Field>
             : <Field label={kind === 'percent' ? tr('Percent off') : tr('Amount (₹)')} required error={shown.value}>
-              {kind === 'percent' ? <PercentInput value={value} onChange={setValue} placeholder="10" /> : <MoneyInput value={value} onChange={setValue} placeholder="200" />}
+              {kind === 'percent' ? <PercentInput value={value} onChange={setValue} placeholder={tr('Percent')} /> : <MoneyInput value={value} onChange={setValue} placeholder={tr('Amount in ₹')} />}
             </Field>}
           <Field label={tr('Applies to')}>
             <select className="select" value={target} onChange={(e) => setTarget(e.target.value)}>
@@ -132,7 +132,7 @@ function OfferPanel({ offer, products, onClose }: { offer: Offer | 'new'; produc
               {variants.length > 0 && <optgroup label={tr('One product')}>{variants.map((v) => <option key={v.id} value={`var:${v.id}`}>{v.label}</option>)}</optgroup>}
             </select>
           </Field>
-          <Field label={tr('Only when buying at least')} hint={tr('Optional')}><WholeInput value={minQty} onChange={setMinQty} digits={4} placeholder="e.g. 2" /></Field>
+          <Field label={tr('Only when buying at least')} hint={tr('Optional')}><WholeInput value={minQty} onChange={setMinQty} digits={4} placeholder={tr('Minimum quantity')} /></Field>
           <div className="flex items-end"><label className="flex min-h-[44px] w-full items-center justify-between rounded-xl border border-line px-3.5 text-sm font-semibold">{tr('First order only')}<Switch checked={firstOrder} onChange={setFirstOrder} label={tr('First order only')} /></label></div>
           <Field label={tr('Starts')} hint={tr('Optional')}><input type="date" className="input" max={ends || undefined} value={starts} onChange={(e) => setStarts(e.target.value)} /></Field>
           <Field label={tr('Ends')} hint={tr('Optional')} error={shown.ends}><input type="date" className="input" min={starts || undefined} value={ends} onChange={(e) => setEnds(e.target.value)} /></Field>

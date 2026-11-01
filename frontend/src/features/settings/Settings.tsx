@@ -82,14 +82,14 @@ function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }
         </div>
         <Field label={tr('Address')}><textarea maxLength={500} className="textarea min-h-[70px]" value={address} onChange={(e) => setAddress(e.target.value)} disabled={!canEdit} /></Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr('Delivery')}><textarea maxLength={1000} className="textarea min-h-[84px]" value={delivery} onChange={(e) => setDelivery(e.target.value)} disabled={!canEdit} placeholder={tr('Charges, time, areas…')} /></Field>
+          <Field label={tr('Delivery')}><textarea maxLength={1000} className="textarea min-h-[84px]" value={delivery} onChange={(e) => setDelivery(e.target.value)} disabled={!canEdit} placeholder={tr('Delivery details')} /></Field>
           <Field label={tr('Returns & exchange')}><textarea maxLength={1500} className="textarea min-h-[84px]" value={returns} onChange={(e) => setReturns(e.target.value)} disabled={!canEdit} /></Field>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr('Payment modes')}><Chips values={pay} onChange={setPay} placeholder={tr('Add, e.g. UPI')} disabled={!canEdit} /></Field>
+          <Field label={tr('Payment modes')}><Chips values={pay} onChange={setPay} placeholder={tr('Add a payment method')} disabled={!canEdit} /></Field>
           <Field label={tr('Delivery areas')}><Chips values={areas} onChange={setAreas} placeholder={tr('Add a city or area')} disabled={!canEdit} /></Field>
         </div>
-        <Field label={tr('Things customers often ask')} hint={tr('One fact at a time, in plain words')}><Chips values={facts} onChange={setFacts} placeholder={tr('e.g. Fall and pico is free on every saree.')} disabled={!canEdit} /></Field>
+        <Field label={tr('Things customers often ask')} hint={tr('One fact at a time, in plain words')}><Chips values={facts} onChange={setFacts} placeholder={tr('Add a fact about your shop')} disabled={!canEdit} /></Field>
       </Section>
       <Section title={tr('Opening hours')} sub={tr('Used for “are you open?” answers and for the after-hours behaviour you choose in Assistant settings.')}>
         <div className="divide-y divide-line/60">
@@ -134,12 +134,12 @@ function AssistantTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: bool
       <TrySection />
       <Section title={tr('Selling style')} footer={canEdit && <button className="btn btn-primary" disabled={save.isPending} onClick={() => save.mutate({ sales_settings: { honorific: honorific.trim() || null, language_default: lang as any, proactiveness: pro as any, may_mention_offers: offers, handoff_value_threshold: thr || null } })}>{save.isPending && <Spinner />} {tr('Save')}</button>}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr('How should the assistant address customers?')} hint={tr('Added after their name, e.g. “ji”')}><input maxLength={12} className="input" value={honorific} onChange={(e) => setHonorific(e.target.value)} disabled={!canEdit} placeholder={tr('ji')} /></Field>
+          <Field label={tr('How should the assistant address customers?')} hint={tr('Added after their name, e.g. “ji”')}><input maxLength={12} className="input" value={honorific} onChange={(e) => setHonorific(e.target.value)} disabled={!canEdit} placeholder={tr('Word to add after their name')} /></Field>
           <Field label={tr('Default language')}><select className="select" value={lang} onChange={(e) => setLang(e.target.value)} disabled={!canEdit}><option value="en">{tr('English')}</option><option value="hi">हिन्दी</option><option value="hinglish">{tr('Hinglish')}</option></select><p className="mt-1 text-[12px] text-muted">{tr('The assistant still follows the customer’s own language.')}</p></Field>
         </div>
         <Field label={tr('How proactive should it be?')}><Segmented className="w-full sm:w-auto" value={pro} onChange={setPro} options={[{ value: 'low', label: tr('Answer only') }, { value: 'medium', label: tr('Balanced') }, { value: 'high', label: tr('Go for the sale') }]} /></Field>
         <label className="flex items-center justify-between gap-4 rounded-xl border border-line px-3.5 py-3"><span><span className="block text-sm font-bold">{tr('Mention offers')}</span><span className="block text-[13px] text-muted">{tr('Let the assistant bring up your active offers.')}</span></span><Switch checked={offers} onChange={setOffers} label={tr('Mention offers')} disabled={!canEdit} /></label>
-        <Field label={tr('Bring me in for orders above (₹)')} hint={tr('High-value orders pause the assistant so you can close them yourself')}><input className="input sm:max-w-xs" inputMode="numeric" value={thr} onChange={(e) => setThr(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 9))} disabled={!canEdit} placeholder="e.g. 50000" /></Field>
+        <Field label={tr('Bring me in for orders above (₹)')} hint={tr('High-value orders pause the assistant so you can close them yourself')}><input className="input sm:max-w-xs" inputMode="numeric" value={thr} onChange={(e) => setThr(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 9))} disabled={!canEdit} placeholder={tr('Amount in ₹')} /></Field>
       </Section>
       <Section title={tr('When you step in')} footer={canEdit && <button className="btn btn-primary" disabled={save.isPending || !!pauseErr || !!nudgeErr} onClick={() => save.mutate({ conversation_settings: { business_hours_behavior: hb as any, owner_pause_minutes: +pause, nudge_after_minutes: +nudge, daily_summary_hour: +hour } })}>{save.isPending && <Spinner />} {tr('Save')}</button>}>
         <Field label={tr('Outside opening hours')}><select className="select sm:max-w-sm" value={hb} onChange={(e) => setHb(e.target.value)} disabled={!canEdit}><option value="reply_normally">{tr('Reply normally')}</option><option value="slower">{tr('Reply a little slower')}</option><option value="wait_for_open">{tr('Wait until we open')}</option></select></Field>

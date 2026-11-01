@@ -71,7 +71,7 @@ function FloorInput({ d, set }: { d: Draft; set: (p: Partial<Draft>) => void }) 
   return saved ? (
     <div className="flex items-center gap-2"><span className="flex flex-1 items-center gap-2 rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm font-semibold text-brand-ink"><ShieldCheck className="h-4 w-4" /> {tr('Saved privately')}</span><button className="btn btn-outline btn-sm" type="button" onClick={() => set({ floor_edit: true })}>{tr('Change')}</button></div>
   ) : (
-    <div className="flex items-center gap-2"><MoneyInput value={d.floor_price} onChange={(v) => set({ floor_price: v })} placeholder="e.g. 6900" />{d.floor_set && <button className="btn btn-ghost btn-sm" type="button" onClick={() => set({ floor_edit: false, floor_price: '' })}>{tr('Keep old')}</button>}</div>
+    <div className="flex items-center gap-2"><MoneyInput value={d.floor_price} onChange={(v) => set({ floor_price: v })} placeholder={tr('Lowest price in ₹')} />{d.floor_set && <button className="btn btn-ghost btn-sm" type="button" onClick={() => set({ floor_edit: false, floor_price: '' })}>{tr('Keep old')}</button>}</div>
   )
 }
 FloorInput.fieldControl = true
@@ -81,12 +81,12 @@ function VariantEditor({ d, kind, set, onRemove, canRemove, single, errors }: { 
   return (
     <div className="rounded-2xl border border-line/80 bg-surface p-4">
       <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">{!single && <Field label={tr('Variant name')} required error={errors.name}><input maxLength={120} className="input" value={d.name} onChange={(e) => set({ name: e.target.value })} placeholder={tr('e.g. Red, 6 metre, 128 GB')} /></Field>}</div>
+        <div className="min-w-0 flex-1">{!single && <Field label={tr('Variant name')} required error={errors.name}><input maxLength={120} className="input" value={d.name} onChange={(e) => set({ name: e.target.value })} placeholder={tr('Variant name')} /></Field>}</div>
         {canRemove && <button className="btn btn-ghost btn-icon mt-6 text-danger" onClick={onRemove} aria-label={tr('Remove variant')}><Trash2 className="h-4 w-4" /></button>}
       </div>
       <div className={cx('grid gap-3 sm:grid-cols-2', !single && 'mt-3')}>
         <Field label={tr('Availability')}><select className="select" value={d.availability} onChange={(e) => set({ availability: e.target.value })}>{avail.map((a) => <option key={a.value} value={a.value}>{tr(a.label)}</option>)}</select></Field>
-        <Field label={tr('Stock count')} hint={tr('Optional')}><WholeInput value={d.stock_qty} onChange={(v) => set({ stock_qty: v })} placeholder="e.g. 12" /></Field>
+        <Field label={tr('Stock count')} hint={tr('Optional')}><WholeInput value={d.stock_qty} onChange={(v) => set({ stock_qty: v })} placeholder={tr('Number in stock')} /></Field>
       </div>
 
       {kind !== 'on_request' && (
@@ -95,7 +95,7 @@ function VariantEditor({ d, kind, set, onRemove, canRemove, single, errors }: { 
             <Field label={tr('Lowest in range (₹)')} required error={errors.range_min}><MoneyInput value={d.range_min} onChange={(v) => set({ range_min: v })} /></Field>
             <Field label={tr('Highest in range (₹)')} required error={errors.range_max}><MoneyInput value={d.range_max} onChange={(v) => set({ range_max: v })} /></Field>
           </>}
-          {(kind !== 'range' || d.negotiable) && <Field label={kind === 'starts_from' ? tr('Starting price (₹)') : kind === 'range' ? tr('Price to start bargaining from (₹)') : tr('Price (₹)')} required error={errors.list_price}><MoneyInput value={d.list_price} onChange={(v) => set({ list_price: v })} placeholder="e.g. 7650" /></Field>}
+          {(kind !== 'range' || d.negotiable) && <Field label={kind === 'starts_from' ? tr('Starting price (₹)') : kind === 'range' ? tr('Price to start bargaining from (₹)') : tr('Price (₹)')} required error={errors.list_price}><MoneyInput value={d.list_price} onChange={(v) => set({ list_price: v })} placeholder={tr('Price in ₹')} /></Field>}
         </div>)}
 
       {kind !== 'on_request' && (
@@ -219,9 +219,9 @@ function ProductPanel({ product, categories, onClose }: { product: Product | 'ne
       <div className="space-y-4" ref={body}>
         <RequiredNote />
         {error && <div className="rounded-xl border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-sm font-medium text-danger">{error}</div>}
-        <Field label={tr('Product name')} required error={tried ? nameErr : undefined}><input maxLength={120} className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('e.g. Banarasi Silk Saree')} autoFocus={isNew} /></Field>
-        <Field label={tr('Category')} hint={tr('Type a new one or pick yours')}><CategoryField value={category} onChange={setCategory} options={categories} placeholder={tr('e.g. Sarees')} /></Field>
-        <Field label={tr('Description')} hint={tr('What the assistant can say about it')}><textarea maxLength={1000} className="textarea min-h-[84px]" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={tr('Fabric, sizes, delivery time, care…')} /></Field>
+        <Field label={tr('Product name')} required error={tried ? nameErr : undefined}><input maxLength={120} className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('Product name')} autoFocus={isNew} /></Field>
+        <Field label={tr('Category')} hint={tr('Type a new one or pick yours')}><CategoryField value={category} onChange={setCategory} options={categories} placeholder={tr('Category')} /></Field>
+        <Field label={tr('Description')} hint={tr('What the assistant can say about it')}><textarea maxLength={1000} className="textarea min-h-[84px]" value={description} onChange={(e) => setDescription(e.target.value)} placeholder={tr('Description')} /></Field>
 
         <label className="flex items-center justify-between gap-4 rounded-xl border border-line px-3.5 py-3 text-sm font-semibold"><span>{tr('For sale')}<span className="block text-[13px] font-normal text-muted">{tr('When hidden, the assistant will not offer it')}</span></span><Switch checked={active} onChange={setActiveFlag} label={tr('For sale')} /></label>
 

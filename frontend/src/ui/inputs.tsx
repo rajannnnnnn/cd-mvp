@@ -36,7 +36,7 @@ export function PhoneInput({ value, onChange, className, ...rest }: Props) {
   return (
     <div className={`flex items-stretch overflow-hidden rounded-xl border border-line bg-surface focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/15 ${className ?? ''}`}>
       <span aria-hidden="true" className="grid place-items-center border-r border-line bg-surface2 px-3 text-sm font-semibold text-muted">+91</span>
-      <input {...field} {...rest} type="tel" inputMode="numeric" autoComplete="tel-national" maxLength={11} placeholder={rest.placeholder ?? '98765 43210'}
+      <input {...field} {...rest} type="tel" inputMode="numeric" autoComplete="tel-national" maxLength={11} placeholder={rest.placeholder ?? 'Mobile number'}
         className="tnum min-w-0 flex-1 bg-transparent px-3 py-2.5 font-semibold outline-none placeholder:font-normal placeholder:text-muted/60"
         value={(() => { const d = cleanPhone(value); return d.length > 5 ? `${d.slice(0, 5)} ${d.slice(5)}` : d })()} onChange={(e) => onChange(cleanPhone(e.target.value))} />
     </div>)
