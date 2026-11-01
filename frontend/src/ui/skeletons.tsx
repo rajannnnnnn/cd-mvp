@@ -186,12 +186,11 @@ const HomePage = () => (
     <div className="flex items-start justify-between gap-3"><Bone className="h-9 w-56" /><Bone className="h-9 w-40 !rounded-full" /></div>
     <KpiRowSkeleton />
     <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]"><PanelSkeleton height={200} /><PanelSkeleton height={150} /></div>
-    <div className="grid gap-6 lg:grid-cols-[1fr_1.15fr]"><PanelSkeleton height={170} /><div className="card"><div className="px-5 pt-5"><Bone className="h-5 w-28" /></div><ListRowsSkeleton count={4} /></div></div>
   </Page>
 )
 const ChatsPage = () => (
   <div className="flex h-[calc(100dvh-57px-76px)] flex-col lg:h-[calc(100dvh-57px)]">
-    <TabBar tabs={CHAT_TABS()} left={<h1 className="truncate font-display text-xl font-extrabold">Chats</h1>} />
+    <TabBar tabs={CHAT_TABS()} left={<h1 className="truncate font-display text-xl font-extrabold">Conversations</h1>} />
     <ChatsBodySkeleton />
   </div>
 )

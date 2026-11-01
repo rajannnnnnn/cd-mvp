@@ -17,7 +17,7 @@ import { useSearchParams } from 'react-router-dom'
 import Voice from '@/features/voice/Voice'
 import Support from '@/features/support/Support'
 import { TryButton } from '@/app/SectionTabs'
-import { FormSkeleton } from '@/ui/skeletons'
+import { CardListSkeleton, FormSkeleton } from '@/ui/skeletons'
 
 type Tab = 'shop' | 'assistant' | 'team' | 'numbers' | 'devices' | 'support'
 const TABS: Tab[] = ['shop', 'assistant', 'team', 'numbers', 'devices', 'support']
@@ -218,6 +218,11 @@ function TrySection() {
   return <Section title={tr('Try the assistant')} sub={tr('Pretend to be a customer and see how your assistant answers, before real customers do.')}><div><TryButton /></div></Section>
 }
 
+const LANG_NAME: Record<string, string> = { en: 'English', hi: 'Hindi', hinglish: 'Hinglish' }
+const PRO_NAME: Record<string, string> = { low: 'Answer only', medium: 'Balanced', high: 'Go for the sale' }
+const HOURS_NAME: Record<string, string> = { reply_normally: 'Reply normally', slower: 'Reply a little slower', wait_for_open: 'Wait until we open' }
+const minutesText = (m: string) => { const n = +m; return n >= 60 && n % 60 === 0 ? tr('{n} hours', { n: n / 60 }) : tr('{n} minutes', { n }) }
+
 function AssistantTab({ b, canEdit, goTo }: { b: Schemas['BusinessOut']; canEdit: boolean; goTo: (t: Tab) => void }) {
   const live = b.numbers.some((n) => n.status === 'connected' || n.status === 'active')
   const s = b.sales_settings as any; const c = b.conversation_settings as any
@@ -226,35 +231,80 @@ function AssistantTab({ b, canEdit, goTo }: { b: Schemas['BusinessOut']; canEdit
   const [pro, setPro] = useState<string>(s.proactiveness ?? 'medium')
   const [offers, setOffers] = useState<boolean>(s.may_mention_offers ?? true)
   const [thr, setThr] = useState<string>(s.handoff_value_threshold ? String(+s.handoff_value_threshold) : '')
+  const [handover, setHandover] = useState<string>(s.handover_instructions ?? '')
   const [hb, setHb] = useState<string>(c.business_hours_behavior ?? 'reply_normally')
   const [pause, setPause] = useState<string>(String(c.owner_pause_minutes ?? 120))
   const [nudge, setNudge] = useState<string>(String(c.nudge_after_minutes ?? 240))
   const [hour, setHour] = useState<string>(String(c.daily_summary_hour ?? 21))
+  const [editSell, setEditSell] = useState(false); const [editHand, setEditHand] = useState(false); const [editStep, setEditStep] = useState(false)
   const save = useSaveBusiness()
-  const sellBl = useBaseline({ honorific, lang, pro, offers, thr })
-  const stepBl = useBaseline({ hb, pause, nudge, hour })
+  const sellBl = useBaseline({ honorific, lang, pro, offers }); const handBl = useBaseline({ thr, handover }); const stepBl = useBaseline({ hb, pause, nudge, hour })
   const pauseErr = +pause >= 1 && +pause <= 1440 ? undefined : tr('Enter 1 to 1440 minutes')
   const nudgeErr = +nudge >= 30 && +nudge <= 1380 ? undefined : tr('Enter 30 to 1380 minutes')
+  const menu = (on: boolean, start: () => void, what: string) => (canEdit && !on ? <KebabMenu label={tr('More actions for {what}', { what })} items={[{ label: tr('Edit'), icon: <Pencil className="h-4 w-4" />, onClick: start }]} /> : undefined)
+  const none = <span className="text-muted">{tr('Not added')}</span>
+  const bar = (cancel: () => void, bl: { dirty: boolean }, send: () => void, disabled?: boolean) => <><button className="btn btn-outline" onClick={cancel} disabled={save.isPending}>{tr('Cancel')}</button><SaveButton dirty={bl.dirty} busy={save.isPending} disabled={disabled} onClick={send} label={tr('Save changes')} /></>
+  const reset = (fn: () => void, off: (v: boolean) => void) => () => { fn(); off(false) }
   return (
     <div className="space-y-5">
       {!live && <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm"><span className="min-w-0 flex-1 font-semibold">{tr('Connect your WhatsApp number so the assistant can answer customers.')}</span><button className="btn btn-primary btn-sm" onClick={() => goTo('numbers')}>{tr('Connect WhatsApp')}</button></div>}
       <TrySection />
-      <Section title={tr('Selling style')} footer={canEdit && sellBl.dirty && <SaveButton dirty={sellBl.dirty} busy={save.isPending} onClick={() => save.mutate({ sales_settings: { honorific: honorific.trim() || null, language_default: lang as any, proactiveness: pro as any, may_mention_offers: offers, handoff_value_threshold: thr || null } }, { onSuccess: sellBl.commit })} label={tr('Save')} />}>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr('How should the assistant address customers?')} hint={tr('Added after their name, e.g. “ji”')}><input maxLength={12} className="input" value={honorific} onChange={(e) => setHonorific(e.target.value)} disabled={!canEdit} placeholder={tr('Word to add after their name')} /></Field>
-          <Field label={tr('Default language')}><select className="select" value={lang} onChange={(e) => setLang(e.target.value)} disabled={!canEdit}><option value="en">{tr('English')}</option><option value="hi">हिन्दी</option><option value="hinglish">{tr('Hinglish')}</option></select><p className="mt-1 text-[12px] text-muted">{tr('The assistant still follows the customer’s own language.')}</p></Field>
-        </div>
-        <Field label={tr('How proactive should it be?')}><Segmented className="w-full sm:w-auto" value={pro} onChange={setPro} options={[{ value: 'low', label: tr('Answer only') }, { value: 'medium', label: tr('Balanced') }, { value: 'high', label: tr('Go for the sale') }]} /></Field>
-        <label className="flex items-center justify-between gap-4 rounded-xl border border-line px-3.5 py-3"><span><span className="block text-sm font-bold">{tr('Mention offers')}</span><span className="block text-[13px] text-muted">{tr('Let the assistant bring up your active offers.')}</span></span><Switch checked={offers} onChange={setOffers} label={tr('Mention offers')} disabled={!canEdit} /></label>
-        <Field label={tr('Bring me in for orders above (₹)')} hint={tr('High-value orders pause the assistant so you can close them yourself')}><input className="input sm:max-w-xs" inputMode="numeric" value={thr} onChange={(e) => setThr(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 9))} disabled={!canEdit} placeholder={tr('Amount in ₹')} /></Field>
+
+      <Section title={tr('Selling style')} action={menu(editSell, () => setEditSell(true), tr('selling style'))}
+        footer={canEdit && editSell && bar(reset(() => { setHonorific(s.honorific ?? ''); setLang(s.language_default ?? 'en'); setPro(s.proactiveness ?? 'medium'); setOffers(s.may_mention_offers ?? true) }, setEditSell), sellBl,
+          () => save.mutate({ sales_settings: { honorific: honorific.trim() || null, language_default: lang as any, proactiveness: pro as any, may_mention_offers: offers } }, { onSuccess: () => { sellBl.commit(); setEditSell(false) } }))}>
+        {!editSell ? (
+          <dl className="-my-2 divide-y divide-line/60">
+            <Row label={tr('How the assistant addresses customers')} tip={tr('Added after their name.')}>{honorific || none}</Row>
+            <Row label={tr('Default language')} tip={tr('The assistant still follows the customer’s own language.')}>{tr(LANG_NAME[lang] ?? lang)}</Row>
+            <Row label={tr('How proactive it is')}>{tr(PRO_NAME[pro] ?? pro)}</Row>
+            <Row label={tr('Mention offers')} tip={tr('Lets the assistant bring up your active offers.')}>{offers ? tr('Yes') : tr('No')}</Row>
+          </dl>
+        ) : (<>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={tr('How should the assistant address customers?')} hint={tr('Added after their name.')}><input maxLength={12} className="input" value={honorific} onChange={(e) => setHonorific(e.target.value)} placeholder={tr('Word to add after their name')} /></Field>
+            <Field label={tr('Default language')} hint={tr('The assistant still follows the customer’s own language.')}><select className="select" value={lang} onChange={(e) => setLang(e.target.value)}><option value="en">{tr('English')}</option><option value="hi">{tr('Hindi')}</option><option value="hinglish">{tr('Hinglish')}</option></select></Field>
+          </div>
+          <Field label={tr('How proactive should it be?')}><Segmented className="w-full sm:w-auto" value={pro} onChange={setPro} options={[{ value: 'low', label: tr('Answer only') }, { value: 'medium', label: tr('Balanced') }, { value: 'high', label: tr('Go for the sale') }]} /></Field>
+          <label className="flex items-center justify-between gap-4 rounded-xl border border-line px-3.5 py-3"><span className="text-sm font-bold">{tr('Mention offers')}</span><Switch checked={offers} onChange={setOffers} label={tr('Mention offers')} /></label>
+        </>)}
       </Section>
-      <Section title={tr('When you step in')} footer={canEdit && stepBl.dirty && <SaveButton dirty={stepBl.dirty} busy={save.isPending} disabled={!!pauseErr || !!nudgeErr} onClick={() => save.mutate({ conversation_settings: { business_hours_behavior: hb as any, owner_pause_minutes: +pause, nudge_after_minutes: +nudge, daily_summary_hour: +hour } }, { onSuccess: stepBl.commit })} label={tr('Save')} />}>
-        <Field label={tr('Outside opening hours')}><select className="select sm:max-w-sm" value={hb} onChange={(e) => setHb(e.target.value)} disabled={!canEdit}><option value="reply_normally">{tr('Reply normally')}</option><option value="slower">{tr('Reply a little slower')}</option><option value="wait_for_open">{tr('Wait until we open')}</option></select></Field>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Field label={tr('Pause the AI after I reply (minutes)')} hint={tr('So we never talk over each other')} error={pauseErr}><input className="input" inputMode="numeric" value={pause} onChange={(e) => setPause(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 4))} disabled={!canEdit} /></Field>
-          <Field label={tr('Follow up silent customers after (minutes)')} hint={tr('30 minutes to 23 hours')} error={nudgeErr}><input className="input" inputMode="numeric" value={nudge} onChange={(e) => setNudge(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 5))} disabled={!canEdit} /></Field>
-          <Field label={tr('Daily summary at')}><select className="select" value={hour} onChange={(e) => setHour(e.target.value)} disabled={!canEdit}>{Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>)}</select></Field>
-        </div>
+
+      <Section title={tr('When to hand over to you')} sub={tr('Teach the assistant when to stop and bring you in.')} action={menu(editHand, () => setEditHand(true), tr('hand-over rules'))}
+        footer={canEdit && editHand && bar(reset(() => { setThr(s.handoff_value_threshold ? String(+s.handoff_value_threshold) : ''); setHandover(s.handover_instructions ?? '') }, setEditHand), handBl,
+          () => save.mutate({ sales_settings: { handoff_value_threshold: thr || null, handover_instructions: handover.trim() || null } }, { onSuccess: () => { handBl.commit(); setEditHand(false) } }))}>
+        {!editHand ? (
+          <dl className="-my-2 divide-y divide-line/60">
+            <Row label={tr('In your own words')}>{handover ? <span className="whitespace-pre-line">{handover}</span> : none}</Row>
+            <Row label={tr('Orders above')} tip={tr('High-value orders pause the assistant so you can close them yourself.')}>{thr ? `₹${Number(thr).toLocaleString('en-IN')}` : none}</Row>
+          </dl>
+        ) : (<>
+          <Field label={tr('Tell the assistant when to hand over')} hint={tr('Describe the situations where you want to take the chat yourself. The assistant brings you in when a customer’s message matches. It never gives prices or promises because of this text.')}>
+            <textarea maxLength={1000} className="textarea min-h-[120px]" value={handover} onChange={(e) => setHandover(e.target.value)} placeholder={tr('Describe when the assistant should hand the chat to you')} />
+            <p className="mt-1 text-right text-[12px] text-muted">{handover.length}/1000</p>
+          </Field>
+          <Field label={tr('Bring me in for orders above (₹)')} hint={tr('High-value orders pause the assistant so you can close them yourself.')}><input className="input sm:max-w-xs" inputMode="numeric" value={thr} onChange={(e) => setThr(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 9))} placeholder={tr('Amount in ₹')} /></Field>
+        </>)}
+      </Section>
+
+      <Section title={tr('Timing')} action={menu(editStep, () => setEditStep(true), tr('timing'))}
+        footer={canEdit && editStep && bar(reset(() => { setHb(c.business_hours_behavior ?? 'reply_normally'); setPause(String(c.owner_pause_minutes ?? 120)); setNudge(String(c.nudge_after_minutes ?? 240)); setHour(String(c.daily_summary_hour ?? 21)) }, setEditStep), stepBl,
+          () => save.mutate({ conversation_settings: { business_hours_behavior: hb as any, owner_pause_minutes: +pause, nudge_after_minutes: +nudge, daily_summary_hour: +hour } }, { onSuccess: () => { stepBl.commit(); setEditStep(false) } }), !!pauseErr || !!nudgeErr)}>
+        {!editStep ? (
+          <dl className="-my-2 divide-y divide-line/60">
+            <Row label={tr('Outside opening hours')}>{tr(HOURS_NAME[hb] ?? hb)}</Row>
+            <Row label={tr('Pause after I reply')} tip={tr('So the assistant and you never talk over each other.')}>{minutesText(pause)}</Row>
+            <Row label={tr('Follow up silent customers after')}>{minutesText(nudge)}</Row>
+            <Row label={tr('Daily summary at')}>{String(hour).padStart(2, '0')}:00</Row>
+          </dl>
+        ) : (<>
+          <Field label={tr('Outside opening hours')}><select className="select sm:max-w-sm" value={hb} onChange={(e) => setHb(e.target.value)}><option value="reply_normally">{tr('Reply normally')}</option><option value="slower">{tr('Reply a little slower')}</option><option value="wait_for_open">{tr('Wait until we open')}</option></select></Field>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label={tr('Pause the AI after I reply (minutes)')} hint={tr('So the assistant and you never talk over each other.')} error={pauseErr}><input className="input" inputMode="numeric" value={pause} onChange={(e) => setPause(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 4))} /></Field>
+            <Field label={tr('Follow up silent customers after (minutes)')} hint={tr('30 minutes to 23 hours')} error={nudgeErr}><input className="input" inputMode="numeric" value={nudge} onChange={(e) => setNudge(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 5))} /></Field>
+            <Field label={tr('Daily summary at')}><select className="select" value={hour} onChange={(e) => setHour(e.target.value)}>{Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>)}</select></Field>
+          </div>
+        </>)}
       </Section>
       <section className="card card-pad"><Voice embedded /></section>
     </div>
@@ -334,23 +384,35 @@ function NumbersTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolea
 }
 
 /* ------------------------------------------------------------------ Devices */
+/** "Chrome on Windows" from the browser's long identification text; scripts and unknown agents are named plainly. */
+function deviceName(ua: string | null | undefined): string {
+  if (!ua) return tr('Unknown device')
+  const os = /android/i.test(ua) ? 'Android' : /iphone|ipad|ios/i.test(ua) ? 'iPhone' : /windows/i.test(ua) ? 'Windows' : /mac os|macintosh/i.test(ua) ? 'Mac' : /linux/i.test(ua) ? 'Linux' : ''
+  const br = /edg\//i.test(ua) ? 'Edge' : /opr\/|opera/i.test(ua) ? 'Opera' : /chrome|crios/i.test(ua) ? 'Chrome' : /firefox|fxios/i.test(ua) ? 'Firefox' : /safari/i.test(ua) ? 'Safari' : ''
+  if (br && os) return `${br} ${tr('on')} ${os}`
+  return br || os || (/^(node|curl|python|httpx|okhttp)/i.test(ua) ? tr('Script ({name})', { name: ua.split(/[\/ ]/)[0] }) : ua.slice(0, 40))
+}
+
 function DevicesTab() {
   const toast = useToast(); const qc = useQueryClient()
-  const { role } = useAuth()
+  const { role, me } = useAuth()
   const [target, setTarget] = useState<string | null>(null)
   const canSignOut = role !== 'staff'                                   // only the shop owner signs other devices out
   const q = useQuery({ queryKey: ['sessions'], queryFn: () => ok(api.GET('/api/v1/auth/sessions')) })
   const revoke = useMutation({ mutationFn: (id: string) => ok(api.DELETE('/api/v1/auth/sessions/{family_id}', { params: { path: { family_id: id } } })), onSuccess: () => { qc.invalidateQueries({ queryKey: ['sessions'] }); toast(tr('Signed out')) } })
   return (
     <>
-    <Section title={tr('Where you’re signed in')} sub={canSignOut ? tr('Sign out any device you don’t recognise. Signing in always needs a code sent to your WhatsApp.') : tr('Only the shop owner can sign other devices out. Signing in always needs a code sent to your WhatsApp.')}>
+    <Section title={tr('Where you’re signed in')} sub={canSignOut ? tr('Everyone signed in to this shop. Sign out any device you don’t recognise.') : tr('Your signed-in devices. Only the shop owner can sign other devices out.')}>
       {q.error && <ErrorNote error={q.error} retry={() => q.refetch()} />}
-      {q.isLoading && <Skeleton className="h-24" />}
+      {q.isLoading && <CardListSkeleton count={2} height={64} />}
       <div className="divide-y divide-line/60">
         {q.data?.map((d) => (
           <div key={d.id} className="flex items-center gap-3 py-3">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-surface2 text-muted">{/mobile|android|iphone/i.test(d.device ?? '') ? <Smartphone className="h-5 w-5" /> : <Laptop className="h-5 w-5" />}</span>
-            <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{d.device ?? tr('Unknown device')}{d.current && <Badge tone="green">{tr('This device')}</Badge>}</div><div className="text-[13px] text-muted">{d.ip ?? ''} {tr('· signed in')} {ago(d.signed_in_at as string)}</div></div>
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-surface2 text-muted">{/android|iphone/i.test(d.device ?? '') ? <Smartphone className="h-5 w-5" /> : <Laptop className="h-5 w-5" />}</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-2 text-sm font-bold"><span className="truncate">{d.name ?? tr('Unnamed')}</span><span className="font-medium text-muted">{fmtPhone(d.phone)}</span>{d.phone === me?.phone && <Badge tone="gray">{tr('You')}</Badge>}{d.current && <Badge tone="green">{tr('This device')}</Badge>}</div>
+              <div className="truncate text-[13px] text-muted">{deviceName(d.device)} · {d.ip ?? ''} {tr('· signed in')} {ago(d.signed_in_at as string)}</div>
+            </div>
             {!d.current && canSignOut && <button className="btn btn-outline btn-sm" disabled={revoke.isPending} onClick={() => setTarget(d.id)}>{tr('Sign out')}</button>}
           </div>
         ))}

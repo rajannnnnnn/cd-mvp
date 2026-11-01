@@ -1,18 +1,17 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, ArrowRight, CircleHelp, ClipboardCheck, Flame, MessageCircle, ShoppingBag, Sparkles, UserPlus, Users } from 'lucide-react'
+import { AlertTriangle, ArrowRight, ClipboardCheck, Flame, MessageCircle, ShoppingBag, Sparkles, UserPlus } from 'lucide-react'
 import { api, ok } from '@/api/client'
 import { useBusiness, useOverview } from '@/api/hooks'
 import { useAuth } from '@/auth/AuthProvider'
 import { useT } from '@/i18n'
-import { AreaChart, Avatar, Badge, EmptyState, ErrorNote, Ring, Segmented, Skeleton, Stat, Switch } from '@/ui'
-import { ago, cx, inr } from '@/lib/format'
-import { HANDOFF_LABEL, HANDOFF_TONE, STAGES, STAGE_COLOR, STAGE_LABEL, type Stage } from '@/lib/stages'
+import { AreaChart, ErrorNote, Ring, Segmented, Skeleton, Stat } from '@/ui'
+import { cx, inr } from '@/lib/format'
 import { useToast } from '@/ui'
 import { useQueryClient } from '@tanstack/react-query'
 import { tr } from '@/i18n/tr'
-import { ListRowsSkeleton } from '@/ui/skeletons'
+import { greeting } from '@/lib/greeting'
 
 function SetupCard() {
   const q = useQuery({ queryKey: ['onboarding'], queryFn: () => ok(api.GET('/api/v1/onboarding')) })
@@ -43,15 +42,15 @@ export default function Home() {
   const handoffs = useQuery({ queryKey: ['handoffs', 'open'], queryFn: () => ok(api.GET('/api/v1/handoffs', { params: { query: { status: 'open', limit: 6 } } })) })
   const deals = useQuery({ queryKey: ['deals', 'pending'], queryFn: () => ok(api.GET('/api/v1/deals', { params: { query: { status: 'pending', limit: 6 } } })) })
   const gaps = useQuery({ queryKey: ['gaps', 'open'], queryFn: () => ok(api.GET('/api/v1/knowledge-gaps', { params: { query: { status: 'open' } } })) })
-  const recent = useQuery({ queryKey: ['conversations', 'recent'], queryFn: () => ok(api.GET('/api/v1/conversations', { params: { query: { limit: 5 } } })) })
 
   const first = (me?.name ?? '').split(' ')[0]
+  const [clock, setClock] = useState(() => new Date())
+  useEffect(() => { const id = setInterval(() => setClock(new Date()), 60_000); return () => clearInterval(id) }, [])      // the greeting changes by itself when the hour does
+  const hi = greeting(clock)
   const aiOn = biz.data?.ai_enabled ?? false
   const today = ov.data?.today
   const ai = (ov.data?.ai ?? {}) as Record<string, number | null>
   const needsCount = (handoffs.data?.length ?? 0) + (deals.data?.length ?? 0) + (gaps.data?.length ?? 0)
-  const pipeline = useMemo(() => STAGES.map((s) => ({ stage: s, n: ov.data?.pipeline?.[s] ?? 0 })), [ov.data])
-  const maxStage = Math.max(1, ...pipeline.map((p) => p.n))
 
 
   return (
@@ -59,7 +58,8 @@ export default function Home() {
       {/* ------------- greeting */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-[28px] font-extrabold leading-tight sm:text-[34px]">{t('dash.hello', 'Namaste')}{first ? `, ${first}` : ''} 👋</h1>
+          <h1 className="text-[28px] font-extrabold leading-tight sm:text-[34px]">{tr(hi.hello)}{first ? `, ${first}` : ''} {hi.emoji}</h1>
+          <p className="mt-1 text-[15px] text-muted">{tr(hi.day)}</p>
         </div>
         {(handoffs.isLoading || deals.isLoading || gaps.isLoading) ? <Skeleton className="h-9 w-44 shrink-0 !rounded-full" /> : (
               <Link to="/inbox" title={[handoffs.data?.length && `${handoffs.data.length} customer${handoffs.data.length > 1 ? 's' : ''} waiting`, deals.data?.length && `${deals.data.length} to confirm`, gaps.data?.length && `${gaps.data.length} unanswered question${gaps.data.length > 1 ? 's' : ''}`].filter(Boolean).join(' · ')} aria-label={needsCount === 0 ? tr('Nothing needs you right now') : needsCount === 1 ? tr('{n} thing needs you', { n: needsCount }) : tr('{n} things need you', { n: needsCount })} className={cx('group inline-flex shrink-0 items-center gap-2 self-start rounded-full border py-1 pl-1.5 pr-3 align-middle text-sm font-bold shadow-card transition hover:shadow-pop', needsCount > 0 ? 'border-accent/60 bg-accent-soft' : 'border-line bg-surface')}>
@@ -111,39 +111,6 @@ export default function Home() {
             </dl>
           </div>
           <div className="mt-4 rounded-xl bg-brand-soft px-3.5 py-3 text-xs leading-relaxed text-brand-ink">{tr('Every price the assistant quoted came from your price rules — never invented by the AI.')}</div>
-        </section>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[1fr_1.15fr]">
-        {/* ------------- pipeline */}
-        <section className="card card-pad">
-          <div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-bold">{t('dash.pipeline', 'Where your customers are')}</h2><Link className="text-sm font-semibold text-brand-ink hover:underline" to="/pipeline">{tr('Open pipeline')}</Link></div>
-          <div className="space-y-3">
-            {ov.isLoading ? STAGES.map((st) => (
-              <div key={st} className="flex items-center gap-3 text-sm"><span className="w-28 shrink-0 text-muted">{t(`stage.${st}`, tr(STAGE_LABEL[st as Stage]))}</span><Skeleton className="h-3 flex-1 !rounded-full" /><Skeleton className="h-4 w-6" /></div>
-            )) : pipeline.map((p) => (
-              <div key={p.stage} className="flex items-center gap-3 text-sm">
-                <span className="w-28 shrink-0 text-muted">{t(`stage.${p.stage}`, tr(STAGE_LABEL[p.stage as Stage]))}</span>
-                <div className="h-3 flex-1 overflow-hidden rounded-full bg-surface2"><div className="h-full rounded-full transition-all duration-700" style={{ width: `${(p.n / maxStage) * 100}%`, background: STAGE_COLOR[p.stage as Stage], minWidth: p.n ? 10 : 0 }} /></div>
-                <b className="tnum w-6 text-right">{p.n}</b>
-              </div>))}
-          </div>
-        </section>
-
-        {/* ------------- recent chats */}
-        <section className="card overflow-hidden">
-          <div className="flex items-center justify-between px-5 pt-5"><h2 className="text-lg font-bold">{tr('Latest chats')}</h2><Link className="text-sm font-semibold text-brand-ink hover:underline" to="/chats">{tr('See all')}</Link></div>
-          <div className="mt-2 divide-y divide-line/60">
-            {recent.isLoading && <ListRowsSkeleton count={4} />}
-            {recent.data?.items.length === 0 && <EmptyState icon={<Users className="h-6 w-6" />} title={tr('No conversations yet')} body={tr('When a customer messages your WhatsApp number, the chat shows up here.')} />}
-            {recent.data?.items.map((c) => (
-              <Link key={c.id} to={`/chats/${c.id}`} className="flex items-center gap-3 px-5 py-3 transition hover:bg-surface2/60">
-                <Avatar name={c.customer.name ?? c.customer.phone} size={40} />
-                <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="truncate text-sm font-semibold">{c.customer.name ?? c.customer.phone}</span>{c.open_handoff && <span className="h-2 w-2 rounded-full bg-danger" />}</div>
-                  <div className="truncate text-[13px] text-muted">{c.last_message?.sender === 'ai' ? '🤖 ' : c.last_message?.sender === 'owner' ? tr('You: ') : ''}{c.last_message?.body ?? '…'}</div></div>
-                <span className="shrink-0 text-xs text-muted">{ago(c.last_message?.at)}</span>
-              </Link>))}
-          </div>
         </section>
       </div>
 

@@ -241,7 +241,7 @@ test.describe('owner app', () => {
     await expect(page.getByRole('navigation', { name: 'Views' }).getByRole('link', { name: 'Conversations' })).toBeVisible()
     await page.getByRole('navigation', { name: 'Views' }).getByRole('link', { name: 'Pipeline' }).click()
     await expect(page).toHaveURL(/\/pipeline$/)
-    await expect(nav.getByRole('link', { name: 'Chats' })).toHaveClass(/nav-item-active/)           // the one menu entry stays lit
+    await expect(nav.getByRole('link', { name: 'Sales' })).toHaveClass(/nav-item-active/)           // the one menu entry stays lit
     await page.getByRole('navigation', { name: 'Views' }).getByRole('link', { name: 'Conversations' }).click()
     await page.getByRole('link', { name: 'Try the assistant' }).click()                              // the practice chat is a button on Chats
     await expect(page).toHaveURL(/\/try$/)

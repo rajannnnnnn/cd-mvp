@@ -23,7 +23,7 @@ export default function ChatsLayout() {
   return (
     <div className="flex h-[calc(100dvh-57px-76px)] flex-col lg:h-[calc(100dvh-57px)]">
       <TabBar tabs={CHAT_TABS()} className={threadOpen ? 'hidden lg:flex' : undefined}
-        left={<><h1 key={pipeline ? 'p' : 'c'} className={cx('truncate font-display text-xl font-extrabold', fade)}>{pipeline ? t('nav.pipeline', 'Pipeline') : t('chat.title', 'Chats')}</h1><span ref={setSlot} className="flex items-center gap-3" /></>} />
+        left={<><h1 key={pipeline ? 'p' : 'c'} className={cx('truncate font-display text-xl font-extrabold', fade)}>{pipeline ? t('nav.pipeline', 'Pipeline') : t('chat.title', 'Conversations')}</h1><span ref={setSlot} className="flex items-center gap-3" /></>} />
       <div key={pipeline ? 'pipeline' : 'chats'} className={cx('flex min-h-0 flex-1 flex-col', fade)}>
         <Suspense fallback={pipeline ? <PipelineBodySkeleton /> : <ChatsBodySkeleton thread={threadOpen} />}>
           <TabSlot.Provider value={slot}><Outlet /></TabSlot.Provider>

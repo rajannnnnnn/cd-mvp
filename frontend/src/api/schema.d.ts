@@ -312,40 +312,6 @@ export interface paths {
         patch: operations["patch_business_api_v1_business_patch"];
         trace?: never;
     };
-    "/api/v1/business/ai": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Pause or resume the AI for the whole business (needs the confirmation code) */
-        post: operations["toggle_ai_api_v1_business_ai_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/business/ai/code": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Send a confirmation code to your own number before switching the AI */
-        post: operations["ai_code_api_v1_business_ai_code_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/business/export": {
         parameters: {
             query?: never;
@@ -1100,6 +1066,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/operator/support/attachments/{attachment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A picture on any ticket */
+        get: operations["picture_for_support_api_v1_operator_support_attachments__attachment_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/operator/support/{ticket_id}": {
         parameters: {
             query?: never;
@@ -1495,6 +1478,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/support/attachments/{attachment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A picture on one of your tickets */
+        get: operations["my_picture_api_v1_support_attachments__attachment_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/support/tickets": {
         parameters: {
             query?: never;
@@ -1541,6 +1541,23 @@ export interface paths {
         put?: never;
         /** Add to a ticket (reopens it if it was resolved) */
         post: operations["add_message_api_v1_support_tickets__ticket_id__messages_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/support/tickets/{ticket_id}/messages/{message_id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Attach a picture (PNG, JPEG or WebP, up to 3 MB, up to 3 per message) to one of your own messages */
+        post: operations["add_picture_api_v1_support_tickets__ticket_id__messages__message_id__attachments_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1638,16 +1655,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** AiToggle */
-        AiToggle: {
-            /**
-             * Code
-             * @description The code sent to the signed-in number by POST /business/ai/code.
-             */
-            code: string;
-            /** Enabled */
-            enabled: boolean;
-        };
         /** AlertOut */
         AlertOut: {
             /** Business Id */
@@ -1713,6 +1720,18 @@ export interface components {
              */
             confirm: boolean;
         };
+        /** AttachmentOut */
+        AttachmentOut: {
+            /** Content Type */
+            content_type: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
         /** BillingOut */
         BillingOut: {
             /** Assistant Paused By Billing */
@@ -1749,6 +1768,11 @@ export interface components {
             /** Trial Ends At */
             trial_ends_at: string | null;
             usage: components["schemas"]["Usage"];
+        };
+        /** Body_add_picture_api_v1_support_tickets__ticket_id__messages__message_id__attachments_post */
+        Body_add_picture_api_v1_support_tickets__ticket_id__messages__message_id__attachments_post: {
+            /** File */
+            file: string;
         };
         /** BusinessBrief */
         BusinessBrief: {
@@ -2261,6 +2285,10 @@ export interface components {
             id: string;
             /** Ip */
             ip: string | null;
+            /** Name */
+            name?: string | null;
+            /** Phone */
+            phone: string;
             /** Signed In At */
             signed_in_at: unknown;
         };
@@ -3237,6 +3265,8 @@ export interface components {
         SalesSettingsIn: {
             /** Handoff Value Threshold */
             handoff_value_threshold?: number | string | null;
+            /** Handover Instructions */
+            handover_instructions?: string | null;
             /** Honorific */
             honorific?: string | null;
             /** Language Default */
@@ -3605,6 +3635,11 @@ export interface components {
         /** TicketMessageOut */
         TicketMessageOut: {
             /**
+             * Attachments
+             * @default []
+             */
+            attachments: components["schemas"]["AttachmentOut"][];
+            /**
              * Author
              * @enum {string}
              */
@@ -3711,6 +3746,12 @@ export interface components {
             intent: string | null;
             /** Latency Ms */
             latency_ms: number | null;
+            /** Llm Calls */
+            llm_calls: number;
+            /** Llm Calls By Stage */
+            llm_calls_by_stage: {
+                [key: string]: number;
+            };
             /** Model */
             model: string | null;
             /** Output Tokens */
@@ -4499,72 +4540,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BusinessOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    toggle_ai_api_v1_business_ai_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AiToggle"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BusinessOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    ai_code_api_v1_business_ai_code_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OtpSent"];
                 };
             };
             /** @description Validation Error */
@@ -6261,6 +6236,39 @@ export interface operations {
             };
         };
     };
+    picture_for_support_api_v1_operator_support_attachments__attachment_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     ticket_for_support_api_v1_operator_support__ticket_id__get: {
         parameters: {
             query?: never;
@@ -7164,6 +7172,39 @@ export interface operations {
             };
         };
     };
+    my_picture_api_v1_support_attachments__attachment_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                attachment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     my_tickets_api_v1_support_tickets_get: {
         parameters: {
             query?: never;
@@ -7287,6 +7328,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TicketDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_picture_api_v1_support_tickets__ticket_id__messages__message_id__attachments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ticket_id: string;
+                message_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_add_picture_api_v1_support_tickets__ticket_id__messages__message_id__attachments_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentOut"];
                 };
             };
             /** @description Validation Error */

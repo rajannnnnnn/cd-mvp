@@ -48,7 +48,7 @@ export default function Shell({ booting = false }: { booting?: boolean }) {
   const needs = (ov.data?.today.open_handoffs ?? 0) + (ov.data?.today.pending_deals ?? 0)
   const items: Item[] = useMemo(() => isOwner ? [
     { to: '/home', icon: Home, key: 'nav.home', label: tr('Home') },
-    { to: '/chats', icon: MessageCircle, key: 'nav.chats', label: tr('Chats'), also: ['/pipeline', '/try'] },
+    { to: '/chats', icon: MessageCircle, key: 'nav.sales', label: tr('Sales'), also: ['/pipeline', '/try'] },
     { to: '/inbox', icon: Inbox, key: 'nav.inbox', label: tr('For you'), badge: needs },
     { to: '/products', icon: Package, key: 'nav.products', label: tr('Products') },
     { to: '/offers', icon: Megaphone, key: 'nav.offers', label: tr('Offers') },
