@@ -228,7 +228,7 @@ export default function Offers() {
             </div>)}
           {q.error && <ErrorNote error={q.error} retry={() => q.refetch()} />}
           {q.isLoading && <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}</div>}
-          {!q.isLoading && !q.error && all.length > 0 && items.length === 0 && <div className="card"><EmptyState icon={<Search className="h-6 w-6" />} title={tr('No offers match “{q}”', { q: search })} body={tr('Check the spelling, or try a shorter word.')} action={<button className="btn btn-outline" onClick={() => setSearch('')}>{tr('Clear search')}</button>} /></div>}
+          {!q.isLoading && !q.error && all.length > 0 && items.length === 0 && <div><EmptyState icon={<Search className="h-6 w-6" />} title={tr('No offers match “{q}”', { q: search })} body={tr('Check the spelling, or try a shorter word.')} action={<button className="btn btn-outline" onClick={() => setSearch('')}>{tr('Clear search')}</button>} /></div>}
           {!q.isLoading && !q.error && all.length === 0 && <div className="card"><EmptyState icon={<Megaphone className="h-6 w-6" />} title={tr('No offers yet')} body={tr('Create a festive discount or a free gift. The assistant will use it at the right moment, within the limits you set.')} action={<button className="btn btn-primary" onClick={() => setEdit('new')}><Plus className="h-4 w-4" /> {tr('Create an offer')}</button>} /></div>}
 
           {view === 'cards' && (

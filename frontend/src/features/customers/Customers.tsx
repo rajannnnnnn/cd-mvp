@@ -35,7 +35,7 @@ export default function Customers() {
       </div>
       {q.error && <ErrorNote error={q.error} retry={() => q.refetch()} />}
       {q.isLoading && <Skeleton className="h-64 rounded-2xl" />}
-      {!q.isLoading && !q.error && items.length === 0 && <div className="card"><EmptyState icon={deb ? <Search className="h-6 w-6" /> : <Users className="h-6 w-6" />} title={deb ? tr('No customers match “{q}”', { q: deb }) : tr('No customers found')} body={deb ? tr('Check the spelling, or search by a name or phone number.') : filter === 'all' ? tr('Customers appear here after their first message.') : tr('Nobody matches this filter.')} /></div>}
+      {!q.isLoading && !q.error && items.length === 0 && <div className={deb ? '' : 'card'}><EmptyState icon={deb ? <Search className="h-6 w-6" /> : <Users className="h-6 w-6" />} title={deb ? tr('No customers match “{q}”', { q: deb }) : tr('No customers found')} body={deb ? tr('Check the spelling, or search by a name or phone number.') : filter === 'all' ? tr('Customers appear here after their first message.') : tr('Nobody matches this filter.')} /></div>}
       {items.length > 0 && (
         <div className="card divide-y divide-line/60 overflow-hidden">
           {items.map((c) => (
