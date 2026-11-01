@@ -114,7 +114,7 @@ function Gaps() {
       <Modal open={!!target} onClose={() => setTarget(null)} title={tr('Teach the assistant')}
         footer={<><button className="btn btn-ghost" onClick={() => setTarget(null)}>{tr('Cancel')}</button><button className="btn btn-primary" disabled={!answer.trim() || send.isPending} onClick={() => target && send.mutate({ id: target.id, answer: answer.trim() })}>{send.isPending ? <Spinner /> : <ClipboardCheck className="h-4 w-4" />} {tr('Save as a shop fact')}</button></>}>
         <p className="rounded-xl bg-surface2 px-3 py-2 text-sm font-medium">“{target?.question}”</p>
-        <label className="mt-4 block text-sm font-semibold">{tr('Your answer')}<span aria-hidden="true" className="ml-0.5 font-bold text-danger"> *</span></label>
+        <label className="mt-4 block text-sm font-semibold">{tr('Your answer')}</label>
         <textarea aria-required maxLength={1000} className="textarea mt-1.5 min-h-[110px]" value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder={tr('Your answer')} autoFocus />
         <p className="mt-2 text-xs text-muted">{tr('This becomes a fact the assistant may tell any customer. Don’t include prices you want to keep private.')}</p>
       </Modal>

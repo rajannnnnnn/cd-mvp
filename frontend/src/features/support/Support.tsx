@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, CheckCircle2, LifeBuoy } from 'lucide-react'
 import { api, ok } from '@/api/client'
-import { EmptyState, ErrorNote, Field, focusFirstInvalid, RequiredNote, Skeleton, Spinner, useToast } from '@/ui'
+import { EmptyState, ErrorNote, Field, focusFirstInvalid, Skeleton, Spinner, useToast } from '@/ui'
 import { ago, cx } from '@/lib/format'
 import { tr } from '@/i18n/tr'
 import { CATEGORY_LABEL, StatusBadge, Thread } from './Thread'
@@ -68,7 +68,7 @@ export default function Support() {
             {(Object.keys(CATEGORY_LABEL) as Category[]).map((c) => <button key={c} type="button" role="radio" aria-checked={category === c} onClick={() => setCategory(c)} className={cx('chip', category === c && 'chip-active')}>{tr(CATEGORY_LABEL[c])}</button>)}
           </div>
         </Field>
-        <RequiredNote />
+        
         <Field label={tr('Title')} required error={tried ? errs.subject : undefined}><input className="input" maxLength={160} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={tr('Short title')} /></Field>
         <Field label={tr('Tell us more')} required error={tried ? errs.message : undefined}><textarea className="textarea min-h-[110px]" maxLength={4000} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={tr('What happened, what you expected, and when it started.')} /></Field>
         <div className="flex justify-end"><button className="btn btn-primary" disabled={create.isPending} onClick={submit}>{create.isPending ? <Spinner /> : <LifeBuoy className="h-4 w-4" />} {tr('Open a ticket')}</button></div>

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Gift, Pause, Play, Search, Megaphone, Pencil, Percent, Plus, Tag, Trash2 } from 'lucide-react'
 import { api, ok, type Schemas } from '@/api/client'
 import { useT } from '@/i18n'
-import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, KebabMenu, Modal, RequiredNote, Skeleton, Spinner, Switch, useToast } from '@/ui'
+import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, KebabMenu, Modal, Skeleton, Spinner, Switch, useToast } from '@/ui'
 import { MoneyInput, PercentInput, WholeInput } from '@/ui/inputs'
 import { cleanNumber, MONEY, moneyError, PERCENT, percentError } from '@/lib/money'
 import { cx, inr } from '@/lib/format'
@@ -111,7 +111,7 @@ function OfferPanel({ offer, products, onClose }: { offer: Offer | 'new'; produc
       <button className="btn btn-ghost" onClick={() => { if (isNew) clearDraftGroup('offer.'); onClose() }}>{tr('Cancel')}</button>
       <button className="btn btn-primary" disabled={save.isPending} onClick={submit}>{save.isPending && <Spinner />} {tr('Save offer')}</button></>}>
       <div className="space-y-4" ref={body}>
-        <RequiredNote />
+        
         {err && <div className="rounded-xl border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-sm font-medium text-danger">{err}</div>}
         <Field label={tr('Offer name')} hint={tr('Customers may see this')} required error={shown.name}><input maxLength={120} className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('Offer name')} autoFocus={isNew} /></Field>
         <div className="grid grid-cols-2 gap-2">

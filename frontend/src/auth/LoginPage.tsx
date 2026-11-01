@@ -126,7 +126,7 @@ export default function LoginPage() {
               <h2 className="font-display text-[28px] font-extrabold leading-tight">{t('login.title', 'Sign in or create your account')}</h2>
               <p className="mt-2 text-[15px] text-muted">{t('login.subtitle', 'Enter your WhatsApp number. New here? We’ll set up your shop in a few minutes. No password to remember.')}</p>
               <form className="mt-8" onSubmit={(e) => { e.preventDefault(); if (full) send() }}>
-                <label className="field-label" htmlFor="phone">{t('login.phone', 'Mobile number')}<span aria-hidden="true" className="ml-0.5 font-bold text-danger"> *</span></label>
+                <label className="field-label" htmlFor="phone">{t('login.phone', 'Mobile number')}</label>
                 <div className={cx('flex items-stretch overflow-hidden rounded-xl border bg-surface transition focus-within:border-brand focus-within:ring-4 focus-within:ring-brand/15', err ? 'border-danger' : 'border-line')}>
                   <span className="grid place-items-center border-r border-line bg-surface2 px-3.5 text-sm font-semibold">🇮🇳 +91</span>
                   <input id="phone" autoFocus type="tel" inputMode="numeric" autoComplete="tel-national" placeholder={tr('Mobile number')} value={local} onChange={(e) => setLocal(cleanPhone(e.target.value))} maxLength={20} className="tnum min-w-0 flex-1 bg-transparent px-3.5 py-3.5 text-lg font-semibold outline-none placeholder:font-normal placeholder:text-muted/60" />

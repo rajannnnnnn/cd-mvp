@@ -54,7 +54,7 @@ export function useFieldProps(): Record<string, unknown> {
   return c ? { id: c.id, 'aria-describedby': c.described, 'aria-invalid': c.invalid || undefined, 'aria-required': c.required || undefined } : {}
 }
 
-/** A labelled form field. `required` adds the red asterisk; `error` shows the message under the control and outlines it.
+/** A labelled form field. `required` marks the control for screen readers (nothing is drawn); `error` shows the message under the control and outlines it.
  *  Children: a plain input, select or textarea, or a component marked `fieldControl` (it reads useFieldProps). */
 /** An (i) button: the explanation opens in a small popup instead of sitting under the field. Closes on outside tap, Escape or a second tap. */
 export function InfoTip({ text, label }: { text: string; label?: string }) {
@@ -90,18 +90,13 @@ export function Field({ label, hint, error, required, children, className }: { l
   const ctx: FieldCtx = { id, described, invalid: !!error, required: !!required }
   return (
     <div className={className}>
-      {label && <div className="mb-1.5 flex items-center gap-1"><label className="field-label !mb-0" id={`${id}-label`} htmlFor={control ? id : undefined}>{label}{required && <span aria-hidden="true" className="ml-0.5 font-bold text-danger"> *</span>}</label>{tip && <InfoTip text={hint!} label={tr('More about {name}', { name: label })} />}</div>}
+      {label && <div className="mb-1.5 flex items-center gap-1"><label className="field-label !mb-0" id={`${id}-label`} htmlFor={control ? id : undefined}>{label}</label>{tip && <InfoTip text={hint!} label={tr('More about {name}', { name: label })} />}</div>}
       {host ? cloneElement(children as ReactElement<any>, { id, 'aria-describedby': described, 'aria-invalid': error ? true : undefined, 'aria-required': required || undefined })
         : custom ? <FieldContext.Provider value={ctx}>{children}</FieldContext.Provider>
         : <div role="group" aria-labelledby={label ? `${id}-label` : undefined} aria-required={required || undefined}>{children}</div>}
       {error ? <p id={`${id}-err`} role="alert" className="mt-1 text-xs font-medium text-danger">{error}</p> : hint ? <p id={`${id}-hint`} className={tip ? 'sr-only' : 'field-hint'}>{hint}</p> : null}
     </div>
   )
-}
-
-/** The note at the top of a form that uses required markers. */
-export function RequiredNote() {
-  return <p className="text-xs text-muted"><span aria-hidden="true" className="font-bold text-danger">*</span> {tr('required')}</p>
 }
 
 /** Moves the keyboard focus to the first field marked invalid inside `root` and scrolls it into view. */

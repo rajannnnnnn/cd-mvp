@@ -12,7 +12,7 @@ import { CategoryField } from '@/features/catalog/CategoryField'
 import { categoriesOf } from '@/features/catalog/category'
 import { shopUrl } from '@/lib/slug'
 import { cx } from '@/lib/format'
-import { Field, focusFirstInvalid, Logo, RequiredNote, Segmented, SignOutConfirm, Spinner, Switch, useToast } from '@/ui'
+import { Field, focusFirstInvalid, Logo, Segmented, SignOutConfirm, Spinner, Switch, useToast } from '@/ui'
 import { tr } from '@/i18n/tr'
 import { FormSkeleton } from '@/ui/skeletons'
 import { clearDraftGroup, useDraft } from '@/lib/drafts'
@@ -77,7 +77,7 @@ function BusinessStep({ onLeave }: { onLeave: () => void }) {
       <h2 className="font-display text-[26px] font-extrabold leading-tight">{tr('Tell us about your business')}</h2>
       <p className="mt-1.5 text-[15px] text-muted">{tr('This takes about five minutes. You can change everything later.')}</p>
       <div className="mt-6 space-y-4">
-        <RequiredNote />
+        
         <Field label={tr('Business name')} hint={tr('The name your customers know')} required error={tried ? errs.name : undefined}><input maxLength={80} className="input" autoFocus autoComplete="organization" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('Business name')} /></Field>
         <Field label={tr('Your name')} required error={tried ? errs.owner : undefined}><input maxLength={80} className="input" autoComplete="name" value={owner} onChange={(e) => setOwner(e.target.value)} placeholder={tr('Your name')} /></Field>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -169,7 +169,7 @@ function ProductsStep({ onDone, onBack }: { onDone: () => void; onBack: () => vo
           {items.map((p) => <li key={p.id} className="flex items-center gap-3 px-4 py-3"><CheckCircle2 className="h-4 w-4 text-brand" /><span className="flex-1 font-semibold">{p.name}</span><span className="text-xs text-muted">{p.category ?? ''}</span></li>)}
         </ul>)}
       <div className="mt-5 rounded-2xl border border-line/70 bg-surface2/50 p-4" ref={card}>
-        <div className="mb-3 flex items-center justify-between gap-3"><span className="text-sm font-bold">{items.length ? tr('Add another') : tr('Add your first product')}</span><RequiredNote /></div>
+        <div className="mb-3 flex items-center justify-between gap-3"><span className="text-sm font-bold">{items.length ? tr('Add another') : tr('Add your first product')}</span></div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={tr('Product or service name')} required error={tried ? nameErr : undefined}><input maxLength={120} className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('Product name')} /></Field>
           <Field label={tr('Category')} hint={tr('Optional')}><CategoryField value={category} onChange={setCategory} options={categoriesOf(items)} placeholder={tr('Category')} /></Field>

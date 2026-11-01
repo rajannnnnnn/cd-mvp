@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Mic2, Plus, Quote, Trash2 } from 'lucide-react'
 import { api, ok, type Schemas } from '@/api/client'
 import { useT } from '@/i18n'
-import { Badge, Confirm, EmptyState, ErrorNote, Field, Modal, RequiredNote, Skeleton, Spinner, useToast } from '@/ui'
+import { Badge, Confirm, EmptyState, ErrorNote, Field, Modal, Skeleton, Spinner, useToast } from '@/ui'
 import { tr } from '@/i18n/tr'
 
 const SITUATIONS = ['Greeting', 'Price question', 'Bargaining', 'Delivery question', 'Stock / availability', 'Closing a sale', 'Complaint', 'Follow-up', 'Other']
@@ -21,7 +21,7 @@ function AddModal({ onClose }: { onClose: () => void }) {
     <Modal open onClose={onClose} title={tr('Teach the assistant how you talk')}
       footer={<><button className="btn btn-ghost" onClick={onClose}>{tr('Cancel')}</button><button className="btn btn-primary" disabled={!reply.trim() || add.isPending} onClick={() => add.mutate()}>{add.isPending && <Spinner />} {tr('Add example')}</button></>}>
       <div className="space-y-4">
-        <RequiredNote />
+        
         <Field label={tr('Situation')}><select className="select" value={situation} onChange={(e) => setSituation(e.target.value)}>{SITUATIONS.map((s) => <option key={s}>{s}</option>)}</select></Field>
         <Field label={tr('What the customer said')} hint={tr('Optional')}><input maxLength={500} className="input" value={customer} onChange={(e) => setCustomer(e.target.value)} placeholder={tr('A message a customer might send')} /></Field>
         <Field label={tr('What you would reply')} required hint={tr('Write it exactly as you’d type it on WhatsApp')}><textarea maxLength={800} className="textarea min-h-[100px]" value={reply} onChange={(e) => setReply(e.target.value)} placeholder={tr('How you would reply')} autoFocus /></Field>

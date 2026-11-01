@@ -7,7 +7,7 @@ import { Activity, AlertOctagon, Building2, CircleDollarSign, Download, Eye, Inb
 import { api, ok, type Schemas } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
 import { tokens } from '@/auth/tokens'
-import { Badge, Confirm, EmptyState, ErrorNote, Field, Modal, RequiredNote, Segmented, Skeleton, Spinner, Stat, Switch, useToast } from '@/ui'
+import { Badge, Confirm, EmptyState, ErrorNote, Field, Modal, Segmented, Skeleton, Spinner, Stat, Switch, useToast } from '@/ui'
 import { ago, cx, inr, phone as fmtPhone } from '@/lib/format'
 import { StatusBadge, Thread } from '@/features/support/Thread'
 import { TableSkeleton } from '@/ui/skeletons'
@@ -39,7 +39,7 @@ function NewBusinessModal({ onClose }: { onClose: () => void }) {
     <Modal open onClose={onClose} title="Onboard a business"
       footer={<><button className="btn btn-ghost" onClick={onClose}>Cancel</button><button className="btn btn-primary" disabled={!f.name.trim() || !f.owner_name.trim() || !isPhone(f.owner_phone) || (!!f.sim && !isPhone(f.sim)) || create.isPending} onClick={() => create.mutate()}>{create.isPending && <Spinner />} Create business</button></>}>
       <div className="space-y-4">
-        <RequiredNote />
+        
         <Field label="Business name" required><input maxLength={120} className="input" value={f.name} onChange={set('name')} autoFocus /></Field>
         <div className="grid gap-4 sm:grid-cols-2"><Field label="Owner’s name" required><input maxLength={80} className="input" value={f.owner_name} onChange={set('owner_name')} /></Field><Field label="Owner’s WhatsApp number" hint="This is their login" required><PhoneInput value={f.owner_phone} onChange={(v) => setF((x) => ({ ...x, owner_phone: v }))} /></Field></div>
         <div className="grid gap-4 sm:grid-cols-2"><Field label="Plan"><select className="select" value={f.plan} onChange={set('plan')}><option value="pilot">Pilot</option><option value="starter">Starter</option><option value="growth">Growth</option></select></Field>

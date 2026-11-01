@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, ChevronRight, Eye, EyeOff, LayoutGrid, Lock, Package, Pencil, Plus, Rows3, Search, ShieldCheck, Trash2, TrendingDown, X } from 'lucide-react'
 import { api, ApiError, ok, type Schemas } from '@/api/client'
 import { useT } from '@/i18n'
-import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, KebabMenu, Modal, RequiredNote, Segmented, Skeleton, Spinner, Switch, useToast } from '@/ui'
+import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, KebabMenu, Modal, Segmented, Skeleton, Spinner, Switch, useToast } from '@/ui'
 import { MoneyInput, WholeInput } from '@/ui/inputs'
 import { cx, inr } from '@/lib/format'
 import { blank, fieldErrors, fromVariant, toPolicy, type Draft, type DraftField } from './draft'
@@ -220,7 +220,7 @@ function ProductPanel({ product, categories, onClose }: { product: Product | 'ne
       <button className="btn btn-ghost" onClick={() => { if (isNew) clearDraftGroup('product.'); onClose() }}>{tr('Cancel')}</button>
       <button className="btn btn-primary" disabled={save.isPending} onClick={submit}>{save.isPending && <Spinner />} {isNew ? tr('Add product') : tr('Save changes')}</button></>}>
       <div className="space-y-4" ref={body}>
-        <RequiredNote />
+        
         {error && <div className="rounded-xl border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-sm font-medium text-danger">{error}</div>}
         <Field label={tr('Product name')} required error={tried ? nameErr : undefined}><input maxLength={120} className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={tr('Product name')} autoFocus={isNew} /></Field>
         <Field label={tr('Category')} hint={tr('Type a new one or pick yours')}><CategoryField value={category} onChange={setCategory} options={categories} placeholder={tr('Category')} /></Field>

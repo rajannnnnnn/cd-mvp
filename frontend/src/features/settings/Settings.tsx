@@ -6,7 +6,7 @@ import { useAuth } from '@/auth/AuthProvider'
 import { useBusiness, usePublicConfig } from '@/api/hooks'
 import { startEmbeddedSignup } from './signup'
 import { useT } from '@/i18n'
-import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, InfoTip, KebabMenu, Modal, RequiredNote, Segmented, Skeleton, Spinner, Switch, useToast } from '@/ui'
+import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, InfoTip, KebabMenu, Modal, Segmented, Skeleton, Spinner, Switch, useToast } from '@/ui'
 import { ago, cx, phone as fmtPhone } from '@/lib/format'
 import { PhoneInput } from '@/ui/inputs'
 import { isPhone, toE164 } from '@/lib/phone'
@@ -289,7 +289,7 @@ function TeamTab({ canEdit }: { canEdit: boolean }) {
         ))}
       </div>
       <Modal open={add} onClose={() => setAdd(false)} title={tr('Add a team member')} footer={<><button className="btn btn-ghost" onClick={() => setAdd(false)}>{tr('Cancel')}</button><button className="btn btn-primary" disabled={create.isPending} onClick={addMember}>{create.isPending && <Spinner />} {tr('Add')}</button></>}>
-        <div className="space-y-4" ref={addForm}><RequiredNote /><Field label={tr('Name')} required error={triedAdd && !nm.trim() ? tr('Enter their name') : undefined}><input maxLength={80} className="input" value={nm} onChange={(e) => setNm(e.target.value)} autoFocus /></Field><Field label={tr('WhatsApp number')} hint={tr('They’ll sign in with a code sent here')} required error={triedAdd && !isPhone(ph) ? tr('Enter a 10-digit mobile number') : undefined}><PhoneInput value={ph} onChange={setPh} /></Field>
+        <div className="space-y-4" ref={addForm}><Field label={tr('Name')} required error={triedAdd && !nm.trim() ? tr('Enter their name') : undefined}><input maxLength={80} className="input" value={nm} onChange={(e) => setNm(e.target.value)} autoFocus /></Field><Field label={tr('WhatsApp number')} hint={tr('They’ll sign in with a code sent here')} required error={triedAdd && !isPhone(ph) ? tr('Enter a 10-digit mobile number') : undefined}><PhoneInput value={ph} onChange={setPh} /></Field>
           <Field label={tr('Role')}><Segmented value={role} onChange={setRole} options={[{ value: 'staff', label: tr('Staff') }, { value: 'owner', label: tr('Owner') }]} /></Field></div>
       </Modal>
       <Confirm open={!!del} title={tr('Remove {name}?', { name: del?.name })} body={tr('They will be signed out and can no longer open this shop.')} confirmLabel={tr('Remove')} danger busy={remove.isPending} onClose={() => setDel(null)} onConfirm={() => del && remove.mutate(del.id)} />
