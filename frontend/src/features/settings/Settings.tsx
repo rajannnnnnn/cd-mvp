@@ -1,12 +1,12 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BellRing, Building2, Copy, LifeBuoy, Lock, Mic2, Laptop, Phone, Plus, ShieldCheck, Sliders, Smartphone, Trash2, Users, X } from 'lucide-react'
+import { BellRing, Building2, Copy, LifeBuoy, Lock, Pencil, Mic2, Laptop, Phone, Plus, ShieldCheck, Sliders, Smartphone, Trash2, Users, X } from 'lucide-react'
 import { api, ok, type Schemas } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
 import { useBusiness, usePublicConfig } from '@/api/hooks'
 import { startEmbeddedSignup } from './signup'
 import { useT } from '@/i18n'
-import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, Modal, RequiredNote, Segmented, Skeleton, Spinner, Switch, useToast } from '@/ui'
+import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, KebabMenu, Modal, RequiredNote, Segmented, Skeleton, Spinner, Switch, useToast } from '@/ui'
 import { ago, cx, phone as fmtPhone } from '@/lib/format'
 import { PhoneInput } from '@/ui/inputs'
 import { isPhone, toE164 } from '@/lib/phone'
@@ -23,8 +23,8 @@ const TABS: Tab[] = ['shop', 'assistant', 'team', 'numbers', 'devices', 'support
 const OLD_TABS: Record<string, Tab> = { voice: 'assistant', pacing: 'assistant' }      // links from before voice and speed moved into Assistant
 const DAYS = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu', 'Thursday'], ['fri', 'Friday'], ['sat', 'Saturday'], ['sun', 'Sunday']] as const
 
-function Section({ title, sub, children, footer }: { title: string; sub?: string; children: ReactNode; footer?: ReactNode }) {
-  return <section className="card"><div className="border-b border-line/60 px-5 py-4"><h2 className="font-display text-lg font-bold">{title}</h2>{sub && <p className="text-[13.5px] text-muted">{sub}</p>}</div><div className="space-y-4 px-5 py-5">{children}</div>{footer && <div className="flex justify-end gap-2 border-t border-line/60 px-5 py-3.5">{footer}</div>}</section>
+function Section({ title, sub, children, footer, action }: { title: string; sub?: string; children: ReactNode; footer?: ReactNode; action?: ReactNode }) {
+  return <section className="card"><div className="flex items-start justify-between gap-3 border-b border-line/60 px-5 py-4"><div className="min-w-0"><h2 className="font-display text-lg font-bold">{title}</h2>{sub && <p className="text-[13.5px] text-muted">{sub}</p>}</div>{action}</div><div className="space-y-4 px-5 py-5">{children}</div>{footer && <div className="flex justify-end gap-2 border-t border-line/60 px-5 py-3.5">{footer}</div>}</section>
 }
 /** "Is there anything to save?": compares the form with how it looked when it was loaded or last saved. */
 function useBaseline(values: unknown) {
@@ -42,6 +42,11 @@ function CopyLink({ url }: { url: string }) {
   const copy = async () => { try { await navigator.clipboard.writeText(url); toast(tr('Link copied')) } catch { toast(tr('Could not copy the link'), 'error') } }
   return <button type="button" className="btn btn-ghost btn-icon shrink-0" onClick={copy} aria-label={tr('Copy link')} title={tr('Copy link')}><Copy className="h-4 w-4" /></button>
 }
+
+/** Read-only text for the view mode. */
+const Val = ({ children }: { children?: ReactNode }) => (children ? <div className="whitespace-pre-line break-words text-[15px]">{children}</div> : <div className="text-[15px] text-muted">{tr('Not set')}</div>)
+const ChipList = ({ items }: { items: string[] }) => (items.length ? <div className="flex flex-wrap gap-2">{items.map((v) => <span key={v} className="rounded-full bg-surface2 px-3 py-1 text-sm font-medium">{v}</span>)}</div> : <Val />)
+const time12 = (v: string) => { const [h, m] = v.split(':').map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}` }
 
 function useSaveBusiness() {
   const qc = useQueryClient(); const toast = useToast()
@@ -116,9 +121,12 @@ function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }
   const [areas, setAreas] = useState<string[]>(p.delivery_areas ?? [])
   const [facts, setFacts] = useState<string[]>(p.facts ?? [])
   const [hours, setHours] = useState(() => parseHours(p.hours))
+  const [editing, setEditing] = useState(false)
   const save = useSaveBusiness()
   const bl = useBaseline({ address, shopPhone, delivery, returns, pay, areas, facts, hours })
   const [tried, setTried] = useState(false)
+  const cancel = () => { setAddress(p.address ?? ''); setShopPhone(p.phone ?? ''); setDelivery(p.delivery ?? ''); setReturns(p.returns ?? ''); setPay(p.payment_modes ?? []); setAreas(p.delivery_areas ?? []); setFacts(p.facts ?? []); setHours(parseHours(p.hours)); setTried(false); setEditing(false) }
+  const menu = canEdit && !editing ? <KebabMenu label={tr('More actions for your shop details')} items={[{ label: tr('Edit'), icon: <Pencil className="h-4 w-4" />, onClick: () => setEditing(true) }]} /> : undefined
   const shopForm = useRef<HTMLDivElement>(null)
   // an open day needs both times, and it must close after it opens
   const hoursErr: Record<string, string | undefined> = Object.fromEntries(DAYS.map(([k]) => [k, !hours[k].open ? undefined : !hours[k].from || !hours[k].to ? tr('Set both times') : hours[k].to <= hours[k].from ? tr('Closing time must be after opening time') : undefined]))
@@ -130,29 +138,31 @@ function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }
   }
   const send = () => save.mutate({
     profile: { address, phone: shopPhone, delivery, returns, payment_modes: pay, delivery_areas: areas, facts, hours: Object.fromEntries(DAYS.map(([k]) => [k, hours[k].open ? `${hours[k].from}-${hours[k].to}` : 'closed'])) },
-  }, { onSuccess: bl.commit })
+  }, { onSuccess: () => { bl.commit(); setEditing(false) } })
+  const edit = canEdit && editing
   return (
     <div className="space-y-5">
-      <Section title={tr('Your shop')} sub={tr('The assistant only states facts that are written here or in your products.')} footer={canEdit && <SaveButton dirty={bl.dirty} busy={save.isPending} onClick={submit} label={tr('Save changes')} />}>
+      <Section title={tr('Your shop')} sub={tr('The assistant only states facts that are written here or in your products.')} action={menu}>
         <div className="grid gap-4 sm:grid-cols-2" ref={shopForm}>
           <Field label={tr('Shop name')} hint={tr('To change your shop name or web address, contact support.')}><p className="flex items-center gap-2 py-1 text-[15px] font-semibold">{b.name}<Lock className="h-3.5 w-3.5 shrink-0 text-muted" aria-label={tr('Cannot be changed here')} /></p></Field>
           <Field label={tr('Your web address')} hint={tr('Where you sign in to your shop. To change it, contact support.')}><div className="flex items-center gap-1 py-0.5"><p className="min-w-0 flex-1 break-all text-[15px] font-semibold">{window.location.origin}/app/{b.slug}</p><Lock className="h-3.5 w-3.5 shrink-0 text-muted" aria-label={tr('Cannot be changed here')} /><CopyLink url={`${window.location.origin}/app/${b.slug}`} /></div></Field>
-          <Field label={tr('Shop phone')} hint={tr('Shown to customers who ask')}><PhoneInput value={shopPhone} onChange={setShopPhone} disabled={!canEdit} /></Field>
+          <Field label={tr('Shop phone')} hint={edit ? tr('Shown to customers who ask') : undefined}>{edit ? <PhoneInput value={shopPhone} onChange={setShopPhone} /> : <Val>{shopPhone ? fmtPhone(shopPhone) : ''}</Val>}</Field>
         </div>
-        <Field label={tr('Address')}><textarea maxLength={500} className="textarea min-h-[70px]" value={address} onChange={(e) => setAddress(e.target.value)} disabled={!canEdit} /></Field>
+        <Field label={tr('Address')}>{edit ? <textarea maxLength={500} className="textarea min-h-[70px]" value={address} onChange={(e) => setAddress(e.target.value)} /> : <Val>{address}</Val>}</Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr('Delivery')}><textarea maxLength={1000} className="textarea min-h-[84px]" value={delivery} onChange={(e) => setDelivery(e.target.value)} disabled={!canEdit} placeholder={tr('Delivery details')} /></Field>
-          <Field label={tr('Returns & exchange')}><textarea maxLength={1500} className="textarea min-h-[84px]" value={returns} onChange={(e) => setReturns(e.target.value)} disabled={!canEdit} /></Field>
+          <Field label={tr('Delivery')}>{edit ? <textarea maxLength={1000} className="textarea min-h-[84px]" value={delivery} onChange={(e) => setDelivery(e.target.value)} placeholder={tr('Delivery details')} /> : <Val>{delivery}</Val>}</Field>
+          <Field label={tr('Returns & exchange')}>{edit ? <textarea maxLength={1500} className="textarea min-h-[84px]" value={returns} onChange={(e) => setReturns(e.target.value)} /> : <Val>{returns}</Val>}</Field>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr('Payment modes')}><Chips values={pay} onChange={setPay} placeholder={tr('Add a payment method')} disabled={!canEdit} /></Field>
-          <Field label={tr('Delivery areas')}><Chips values={areas} onChange={setAreas} placeholder={tr('Add a city or area')} disabled={!canEdit} /></Field>
+          <Field label={tr('Payment modes')}>{edit ? <Chips values={pay} onChange={setPay} placeholder={tr('Add a payment method')} /> : <ChipList items={pay} />}</Field>
+          <Field label={tr('Delivery areas')}>{edit ? <Chips values={areas} onChange={setAreas} placeholder={tr('Add a city or area')} /> : <ChipList items={areas} />}</Field>
         </div>
-        <Field label={tr('Things customers often ask')} hint={tr('One fact at a time, in plain words')}><Chips values={facts} onChange={setFacts} placeholder={tr('Add a fact about your shop')} disabled={!canEdit} /></Field>
+        <Field label={tr('Things customers often ask')} hint={edit ? tr('One fact at a time, in plain words') : undefined}>{edit ? <Chips values={facts} onChange={setFacts} placeholder={tr('Add a fact about your shop')} /> : <ChipList items={facts} />}</Field>
       </Section>
-      <Section title={tr('Opening hours')} sub={tr('Used for “are you open?” answers and for the after-hours behaviour you choose in Assistant settings.')}>
-        <HoursEditor hours={hours} setHours={setHours} errs={hoursErr} canEdit={canEdit} />
-        {canEdit && <div className="flex justify-end"><SaveButton dirty={bl.dirty} busy={save.isPending} disabled={hoursBad} onClick={submit} label={tr('Save hours')} /></div>}
+      <Section title={tr('Opening hours')} sub={tr('Used for “are you open?” answers and for the after-hours behaviour you choose in Assistant settings.')} action={menu}
+        footer={edit && <><button className="btn btn-outline" onClick={cancel} disabled={save.isPending}>{tr('Cancel')}</button><SaveButton dirty={bl.dirty} busy={save.isPending} disabled={hoursBad} onClick={submit} label={tr('Save changes')} /></>}>
+        {edit ? <HoursEditor hours={hours} setHours={setHours} errs={hoursErr} canEdit />
+          : <ul className="divide-y divide-line/60">{DAYS.map(([k, label]) => <li key={k} className="flex items-center justify-between gap-3 py-2.5 text-[15px]"><span className="font-semibold">{tr(label)}</span><span className={hours[k].open ? '' : 'text-muted'}>{hours[k].open ? `${time12(hours[k].from)} – ${time12(hours[k].to)}` : tr('Closed')}</span></li>)}</ul>}
       </Section>
     </div>
   )
@@ -282,10 +292,12 @@ function NumbersTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolea
 function DevicesTab() {
   const toast = useToast(); const qc = useQueryClient()
   const { role } = useAuth()
+  const [target, setTarget] = useState<string | null>(null)
   const canSignOut = role !== 'staff'                                   // only the shop owner signs other devices out
   const q = useQuery({ queryKey: ['sessions'], queryFn: () => ok(api.GET('/api/v1/auth/sessions')) })
   const revoke = useMutation({ mutationFn: (id: string) => ok(api.DELETE('/api/v1/auth/sessions/{family_id}', { params: { path: { family_id: id } } })), onSuccess: () => { qc.invalidateQueries({ queryKey: ['sessions'] }); toast(tr('Signed out')) } })
   return (
+    <>
     <Section title={tr('Where you’re signed in')} sub={canSignOut ? tr('Sign out any device you don’t recognise. Signing in always needs a code sent to your WhatsApp.') : tr('Only the shop owner can sign other devices out. Signing in always needs a code sent to your WhatsApp.')}>
       {q.error && <ErrorNote error={q.error} retry={() => q.refetch()} />}
       {q.isLoading && <Skeleton className="h-24" />}
@@ -294,11 +306,14 @@ function DevicesTab() {
           <div key={d.id} className="flex items-center gap-3 py-3">
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-surface2 text-muted">{/mobile|android|iphone/i.test(d.device ?? '') ? <Smartphone className="h-5 w-5" /> : <Laptop className="h-5 w-5" />}</span>
             <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{d.device ?? tr('Unknown device')}{d.current && <Badge tone="green">{tr('This device')}</Badge>}</div><div className="text-[13px] text-muted">{d.ip ?? ''} {tr('· signed in')} {ago(d.signed_in_at as string)}</div></div>
-            {!d.current && canSignOut && <button className="btn btn-outline btn-sm" disabled={revoke.isPending} onClick={() => revoke.mutate(d.id)}>{tr('Sign out')}</button>}
+            {!d.current && canSignOut && <button className="btn btn-outline btn-sm" disabled={revoke.isPending} onClick={() => setTarget(d.id)}>{tr('Sign out')}</button>}
           </div>
         ))}
       </div>
     </Section>
+      <Confirm open={!!target} onClose={() => setTarget(null)} busy={revoke.isPending} danger title={tr('Sign out this device?')} body={tr('It will need a code sent to your WhatsApp to sign in again.')} confirmLabel={tr('Yes, sign out')}
+        onConfirm={() => target && revoke.mutate(target, { onSettled: () => setTarget(null) })} />
+    </>
   )
 }
 

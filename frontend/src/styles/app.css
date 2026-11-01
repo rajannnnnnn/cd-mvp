@@ -95,7 +95,7 @@
 
 /* Touch screens: comfortable tap targets (desktop sizes stay as they are) */
 @media (pointer: coarse) {
-  .btn-sm, .chip, [role='tab'] { min-height: 40px; }
+  .btn-sm, .chip, [role='tab'], .seg-btn { min-height: 40px; }
   .bubble-meta { font-size: 11px; }
   input:not([type='checkbox']):not([type='radio']), select, textarea { font-size: 16px; } /* stops iOS zooming into fields */
 }

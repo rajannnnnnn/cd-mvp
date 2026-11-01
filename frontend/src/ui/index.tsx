@@ -212,6 +212,11 @@ export function Modal({ open, onClose, title, children, footer, wide }: { open: 
     </div>, document.body)
 }
 
+/** "Sign out?": asked before anyone is signed out, so a stray tap does nothing. */
+export function SignOutConfirm({ open, onClose, onConfirm, busy }: { open: boolean; onClose: () => void; onConfirm: () => void; busy?: boolean }) {
+  return <Confirm open={open} onClose={onClose} onConfirm={onConfirm} busy={busy} title={tr('Sign out?')} body={tr('You will need a code sent to your WhatsApp to sign in again.')} confirmLabel={tr('Yes, sign out')} danger />
+}
+
 export function Confirm({ open, title, body, confirmLabel, danger, onConfirm, onClose, busy }: { open: boolean; title: string; body?: ReactNode; confirmLabel?: string; danger?: boolean; onConfirm: () => void; onClose: () => void; busy?: boolean }) {
   return (
     <Modal open={open} onClose={onClose} title={title}

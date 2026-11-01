@@ -341,7 +341,7 @@ export default function Products() {
           {q.isLoading && <CardGridSkeleton count={6} height={200} />}
           {!q.isLoading && !q.error && (q.data?.items.length ?? 0) === 0 && <div className="card"><EmptyState icon={<Package className="h-6 w-6" />} title={tr('Add your first product')} body={tr('The assistant answers questions and quotes prices from your products. Nothing is invented.')} action={<button className="btn btn-primary" onClick={() => setOpen('new')}><Plus className="h-4 w-4" /> {tr('Add product')}</button>} /></div>}
 
-          {!q.isLoading && !q.error && (q.data?.items.length ?? 0) > 0 && items.length === 0 && <div><EmptyState icon={<Search className="h-6 w-6" />} title={tr('No products match “{q}”', { q: search })} body={tr('Check the spelling, or try a shorter word.')} action={<button className="btn btn-outline" onClick={() => setSearch('')}>{tr('Clear search')}</button>} /></div>}
+          {!q.isLoading && !q.error && (q.data?.items.length ?? 0) > 0 && items.length === 0 && <div><EmptyState icon={<Search className="h-6 w-6" />} title={tr('No products match “{q}”', { q: search })} body={tr('Check the spelling, or try a shorter word.')} /></div>}
 
           {view === 'cards' && (
             <div className={cx('grid gap-4 sm:grid-cols-2', docked ? 'xl:grid-cols-2' : 'lg:grid-cols-3')}>

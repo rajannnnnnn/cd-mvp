@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { BarChart3, Building2, ChevronDown, CreditCard, FileText, Home, Inbox, KanbanSquare, LogOut, Megaphone, MessageCircle, Mic2, Moon, MoreHorizontal, Package, Play, Settings, ShieldCheck, Sun, Users } from 'lucide-react'
 import { useAuth } from '@/auth/AuthProvider'
 import { useT } from '@/i18n'
-import { Avatar, Logo, Skeleton, Switch, Modal, useToast } from '@/ui'
+import { Avatar, Logo, Skeleton, SignOutConfirm, Switch, Modal, useToast } from '@/ui'
 import { cx } from '@/lib/format'
 import { tokens } from '@/auth/tokens'
 import { startLive } from '@/api/live'
@@ -40,6 +40,7 @@ export default function Shell({ booting = false }: { booting?: boolean }) {
   const [theme, setThemeState] = useState<Theme>(currentTheme())
   const [more, setMore] = useState(false)
   const [menu, setMenu] = useState(false)
+  const [out, setOut] = useState(false)
 
   useEffect(() => (isOwner && !booting ? startLive(qc) : undefined), [qc, isOwner, booting])
   useEffect(() => { setMore(false); setMenu(false) }, [loc.pathname])
@@ -124,6 +125,7 @@ export default function Shell({ booting = false }: { booting?: boolean }) {
         </div>
       </Modal>
 
+      <SignOutConfirm open={out} onClose={() => setOut(false)} onConfirm={async () => { await logout(); nav('/login') }} />
       <Modal open={menu} onClose={() => setMenu(false)} title={me?.name ?? tr('Account')}>
         <div className="space-y-4">
           <div className="flex items-center gap-3"><Avatar name={me?.name ?? me?.phone} size={46} /><div><div className="font-semibold">{me?.name}</div><div className="text-sm text-muted">{me?.phone} · {role}</div></div></div>
@@ -131,7 +133,7 @@ export default function Shell({ booting = false }: { booting?: boolean }) {
             <div><div className="panel-title mb-2">{tr('Switch business')}</div>
               <div className="space-y-1.5">{me!.businesses.map((b) => (
                 <button key={b.id} onClick={() => { switchBusiness(b.id); nav('/home') }} className={cx('flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm', b.id === me?.business?.id ? 'border-brand bg-brand-soft' : 'border-line')}><Building2 className="h-4 w-4" />{b.name}<span className="ml-auto text-xs text-muted">{b.role}</span></button>))}</div></div>)}
-          <button className="btn btn-outline w-full" onClick={async () => { await logout(); nav('/login') }}><LogOut className="h-4 w-4" />{t('common.signOut', 'Sign out')}</button>
+          <button className="btn btn-outline w-full" onClick={() => { setMenu(false); setOut(true) }}><LogOut className="h-4 w-4" />{t('common.signOut', 'Sign out')}</button>
         </div>
       </Modal>
     </div>

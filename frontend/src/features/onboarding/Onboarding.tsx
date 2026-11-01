@@ -12,7 +12,7 @@ import { CategoryField } from '@/features/catalog/CategoryField'
 import { categoriesOf } from '@/features/catalog/category'
 import { shopUrl } from '@/lib/slug'
 import { cx } from '@/lib/format'
-import { Field, focusFirstInvalid, Logo, RequiredNote, Segmented, Spinner, Switch, useToast } from '@/ui'
+import { Field, focusFirstInvalid, Logo, RequiredNote, Segmented, SignOutConfirm, Spinner, Switch, useToast } from '@/ui'
 import { tr } from '@/i18n/tr'
 import { FormSkeleton } from '@/ui/skeletons'
 
@@ -39,9 +39,7 @@ function Nav({ back, next, nextLabel, busy, nextDisabled, skip }: { back?: () =>
 }
 
 /* ------------------------------------------------------------------ 1. the business (creates it) */
-function BusinessStep() {
-  const { logout } = useAuth()
-  const nav = useNavigate()
+function BusinessStep({ onLeave }: { onLeave: () => void }) {
   const { adopt } = useAuth(); const toast = useToast()
   const cats = useQuery({ queryKey: ['ob-cats'], queryFn: () => ok(api.GET('/api/v1/onboarding/categories')), staleTime: Infinity })
   const [name, setName] = useState(''); const [owner, setOwner] = useState(''); const [category, setCategory] = useState(''); const [city, setCity] = useState('')
@@ -97,7 +95,7 @@ function BusinessStep() {
         </Field>
       </div>
       <Nav next={go} busy={create.isPending} nextLabel={tr('Create my shop')} />
-      <div className="mt-5 text-center"><button type="button" className="text-sm font-semibold text-muted underline hover:text-ink" onClick={async () => { await logout(); nav('/login', { replace: true }) }}>{tr('Cancel and sign out')}</button></div>
+      <div className="mt-5 text-center"><button type="button" className="text-sm font-semibold text-muted underline hover:text-ink" onClick={onLeave}>{tr('Cancel and sign out')}</button></div>
     </form>
   )
 }
@@ -307,6 +305,7 @@ export default function Onboarding() {
   const [sp, setSp] = useSearchParams()
   const nav = useNavigate()
   const { logout } = useAuth()
+  const [askOut, setAskOut] = useState(false)
   const leave = async () => { await logout(); nav('/login', { replace: true }) }
   const data = q.data
   const firstOpen = useMemo(() => {
@@ -325,7 +324,7 @@ export default function Onboarding() {
 
   return (
     <div className="min-h-dvh bg-bg">
-      <header className="mx-auto flex max-w-[1040px] items-center justify-between gap-3 px-5 py-5"><Logo /><div className="flex min-w-0 items-center gap-3"><span className="hidden truncate text-sm text-muted sm:inline">{data?.business?.name ?? ''}</span><button type="button" className="btn btn-outline btn-sm shrink-0" onClick={leave}><LogOut className="h-4 w-4" />{tr('Sign out')}</button></div></header>
+      <header className="mx-auto flex max-w-[1040px] items-center justify-between gap-3 px-5 py-5"><Logo /><div className="flex min-w-0 items-center gap-3"><span className="hidden truncate text-sm text-muted sm:inline">{data?.business?.name ?? ''}</span><button type="button" className="btn btn-outline btn-sm shrink-0" onClick={() => setAskOut(true)}><LogOut className="h-4 w-4" />{tr('Sign out')}</button></div></header>
       <div className="mx-auto grid max-w-[1040px] gap-8 px-5 pb-16 lg:grid-cols-[240px_1fr]">
         <nav aria-label={tr('Setup steps')} className="lg:sticky lg:top-6 lg:self-start">
           <ol className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:gap-1 lg:overflow-visible">
@@ -345,7 +344,7 @@ export default function Onboarding() {
         </nav>
         <main className="card min-w-0 p-5 sm:p-8">
           {q.isLoading && <FormSkeleton fields={5} />}
-          {data && active === 'business' && <BusinessStep />}
+          {data && active === 'business' && <BusinessStep onLeave={() => setAskOut(true)} />}
           {data && active === 'details' && <DetailsStep onDone={next} />}
           {data && active === 'products' && <ProductsStep onDone={next} onBack={() => go('details')} />}
           {data && active === 'whatsapp' && <WhatsAppStep onDone={next} onBack={back} />}
@@ -353,6 +352,7 @@ export default function Onboarding() {
           {data && active === 'live' && <LiveStep data={data} onBack={back} goto={go} />}
         </main>
       </div>
+      <SignOutConfirm open={askOut} onClose={() => setAskOut(false)} onConfirm={leave} />
     </div>
   )
 }

@@ -20,7 +20,14 @@ export function ViewToggle({ value, onChange }: { value: View; onChange: (v: Vie
 
 /** Ticks are hidden until you ask for them: "Select" turns selection on, "Done" turns it off and forgets the ticks. */
 export function SelectToggle({ selecting, onToggle }: { selecting: boolean; onToggle: () => void }) {
-  return <button type="button" className={cx('btn btn-sm', selecting ? 'btn-primary' : 'btn-outline')} aria-pressed={selecting} onClick={onToggle}><CheckSquare className="h-4 w-4" /> {selecting ? tr('Done') : tr('Select')}</button>
+  return (
+    <div className="inline-flex rounded-xl bg-surface2 p-1">
+      <button type="button" aria-pressed={selecting} onClick={onToggle}
+        className={cx('seg-btn inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition', selecting ? 'bg-brand text-white shadow-card' : 'text-muted hover:text-ink')}>
+        <CheckSquare className="h-4 w-4" />{selecting ? tr('Done') : tr('Select')}
+      </button>
+    </div>
+  )
 }
 
 /** A tick box that is easy to hit on a phone and never opens the item underneath it. */

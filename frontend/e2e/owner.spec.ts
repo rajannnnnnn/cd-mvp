@@ -102,12 +102,15 @@ test.describe('owner app', () => {
 
   test('settings: shop details save and the assistant tab has no reply-speed control', async ({ page }) => {
     await page.goto(`${SHOP}/settings`)
+    await expect(page.getByRole('button', { name: 'Save changes' })).toHaveCount(0)                   // the shop opens as a read-only view
+    await page.getByRole('button', { name: 'More actions for your shop details' }).first().click()    // Edit lives in the three-dot menu
+    await page.getByRole('menuitem', { name: 'Edit' }).click()
     const save = page.getByRole('button', { name: 'Save changes' }).first()
     await expect(save).toBeDisabled()                                                              // nothing changed yet: nothing to save
     await page.getByLabel('Shop phone').fill(`+91 99999 000${10 + Math.floor(Math.random() * 80)}`)
     await expect(save).toBeEnabled()
     await save.click()
-    await expect(save).toBeDisabled()                                                              // saved: quiet again until the next change
+    await expect(page.getByRole('button', { name: 'Save changes' })).toHaveCount(0)                   // saved: back to the view
     await page.getByRole('tab', { name: 'Assistant' }).click()                                      // my voice lives under Assistant, not in a tab of its own
     await expect(page.getByRole('tab', { name: /Speed|My voice/ })).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Reply speed' })).toHaveCount(0)               // owners no longer tune pacing; the assistant uses its natural default
