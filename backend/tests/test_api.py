@@ -463,3 +463,15 @@ async def test_the_assistant_switch_belongs_to_the_platform_team_not_the_shop(wo
     assert (await client.get(f"{V1}/business", headers=hdr(tok))).json()["ai_enabled"] is False
     assert (await set_ai(client, op, shop.business_id, True)).status_code == 204
     assert (await client.get(f"{V1}/business", headers=hdr(tok))).json()["ai_enabled"] is True
+
+
+async def test_only_the_owner_signs_other_devices_out(world, client):
+    shop, tok = await owner(world, client)
+    assert (await client.post(f"{V1}/team", headers=hdr(tok), json={"phone": "+919876500003", "name": "Raju", "role": "staff"})).status_code == 201
+    staff = await login(client, "+919876500003")
+    await login(client, "+919876500003")                                              # a second device of the same team member
+    other = next(d for d in (await client.get(f"{V1}/auth/sessions", headers=hdr(staff))).json() if not d["current"])
+    assert (await client.delete(f"{V1}/auth/sessions/{other['id']}", headers=hdr(staff))).status_code == 403   # staff cannot sign devices out
+    owner2 = await login(client, shop.owner_phone)                                    # the owner has two devices now
+    spare = next(d for d in (await client.get(f"{V1}/auth/sessions", headers=hdr(owner2))).json() if not d["current"])
+    assert (await client.delete(f"{V1}/auth/sessions/{spare['id']}", headers=hdr(owner2))).status_code == 204  # the owner can

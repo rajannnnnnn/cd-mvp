@@ -1,13 +1,13 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BellRing, Building2, LifeBuoy, Mic2, Laptop, Phone, Plus, ShieldCheck, Sliders, Smartphone, Trash2, Users, X } from 'lucide-react'
+import { BellRing, Building2, Check, Copy, LifeBuoy, Lock, Mic2, Laptop, Phone, Plus, ShieldCheck, Sliders, Smartphone, Trash2, Users, X } from 'lucide-react'
 import { api, ok, type Schemas } from '@/api/client'
 import { useAuth } from '@/auth/AuthProvider'
 import { useBusiness, usePublicConfig } from '@/api/hooks'
 import { startEmbeddedSignup } from './signup'
 import { useT } from '@/i18n'
 import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, Modal, RequiredNote, Segmented, Skeleton, Spinner, Switch, useToast } from '@/ui'
-import { ago, phone as fmtPhone } from '@/lib/format'
+import { ago, cx, phone as fmtPhone } from '@/lib/format'
 import { PhoneInput } from '@/ui/inputs'
 import { isPhone, toE164 } from '@/lib/phone'
 import { tr } from '@/i18n/tr'
@@ -26,6 +26,27 @@ const DAYS = [['mon', 'Monday'], ['tue', 'Tuesday'], ['wed', 'Wednesday'], ['thu
 function Section({ title, sub, children, footer }: { title: string; sub?: string; children: ReactNode; footer?: ReactNode }) {
   return <section className="card"><div className="border-b border-line/60 px-5 py-4"><h2 className="font-display text-lg font-bold">{title}</h2>{sub && <p className="text-[13.5px] text-muted">{sub}</p>}</div><div className="space-y-4 px-5 py-5">{children}</div>{footer && <div className="flex justify-end gap-2 border-t border-line/60 px-5 py-3.5">{footer}</div>}</section>
 }
+/** "Is there anything to save?": compares the form with how it looked when it was loaded or last saved. */
+function useBaseline(values: unknown) {
+  const now = JSON.stringify(values)
+  const [base, setBase] = useState(now)
+  return { dirty: now !== base, commit: () => setBase(now) }
+}
+/** Green and clickable only when something changed; otherwise a quiet "Saved". */
+function SaveButton({ dirty, busy, disabled, onClick, label }: { dirty: boolean; busy: boolean; disabled?: boolean; onClick: () => void; label: string }) {
+  return (
+    <button className={cx('btn', dirty || busy ? 'btn-primary' : 'btn-soft')} disabled={!dirty || busy || disabled} onClick={onClick}>
+      {busy ? <Spinner /> : !dirty && <Check className="h-4 w-4" />} {dirty || busy ? label : tr('Saved')}
+    </button>
+  )
+}
+/** The shop's full link as one piece, with a copy button. */
+function CopyLink({ url }: { url: string }) {
+  const toast = useToast()
+  const copy = async () => { try { await navigator.clipboard.writeText(url); toast(tr('Link copied')) } catch { toast(tr('Could not copy the link'), 'error') } }
+  return <button type="button" className="btn btn-ghost btn-icon shrink-0" onClick={copy} aria-label={tr('Copy link')} title={tr('Copy link')}><Copy className="h-4 w-4" /></button>
+}
+
 function useSaveBusiness() {
   const qc = useQueryClient(); const toast = useToast()
   return useMutation({
@@ -49,6 +70,46 @@ function parseHours(h: unknown): Record<string, { open: boolean; from: string; t
   const o = (h && typeof h === 'object' ? h : {}) as Record<string, string>
   return Object.fromEntries(DAYS.map(([k]) => { const v = o[k] ?? '10:00-20:00'; const m = /^(\d\d:\d\d)-(\d\d:\d\d)$/.exec(v); return [k, { open: v !== 'closed' && !!m, from: m?.[1] ?? '10:00', to: m?.[2] ?? '20:00' }] }))
 }
+type DayHours = Record<string, { open: boolean; from: string; to: string }>
+const PRESETS: { label: string; open: readonly string[] }[] = [
+  { label: 'Every day', open: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] },
+  { label: 'Mon–Sat', open: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'] },
+  { label: 'Mon–Fri', open: ['mon', 'tue', 'wed', 'thu', 'fri'] },
+]
+/** Opening hours: presets for the common week, steady rows (a closed day dims instead of changing shape), and copy-to-all. */
+function HoursEditor({ hours, setHours, errs, canEdit }: { hours: DayHours; setHours: (f: (h: DayHours) => DayHours) => void; errs: Record<string, string | undefined>; canEdit: boolean }) {
+  const set = (k: string, patch: Partial<DayHours[string]>) => setHours((h) => ({ ...h, [k]: { ...h[k], ...patch } }))
+  const firstOpen = DAYS.map(([k]) => hours[k]).find((d) => d.open) ?? hours.mon
+  const usePreset = (open: readonly string[]) => setHours((h) => Object.fromEntries(DAYS.map(([k]) => [k, { ...h[k], open: open.includes(k), ...(open.includes(k) ? { from: firstOpen.from, to: firstOpen.to } : {}) }])) as DayHours)
+  const copyToAll = (k: string) => setHours((h) => Object.fromEntries(DAYS.map(([d]) => [d, h[d].open ? { ...h[d], from: h[k].from, to: h[k].to } : h[d]])) as DayHours)
+  const same = DAYS.every(([k]) => !hours[k].open || (hours[k].from === firstOpen.from && hours[k].to === firstOpen.to))
+  return (
+    <div>
+      {canEdit && <div className="mb-3 flex flex-wrap items-center gap-2"><span className="text-[13px] font-semibold text-muted">{tr('Quick set')}</span>{PRESETS.map((p) => <button key={p.label} type="button" className="chip" onClick={() => usePreset(p.open)}>{tr(p.label)}</button>)}</div>}
+      <ul className="divide-y divide-line/60">
+        {DAYS.map(([k, label]) => {
+          const d = hours[k]
+          return (
+            <li key={k} className="py-3">
+              <div className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 sm:grid-cols-[112px_auto_1fr_auto]">
+                <div className={cx('text-sm font-semibold transition-colors', !d.open && 'text-muted')}>{tr(label)}</div>
+                <Switch checked={d.open} onChange={(v) => set(k, { open: v })} label={tr('{label} open', { label })} disabled={!canEdit} />
+                <div className={cx('col-span-2 flex items-center gap-2 transition-opacity duration-200 sm:col-span-1', !d.open && 'pointer-events-none opacity-40')} aria-hidden={!d.open}>
+                  <input type="time" className="input min-w-0 flex-1 sm:!w-[132px] sm:flex-none" value={d.from} disabled={!canEdit || !d.open} aria-label={tr('{label} opens', { label })} onChange={(e) => set(k, { from: e.target.value })} />
+                  <span className="text-muted">{tr('to')}</span>
+                  <input type="time" className="input min-w-0 flex-1 sm:!w-[132px] sm:flex-none" value={d.to} disabled={!canEdit || !d.open} aria-label={tr('{label} closes', { label })} onChange={(e) => set(k, { to: e.target.value })} />
+                </div>
+                <div className="hidden w-9 justify-end sm:flex">{canEdit && d.open && !same && <button type="button" className="btn btn-ghost btn-icon" title={tr('Use these times on every open day')} aria-label={tr('Use {label} times on every open day', { label })} onClick={() => copyToAll(k)}><Copy className="h-4 w-4" /></button>}</div>
+              </div>
+              {!d.open && <div className="mt-1 text-[13px] text-muted">{tr('Closed')}</div>}
+              {errs[k] && <p role="alert" className="mt-1.5 text-sm font-medium text-danger">{errs[k]}</p>}
+            </li>)
+        })}
+      </ul>
+    </div>
+  )
+}
+
 function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }) {
   const p = b.profile as any
   const [address, setAddress] = useState<string>(p.address ?? '')
@@ -60,6 +121,7 @@ function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }
   const [facts, setFacts] = useState<string[]>(p.facts ?? [])
   const [hours, setHours] = useState(() => parseHours(p.hours))
   const save = useSaveBusiness()
+  const bl = useBaseline({ address, shopPhone, delivery, returns, pay, areas, facts, hours })
   const [tried, setTried] = useState(false)
   const shopForm = useRef<HTMLDivElement>(null)
   // an open day needs both times, and it must close after it opens
@@ -72,13 +134,13 @@ function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }
   }
   const send = () => save.mutate({
     profile: { address, phone: shopPhone, delivery, returns, payment_modes: pay, delivery_areas: areas, facts, hours: Object.fromEntries(DAYS.map(([k]) => [k, hours[k].open ? `${hours[k].from}-${hours[k].to}` : 'closed'])) },
-  })
+  }, { onSuccess: bl.commit })
   return (
     <div className="space-y-5">
-      <Section title={tr('Your shop')} sub={tr('The assistant only states facts that are written here or in your products.')} footer={canEdit && <button className="btn btn-primary" disabled={save.isPending} onClick={submit}>{save.isPending && <Spinner />} {tr('Save changes')}</button>}>
+      <Section title={tr('Your shop')} sub={tr('The assistant only states facts that are written here or in your products.')} footer={canEdit && <SaveButton dirty={bl.dirty} busy={save.isPending} onClick={submit} label={tr('Save changes')} />}>
         <div className="grid gap-4 sm:grid-cols-2" ref={shopForm}>
-          <Field label={tr('Shop name')} hint={tr('To change your shop name or web address, contact support.')}><div className="flex min-h-[44px] items-center rounded-xl border border-line bg-surface2/60 px-3.5 text-sm font-semibold">{b.name}</div></Field>
-          <Field label={tr('Your web address')} hint={tr('Where you sign in to your shop.')}><div className="flex min-h-[44px] items-center break-all rounded-xl border border-line bg-surface2/60 px-3.5 text-sm text-muted">{window.location.host}/app/<b className="text-ink">{b.slug}</b></div></Field>
+          <Field label={tr('Shop name')} hint={tr('To change your shop name or web address, contact support.')}><p className="flex items-center gap-2 py-1 text-[15px] font-semibold">{b.name}<Lock className="h-3.5 w-3.5 shrink-0 text-muted" aria-label={tr('Cannot be changed here')} /></p></Field>
+          <Field label={tr('Your web address')} hint={tr('Where you sign in to your shop. To change it, contact support.')}><div className="flex items-center gap-1 py-0.5"><p className="min-w-0 flex-1 break-all text-[15px] font-semibold">{window.location.origin}/app/{b.slug}</p><Lock className="h-3.5 w-3.5 shrink-0 text-muted" aria-label={tr('Cannot be changed here')} /><CopyLink url={`${window.location.origin}/app/${b.slug}`} /></div></Field>
           <Field label={tr('Shop phone')} hint={tr('Shown to customers who ask')}><PhoneInput value={shopPhone} onChange={setShopPhone} disabled={!canEdit} /></Field>
         </div>
         <Field label={tr('Address')}><textarea maxLength={500} className="textarea min-h-[70px]" value={address} onChange={(e) => setAddress(e.target.value)} disabled={!canEdit} /></Field>
@@ -93,17 +155,8 @@ function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }
         <Field label={tr('Things customers often ask')} hint={tr('One fact at a time, in plain words')}><Chips values={facts} onChange={setFacts} placeholder={tr('Add a fact about your shop')} disabled={!canEdit} /></Field>
       </Section>
       <Section title={tr('Opening hours')} sub={tr('Used for “are you open?” answers and for the after-hours behaviour you choose in Assistant settings.')}>
-        <div className="divide-y divide-line/60">
-          {DAYS.map(([k, label]) => (
-            <div key={k} className="flex flex-wrap items-center gap-3 py-2.5">
-              <div className="w-28 text-sm font-semibold">{label}</div>
-              <Switch checked={hours[k].open} onChange={(v) => setHours((h) => ({ ...h, [k]: { ...h[k], open: v } }))} label={tr('{label} open', { label })} disabled={!canEdit} />
-              {hours[k].open ? <div className="flex items-center gap-2"><input type="time" className="input !w-[130px]" value={hours[k].from} disabled={!canEdit} onChange={(e) => setHours((h) => ({ ...h, [k]: { ...h[k], from: e.target.value } }))} /><span className="text-muted">{tr('to')}</span><input type="time" className="input !w-[130px]" value={hours[k].to} disabled={!canEdit} onChange={(e) => setHours((h) => ({ ...h, [k]: { ...h[k], to: e.target.value } }))} /></div> : <span className="text-sm text-muted">{tr('Closed')}</span>}
-              {hoursErr[k] && <span role="alert" className="text-sm font-medium text-danger">{hoursErr[k]}</span>}
-            </div>
-          ))}
-        </div>
-        {canEdit && <div className="flex justify-end"><button className="btn btn-primary" disabled={save.isPending || hoursBad} onClick={submit}>{save.isPending && <Spinner />} {tr('Save hours')}</button></div>}
+        <HoursEditor hours={hours} setHours={setHours} errs={hoursErr} canEdit={canEdit} />
+        {canEdit && <div className="flex justify-end"><SaveButton dirty={bl.dirty} busy={save.isPending} disabled={hoursBad} onClick={submit} label={tr('Save hours')} /></div>}
       </Section>
     </div>
   )
@@ -128,12 +181,14 @@ function AssistantTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: bool
   const [nudge, setNudge] = useState<string>(String(c.nudge_after_minutes ?? 240))
   const [hour, setHour] = useState<string>(String(c.daily_summary_hour ?? 21))
   const save = useSaveBusiness()
+  const sellBl = useBaseline({ honorific, lang, pro, offers, thr })
+  const stepBl = useBaseline({ hb, pause, nudge, hour })
   const pauseErr = +pause >= 1 && +pause <= 1440 ? undefined : tr('Enter 1 to 1440 minutes')
   const nudgeErr = +nudge >= 30 && +nudge <= 1380 ? undefined : tr('Enter 30 to 1380 minutes')
   return (
     <div className="space-y-5">
       <TrySection />
-      <Section title={tr('Selling style')} footer={canEdit && <button className="btn btn-primary" disabled={save.isPending} onClick={() => save.mutate({ sales_settings: { honorific: honorific.trim() || null, language_default: lang as any, proactiveness: pro as any, may_mention_offers: offers, handoff_value_threshold: thr || null } })}>{save.isPending && <Spinner />} {tr('Save')}</button>}>
+      <Section title={tr('Selling style')} footer={canEdit && <SaveButton dirty={sellBl.dirty} busy={save.isPending} onClick={() => save.mutate({ sales_settings: { honorific: honorific.trim() || null, language_default: lang as any, proactiveness: pro as any, may_mention_offers: offers, handoff_value_threshold: thr || null } }, { onSuccess: sellBl.commit })} label={tr('Save')} />}>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={tr('How should the assistant address customers?')} hint={tr('Added after their name, e.g. “ji”')}><input maxLength={12} className="input" value={honorific} onChange={(e) => setHonorific(e.target.value)} disabled={!canEdit} placeholder={tr('Word to add after their name')} /></Field>
           <Field label={tr('Default language')}><select className="select" value={lang} onChange={(e) => setLang(e.target.value)} disabled={!canEdit}><option value="en">{tr('English')}</option><option value="hi">हिन्दी</option><option value="hinglish">{tr('Hinglish')}</option></select><p className="mt-1 text-[12px] text-muted">{tr('The assistant still follows the customer’s own language.')}</p></Field>
@@ -142,7 +197,7 @@ function AssistantTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: bool
         <label className="flex items-center justify-between gap-4 rounded-xl border border-line px-3.5 py-3"><span><span className="block text-sm font-bold">{tr('Mention offers')}</span><span className="block text-[13px] text-muted">{tr('Let the assistant bring up your active offers.')}</span></span><Switch checked={offers} onChange={setOffers} label={tr('Mention offers')} disabled={!canEdit} /></label>
         <Field label={tr('Bring me in for orders above (₹)')} hint={tr('High-value orders pause the assistant so you can close them yourself')}><input className="input sm:max-w-xs" inputMode="numeric" value={thr} onChange={(e) => setThr(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 9))} disabled={!canEdit} placeholder={tr('Amount in ₹')} /></Field>
       </Section>
-      <Section title={tr('When you step in')} footer={canEdit && <button className="btn btn-primary" disabled={save.isPending || !!pauseErr || !!nudgeErr} onClick={() => save.mutate({ conversation_settings: { business_hours_behavior: hb as any, owner_pause_minutes: +pause, nudge_after_minutes: +nudge, daily_summary_hour: +hour } })}>{save.isPending && <Spinner />} {tr('Save')}</button>}>
+      <Section title={tr('When you step in')} footer={canEdit && <SaveButton dirty={stepBl.dirty} busy={save.isPending} disabled={!!pauseErr || !!nudgeErr} onClick={() => save.mutate({ conversation_settings: { business_hours_behavior: hb as any, owner_pause_minutes: +pause, nudge_after_minutes: +nudge, daily_summary_hour: +hour } }, { onSuccess: stepBl.commit })} label={tr('Save')} />}>
         <Field label={tr('Outside opening hours')}><select className="select sm:max-w-sm" value={hb} onChange={(e) => setHb(e.target.value)} disabled={!canEdit}><option value="reply_normally">{tr('Reply normally')}</option><option value="slower">{tr('Reply a little slower')}</option><option value="wait_for_open">{tr('Wait until we open')}</option></select></Field>
         <div className="grid gap-4 sm:grid-cols-3">
           <Field label={tr('Pause the AI after I reply (minutes)')} hint={tr('So we never talk over each other')} error={pauseErr}><input className="input" inputMode="numeric" value={pause} onChange={(e) => setPause(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 4))} disabled={!canEdit} /></Field>
@@ -230,10 +285,12 @@ function NumbersTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolea
 /* ------------------------------------------------------------------ Devices */
 function DevicesTab() {
   const toast = useToast(); const qc = useQueryClient()
+  const { role } = useAuth()
+  const canSignOut = role !== 'staff'                                   // only the shop owner signs other devices out
   const q = useQuery({ queryKey: ['sessions'], queryFn: () => ok(api.GET('/api/v1/auth/sessions')) })
   const revoke = useMutation({ mutationFn: (id: string) => ok(api.DELETE('/api/v1/auth/sessions/{family_id}', { params: { path: { family_id: id } } })), onSuccess: () => { qc.invalidateQueries({ queryKey: ['sessions'] }); toast(tr('Signed out')) } })
   return (
-    <Section title={tr('Where you’re signed in')} sub={tr('Sign out any device you don’t recognise. Signing in always needs a code sent to your WhatsApp.')}>
+    <Section title={tr('Where you’re signed in')} sub={canSignOut ? tr('Sign out any device you don’t recognise. Signing in always needs a code sent to your WhatsApp.') : tr('Only the shop owner can sign other devices out. Signing in always needs a code sent to your WhatsApp.')}>
       {q.error && <ErrorNote error={q.error} retry={() => q.refetch()} />}
       {q.isLoading && <Skeleton className="h-24" />}
       <div className="divide-y divide-line/60">
@@ -241,7 +298,7 @@ function DevicesTab() {
           <div key={d.id} className="flex items-center gap-3 py-3">
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-surface2 text-muted">{/mobile|android|iphone/i.test(d.device ?? '') ? <Smartphone className="h-5 w-5" /> : <Laptop className="h-5 w-5" />}</span>
             <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{d.device ?? tr('Unknown device')}{d.current && <Badge tone="green">{tr('This device')}</Badge>}</div><div className="text-[13px] text-muted">{d.ip ?? ''} {tr('· signed in')} {ago(d.signed_in_at as string)}</div></div>
-            {!d.current && <button className="btn btn-outline btn-sm" disabled={revoke.isPending} onClick={() => revoke.mutate(d.id)}>{tr('Sign out')}</button>}
+            {!d.current && canSignOut && <button className="btn btn-outline btn-sm" disabled={revoke.isPending} onClick={() => revoke.mutate(d.id)}>{tr('Sign out')}</button>}
           </div>
         ))}
       </div>

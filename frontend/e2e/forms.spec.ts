@@ -98,7 +98,8 @@ test.describe('prices and mandatory fields', () => {
 
     await page.goto(`${SHOP}/settings`)
     // the shop name and web address are shown, not editable (changing them goes through support)
-    await expect(page.getByText('To change your shop name or web address, contact support.')).toBeVisible()
+    await page.getByRole('button', { name: 'More about Shop name' }).click()                 // the explanation is behind the (i) button
+    await expect(page.getByRole('note')).toContainText('contact support')
     await expect(page.getByLabel('Shop name')).toHaveCount(0)
     await expect(page.getByLabel('Your web address')).toHaveCount(0)
 

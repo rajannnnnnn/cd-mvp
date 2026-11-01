@@ -56,6 +56,29 @@ export function useFieldProps(): Record<string, unknown> {
 
 /** A labelled form field. `required` adds the red asterisk; `error` shows the message under the control and outlines it.
  *  Children: a plain input, select or textarea, or a component marked `fieldControl` (it reads useFieldProps). */
+/** An (i) button: the explanation opens in a small popup instead of sitting under the field. Closes on outside tap, Escape or a second tap. */
+export function InfoTip({ text, label }: { text: string; label?: string }) {
+  const [open, setOpen] = useState(false)
+  const root = useRef<HTMLSpanElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const away = (e: Event) => { if (!root.current?.contains(e.target as Node)) setOpen(false) }
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('pointerdown', away); document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', esc) }
+  }, [open])
+  return (
+    <span ref={root} className="relative inline-flex align-middle">
+      <button type="button" aria-label={label ?? tr('More information')} aria-expanded={open} onClick={() => setOpen((o) => !o)}
+        className="grid h-6 w-6 place-items-center rounded-full text-muted transition hover:bg-surface2 hover:text-ink"><Info className="h-4 w-4" /></button>
+      {open && <span role="note" className="absolute left-0 top-full z-30 mt-1.5 w-[min(280px,80vw)] rounded-xl border border-line bg-surface p-3 text-left text-[13px] font-normal normal-case leading-relaxed text-ink shadow-pop">{text}</span>}
+    </span>
+  )
+}
+
+/** Short tags such as "Optional" or "Private" stay next to the field; longer explanations go behind the (i) button. */
+const SHORT_HINT = 20
+
 export function Field({ label, hint, error, required, children, className }: { label?: string; hint?: string; error?: string | null; required?: boolean; children: ReactNode; className?: string }) {
   const id = useId()
   // A single form control gets the label as its accessible name; composite content is a labelled group.
@@ -63,14 +86,15 @@ export function Field({ label, hint, error, required, children, className }: { l
   const custom = isValidElement(children) && typeof children.type !== 'string' && (children.type as { fieldControl?: boolean }).fieldControl === true
   const control = host || custom
   const described = error ? `${id}-err` : hint ? `${id}-hint` : undefined
+  const tip = !!hint && !!label && hint.length > SHORT_HINT       // the explanation sits behind (i); the text stays in the page for screen readers
   const ctx: FieldCtx = { id, described, invalid: !!error, required: !!required }
   return (
     <div className={className}>
-      {label && <label className="field-label" id={`${id}-label`} htmlFor={control ? id : undefined}>{label}{required && <span aria-hidden="true" className="ml-0.5 font-bold text-danger"> *</span>}</label>}
+      {label && <div className="mb-1.5 flex items-center gap-1"><label className="field-label !mb-0" id={`${id}-label`} htmlFor={control ? id : undefined}>{label}{required && <span aria-hidden="true" className="ml-0.5 font-bold text-danger"> *</span>}</label>{tip && <InfoTip text={hint!} label={tr('More about {name}', { name: label })} />}</div>}
       {host ? cloneElement(children as ReactElement<any>, { id, 'aria-describedby': described, 'aria-invalid': error ? true : undefined, 'aria-required': required || undefined })
         : custom ? <FieldContext.Provider value={ctx}>{children}</FieldContext.Provider>
         : <div role="group" aria-labelledby={label ? `${id}-label` : undefined} aria-required={required || undefined}>{children}</div>}
-      {error ? <p id={`${id}-err`} role="alert" className="mt-1 text-xs font-medium text-danger">{error}</p> : hint ? <p id={`${id}-hint`} className="field-hint">{hint}</p> : null}
+      {error ? <p id={`${id}-err`} role="alert" className="mt-1 text-xs font-medium text-danger">{error}</p> : hint ? <p id={`${id}-hint`} className={tip ? 'sr-only' : 'field-hint'}>{hint}</p> : null}
     </div>
   )
 }

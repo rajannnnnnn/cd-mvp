@@ -142,5 +142,7 @@ async def sessions(rt: RT, p: Any_) -> Any:
 
 @router.delete("/sessions/{family_id}", status_code=204)
 async def revoke_session(family_id: uuid.UUID, rt: RT, p: Any_) -> None:
+    if p.role == "staff":
+        raise ApiError(403, "forbidden", "Only the shop owner can sign out other devices.")
     if not await rt.auth.revoke_family(p, family_id):
         raise ApiError(404, "not_found", "That device was not found.")
