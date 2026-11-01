@@ -103,7 +103,7 @@ test.describe('prices and mandatory fields', () => {
     await expect(page.getByLabel('Shop name')).toHaveCount(0)
     await expect(page.getByLabel('Your web address')).toHaveCount(0)
 
-    await page.getByRole('tab', { name: 'Team' }).click()
+    await page.getByRole('tab', { name: 'People' }).click()
     await page.getByRole('button', { name: /Add (a )?team member|Add member|Add someone/ }).first().click()
     const dialog = page.getByRole('dialog')
     await expect(star(dialog, 'Name')).toContainText('*')

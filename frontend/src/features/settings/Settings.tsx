@@ -6,7 +6,7 @@ import { useAuth } from '@/auth/AuthProvider'
 import { useBusiness, usePublicConfig } from '@/api/hooks'
 import { startEmbeddedSignup } from './signup'
 import { useT } from '@/i18n'
-import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, KebabMenu, Modal, RequiredNote, Segmented, Skeleton, Spinner, Switch, useToast } from '@/ui'
+import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, InfoTip, KebabMenu, Modal, RequiredNote, Segmented, Skeleton, Spinner, Switch, useToast } from '@/ui'
 import { ago, cx, phone as fmtPhone } from '@/lib/format'
 import { PhoneInput } from '@/ui/inputs'
 import { isPhone, toE164 } from '@/lib/phone'
@@ -44,9 +44,6 @@ function CopyLink({ url }: { url: string }) {
   return <button type="button" className="btn btn-ghost btn-icon shrink-0" onClick={copy} aria-label={tr('Copy link')} title={tr('Copy link')}><Copy className="h-4 w-4" /></button>
 }
 
-/** Read-only text for the view mode. */
-const Val = ({ children }: { children?: ReactNode }) => (children ? <div className="whitespace-pre-line break-words text-[15px]">{children}</div> : <div className="text-[15px] text-muted">{tr('Not set')}</div>)
-const ChipList = ({ items }: { items: string[] }) => (items.length ? <div className="flex flex-wrap gap-2">{items.map((v) => <span key={v} className="rounded-full bg-surface2 px-3 py-1 text-sm font-medium">{v}</span>)}</div> : <Val />)
 const time12 = (v: string) => { const [h, m] = v.split(':').map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}` }
 
 function useSaveBusiness() {
@@ -112,64 +109,103 @@ function HoursEditor({ hours, setHours, errs, canEdit }: { hours: DayHours; setH
   )
 }
 
+/** One line of the read-only shop details: the label on the left, the value on the right (stacked on a phone). */
+function Row({ label, tip, children }: { label: string; tip?: string; children?: ReactNode }) {
+  return (
+    <div className="grid gap-1 py-3.5 sm:grid-cols-[190px_minmax(0,1fr)] sm:gap-4">
+      <dt className="flex items-center gap-1 text-[13.5px] font-medium text-muted">{label}{tip && <InfoTip text={tip} label={tr('More about {name}', { name: label })} />}</dt>
+      <dd className="min-w-0 text-[15px]">{children}</dd>
+    </div>
+  )
+}
+/** "Mon–Sat 7:00 AM – 10:00 PM", "Sun Closed": days next to each other with the same hours are shown once. */
+function groupHours(hours: DayHours) {
+  const groups: { days: string[]; text: string; open: boolean }[] = []
+  for (const [k, label] of DAYS) {
+    const d = hours[k]; const text = d.open ? `${time12(d.from)} – ${time12(d.to)}` : tr('Closed')
+    const last = groups[groups.length - 1]
+    if (last && last.text === text) last.days.push(label); else groups.push({ days: [label], text, open: d.open })
+  }
+  const short = (n: string) => tr(n).slice(0, 3)
+  return groups.map((g) => ({ label: g.days.length === 7 ? tr('Every day') : g.days.length > 1 ? `${short(g.days[0])}–${short(g.days[g.days.length - 1])}` : tr(g.days[0]), text: g.text, open: g.open }))
+}
+
 function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }) {
   const p = b.profile as any
-  type ShopForm = { address: string; shopPhone: string; delivery: string; returns: string; pay: string[]; areas: string[]; facts: string[]; hours: ReturnType<typeof parseHours> }
-  const fromServer = (): ShopForm => ({ address: p.address ?? '', shopPhone: p.phone ?? '', delivery: p.delivery ?? '', returns: p.returns ?? '', pay: p.payment_modes ?? [], areas: p.delivery_areas ?? [], facts: p.facts ?? [], hours: parseHours(p.hours) })
-  const [kept, setKept] = useDraft<ShopForm | null>(canEdit ? 'settings.shop' : null, null)        // an edit that was not saved is picked up again
-  const [address, setAddress] = useState<string>(kept?.address ?? p.address ?? '')
-  const [shopPhone, setShopPhone] = useState<string>(kept?.shopPhone ?? p.phone ?? '')
-  const [delivery, setDelivery] = useState<string>(kept?.delivery ?? p.delivery ?? '')
-  const [returns, setReturns] = useState<string>(kept?.returns ?? p.returns ?? '')
-  const [pay, setPay] = useState<string[]>(kept?.pay ?? p.payment_modes ?? [])
-  const [areas, setAreas] = useState<string[]>(kept?.areas ?? p.delivery_areas ?? [])
-  const [facts, setFacts] = useState<string[]>(kept?.facts ?? p.facts ?? [])
-  const [hours, setHours] = useState(() => kept?.hours ?? parseHours(p.hours))
-  const [editing, setEditing] = useState(!!kept && canEdit)
+  type ShopForm = { address: string; shopPhone: string; delivery: string; returns: string; pay: string[]; areas: string[]; facts: string[] }
+  const shopFromServer = (): ShopForm => ({ address: p.address ?? '', shopPhone: p.phone ?? '', delivery: p.delivery ?? '', returns: p.returns ?? '', pay: p.payment_modes ?? [], areas: p.delivery_areas ?? [], facts: p.facts ?? [] })
+  const [keptShop, setKeptShop] = useDraft<ShopForm | null>(canEdit ? 'settings.shop' : null, null)          // an edit that was not saved is picked up again
+  const [keptHours, setKeptHours] = useDraft<DayHours | null>(canEdit ? 'settings.hours' : null, null)
+  const [address, setAddress] = useState<string>(keptShop?.address ?? p.address ?? '')
+  const [shopPhone, setShopPhone] = useState<string>(keptShop?.shopPhone ?? p.phone ?? '')
+  const [delivery, setDelivery] = useState<string>(keptShop?.delivery ?? p.delivery ?? '')
+  const [returns, setReturns] = useState<string>(keptShop?.returns ?? p.returns ?? '')
+  const [pay, setPay] = useState<string[]>(keptShop?.pay ?? p.payment_modes ?? [])
+  const [areas, setAreas] = useState<string[]>(keptShop?.areas ?? p.delivery_areas ?? [])
+  const [facts, setFacts] = useState<string[]>(keptShop?.facts ?? p.facts ?? [])
+  const [hours, setHours] = useState<DayHours>(() => keptHours ?? parseHours(p.hours))
+  const [editShop, setEditShop] = useState(!!keptShop && canEdit)
+  const [editHours, setEditHours] = useState(!!keptHours && canEdit)
   const save = useSaveBusiness()
-  const form: ShopForm = { address, shopPhone, delivery, returns, pay, areas, facts, hours }
-  const bl = useBaseline(form, fromServer())
-  const formKey = JSON.stringify(form)
-  useEffect(() => { setKept(editing && bl.dirty ? form : null) }, [editing, formKey])   // eslint-disable-line react-hooks/exhaustive-deps
-  const [tried, setTried] = useState(false)
-  const cancel = () => { setAddress(p.address ?? ''); setShopPhone(p.phone ?? ''); setDelivery(p.delivery ?? ''); setReturns(p.returns ?? ''); setPay(p.payment_modes ?? []); setAreas(p.delivery_areas ?? []); setFacts(p.facts ?? []); setHours(parseHours(p.hours)); setTried(false); setEditing(false) }
-  const menu = canEdit && !editing ? <KebabMenu label={tr('More actions for your shop details')} items={[{ label: tr('Edit'), icon: <Pencil className="h-4 w-4" />, onClick: () => setEditing(true) }]} /> : undefined
-  const shopForm = useRef<HTMLDivElement>(null)
+  const form: ShopForm = { address, shopPhone, delivery, returns, pay, areas, facts }
+  const shopBl = useBaseline(form, shopFromServer())
+  const hoursBl = useBaseline(hours, parseHours(p.hours))
+  const formKey = JSON.stringify(form); const hoursKey = JSON.stringify(hours)
+  useEffect(() => { setKeptShop(editShop && shopBl.dirty ? form : null) }, [editShop, formKey])      // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setKeptHours(editHours && hoursBl.dirty ? hours : null) }, [editHours, hoursKey])  // eslint-disable-line react-hooks/exhaustive-deps
   // an open day needs both times, and it must close after it opens
   const hoursErr: Record<string, string | undefined> = Object.fromEntries(DAYS.map(([k]) => [k, !hours[k].open ? undefined : !hours[k].from || !hours[k].to ? tr('Set both times') : hours[k].to <= hours[k].from ? tr('Closing time must be after opening time') : undefined]))
   const hoursBad = Object.values(hoursErr).some(Boolean)
-  const submit = () => {
-    setTried(true)
-    if (hoursBad) return
-    send()
-  }
-  const send = () => save.mutate({
-    profile: { address, phone: shopPhone, delivery, returns, payment_modes: pay, delivery_areas: areas, facts, hours: Object.fromEntries(DAYS.map(([k]) => [k, hours[k].open ? `${hours[k].from}-${hours[k].to}` : 'closed'])) },
-  }, { onSuccess: () => { bl.commit(); setEditing(false) } })
-  const edit = canEdit && editing
+  const hoursPayload = (h: DayHours) => Object.fromEntries(DAYS.map(([k]) => [k, h[k].open ? `${h[k].from}-${h[k].to}` : 'closed']))
+  // each part saves on its own: the other part is sent as it is stored, so an unsaved edit in one never goes out with the other
+  const saveShop = () => save.mutate({ profile: { address, phone: shopPhone, delivery, returns, payment_modes: pay, delivery_areas: areas, facts, hours: p.hours ?? hoursPayload(parseHours(p.hours)) } }, { onSuccess: () => { shopBl.commit(); setEditShop(false) } })
+  const saveHours = () => { if (!hoursBad) save.mutate({ profile: { address: p.address ?? '', phone: p.phone ?? '', delivery: p.delivery ?? '', returns: p.returns ?? '', payment_modes: p.payment_modes ?? [], delivery_areas: p.delivery_areas ?? [], facts: p.facts ?? [], hours: hoursPayload(hours) } }, { onSuccess: () => { hoursBl.commit(); setEditHours(false) } }) }
+  const cancelShop = () => { const s0 = shopFromServer(); setAddress(s0.address); setShopPhone(s0.shopPhone); setDelivery(s0.delivery); setReturns(s0.returns); setPay(s0.pay); setAreas(s0.areas); setFacts(s0.facts); setEditShop(false) }
+  const cancelHours = () => { setHours(parseHours(p.hours)); setEditHours(false) }
+  const menu = (on: boolean, start: () => void, what: string) => (canEdit && !on ? <KebabMenu label={tr('More actions for {what}', { what })} items={[{ label: tr('Edit'), icon: <Pencil className="h-4 w-4" />, onClick: start }]} /> : undefined)
+  const url = `${window.location.origin}/app/${b.slug}`
+  const none = <span className="text-muted">{tr('Not added')}</span>
+  const chips = (items: string[]) => (items.length ? <div className="flex flex-wrap gap-2">{items.map((v) => <span key={v} className="rounded-full bg-surface2 px-3 py-1 text-sm font-medium">{v}</span>)}</div> : none)
   return (
     <div className="space-y-5">
-      <Section title={tr('Your shop')} sub={tr('The assistant only states facts that are written here or in your products.')} action={menu}>
-        <div className="grid gap-4 sm:grid-cols-2" ref={shopForm}>
-          <Field label={tr('Shop name')} hint={tr('To change your shop name or web address, contact support.')}><p className="flex items-center gap-2 py-1 text-[15px] font-semibold">{b.name}<Lock className="h-3.5 w-3.5 shrink-0 text-muted" aria-label={tr('Cannot be changed here')} /></p></Field>
-          <Field label={tr('Your web address')} hint={tr('Where you sign in to your shop. To change it, contact support.')}><div className="flex items-center gap-1 py-0.5"><p className="min-w-0 flex-1 break-all text-[15px] font-semibold">{window.location.origin}/app/{b.slug}</p><Lock className="h-3.5 w-3.5 shrink-0 text-muted" aria-label={tr('Cannot be changed here')} /><CopyLink url={`${window.location.origin}/app/${b.slug}`} /></div></Field>
-          <Field label={tr('Shop phone')} hint={edit ? tr('Shown to customers who ask') : undefined}>{edit ? <PhoneInput value={shopPhone} onChange={setShopPhone} /> : <Val>{shopPhone ? fmtPhone(shopPhone) : ''}</Val>}</Field>
-        </div>
-        <Field label={tr('Address')}>{edit ? <textarea maxLength={500} autoComplete="street-address" className="textarea min-h-[70px]" value={address} onChange={(e) => setAddress(e.target.value)} /> : <Val>{address}</Val>}</Field>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr('Delivery')}>{edit ? <textarea maxLength={1000} className="textarea min-h-[84px]" value={delivery} onChange={(e) => setDelivery(e.target.value)} placeholder={tr('Delivery details')} /> : <Val>{delivery}</Val>}</Field>
-          <Field label={tr('Returns & exchange')}>{edit ? <textarea maxLength={1500} className="textarea min-h-[84px]" value={returns} onChange={(e) => setReturns(e.target.value)} /> : <Val>{returns}</Val>}</Field>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={tr('Payment modes')}>{edit ? <Chips values={pay} onChange={setPay} placeholder={tr('Add a payment method')} /> : <ChipList items={pay} />}</Field>
-          <Field label={tr('Delivery areas')}>{edit ? <Chips values={areas} onChange={setAreas} placeholder={tr('Add a city or area')} /> : <ChipList items={areas} />}</Field>
-        </div>
-        <Field label={tr('Things customers often ask')} hint={edit ? tr('One fact at a time, in plain words') : undefined}>{edit ? <Chips values={facts} onChange={setFacts} placeholder={tr('Add a fact about your shop')} /> : <ChipList items={facts} />}</Field>
+      <Section title={tr('Your shop')} sub={tr('The assistant only states facts that are written here or in your products.')} action={menu(editShop, () => setEditShop(true), tr('your shop details'))}
+        footer={canEdit && editShop && <><button className="btn btn-outline" onClick={cancelShop} disabled={save.isPending}>{tr('Cancel')}</button><SaveButton dirty={shopBl.dirty} busy={save.isPending} onClick={saveShop} label={tr('Save changes')} /></>}>
+        {!editShop ? (
+          <dl className="-my-2 divide-y divide-line/60">
+            <Row label={tr('Shop name')} tip={tr('To change your shop name or web address, contact support.')}><span className="inline-flex items-center gap-2 font-semibold">{b.name}<Lock className="h-3.5 w-3.5 text-muted" aria-label={tr('Cannot be changed here')} /></span></Row>
+            <Row label={tr('Web address')} tip={tr('Where you sign in to your shop. To change it, contact support.')}><div className="flex items-center gap-1"><span className="min-w-0 break-all font-semibold">{url}</span><CopyLink url={url} /></div></Row>
+            <Row label={tr('Shop phone')}>{shopPhone ? fmtPhone(shopPhone) : none}</Row>
+            <Row label={tr('Address')}>{address ? <span className="whitespace-pre-line">{address}</span> : none}</Row>
+            <Row label={tr('Delivery')}>{delivery ? <span className="whitespace-pre-line">{delivery}</span> : none}</Row>
+            <Row label={tr('Returns & exchange')}>{returns ? <span className="whitespace-pre-line">{returns}</span> : none}</Row>
+            <Row label={tr('Payment modes')}>{chips(pay)}</Row>
+            <Row label={tr('Delivery areas')}>{chips(areas)}</Row>
+            <Row label={tr('Things customers often ask')}>{chips(facts)}</Row>
+          </dl>
+        ) : (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={tr('Shop name')} hint={tr('To change your shop name or web address, contact support.')}><p className="flex items-center gap-2 py-1 text-[15px] font-semibold">{b.name}<Lock className="h-3.5 w-3.5 shrink-0 text-muted" aria-label={tr('Cannot be changed here')} /></p></Field>
+              <Field label={tr('Web address')} hint={tr('Where you sign in to your shop. To change it, contact support.')}><div className="flex items-center gap-1 py-0.5"><p className="min-w-0 flex-1 break-all text-[15px] font-semibold">{url}</p><Lock className="h-3.5 w-3.5 shrink-0 text-muted" aria-label={tr('Cannot be changed here')} /></div></Field>
+              <Field label={tr('Shop phone')} hint={tr('Shown to customers who ask')}><PhoneInput value={shopPhone} onChange={setShopPhone} /></Field>
+            </div>
+            <Field label={tr('Address')}><textarea maxLength={500} autoComplete="street-address" className="textarea min-h-[70px]" value={address} onChange={(e) => setAddress(e.target.value)} /></Field>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={tr('Delivery')}><textarea maxLength={1000} className="textarea min-h-[84px]" value={delivery} onChange={(e) => setDelivery(e.target.value)} placeholder={tr('Delivery details')} /></Field>
+              <Field label={tr('Returns & exchange')}><textarea maxLength={1500} className="textarea min-h-[84px]" value={returns} onChange={(e) => setReturns(e.target.value)} /></Field>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label={tr('Payment modes')}><Chips values={pay} onChange={setPay} placeholder={tr('Add a payment method')} /></Field>
+              <Field label={tr('Delivery areas')}><Chips values={areas} onChange={setAreas} placeholder={tr('Add a city or area')} /></Field>
+            </div>
+            <Field label={tr('Things customers often ask')} hint={tr('One fact at a time, in plain words')}><Chips values={facts} onChange={setFacts} placeholder={tr('Add a fact about your shop')} /></Field>
+          </>
+        )}
       </Section>
-      <Section title={tr('Opening hours')} sub={tr('Used for “are you open?” answers and for the after-hours behaviour you choose in Assistant settings.')} action={menu}
-        footer={edit && <><button className="btn btn-outline" onClick={cancel} disabled={save.isPending}>{tr('Cancel')}</button><SaveButton dirty={bl.dirty} busy={save.isPending} disabled={hoursBad} onClick={submit} label={tr('Save changes')} /></>}>
-        {edit ? <HoursEditor hours={hours} setHours={setHours} errs={hoursErr} canEdit />
-          : <ul className="divide-y divide-line/60">{DAYS.map(([k, label]) => <li key={k} className="flex items-center justify-between gap-3 py-2.5 text-[15px]"><span className="font-semibold">{tr(label)}</span><span className={hours[k].open ? '' : 'text-muted'}>{hours[k].open ? `${time12(hours[k].from)} – ${time12(hours[k].to)}` : tr('Closed')}</span></li>)}</ul>}
+      <Section title={tr('Opening hours')} sub={tr('Used for “are you open?” answers and for the after-hours behaviour you choose in Assistant settings.')} action={menu(editHours, () => setEditHours(true), tr('opening hours'))}
+        footer={canEdit && editHours && <><button className="btn btn-outline" onClick={cancelHours} disabled={save.isPending}>{tr('Cancel')}</button><SaveButton dirty={hoursBl.dirty} busy={save.isPending} disabled={hoursBad} onClick={saveHours} label={tr('Save changes')} /></>}>
+        {editHours ? <HoursEditor hours={hours} setHours={setHours} errs={hoursErr} canEdit />
+          : <dl className="-my-2 divide-y divide-line/60">{groupHours(hours).map((g) => <Row key={g.label} label={g.label}><span className={g.open ? 'font-medium' : 'text-muted'}>{g.text}</span></Row>)}</dl>}
       </Section>
     </div>
   )
@@ -182,7 +218,8 @@ function TrySection() {
   return <Section title={tr('Try the assistant')} sub={tr('Pretend to be a customer and see how your assistant answers, before real customers do.')}><div><TryButton /></div></Section>
 }
 
-function AssistantTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }) {
+function AssistantTab({ b, canEdit, goTo }: { b: Schemas['BusinessOut']; canEdit: boolean; goTo: (t: Tab) => void }) {
+  const live = b.numbers.some((n) => n.status === 'connected' || n.status === 'active')
   const s = b.sales_settings as any; const c = b.conversation_settings as any
   const [honorific, setHonorific] = useState<string>(s.honorific ?? '')
   const [lang, setLang] = useState<string>(s.language_default ?? 'en')
@@ -200,6 +237,7 @@ function AssistantTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: bool
   const nudgeErr = +nudge >= 30 && +nudge <= 1380 ? undefined : tr('Enter 30 to 1380 minutes')
   return (
     <div className="space-y-5">
+      {!live && <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-accent/40 bg-accent-soft px-4 py-3 text-sm"><span className="min-w-0 flex-1 font-semibold">{tr('The assistant cannot answer customers until your WhatsApp number is connected. Connecting it also sets up the webhook that delivers their messages.')}</span><button className="btn btn-primary btn-sm" onClick={() => goTo('numbers')}>{tr('Connect WhatsApp')}</button></div>}
       <TrySection />
       <Section title={tr('Selling style')} footer={canEdit && <SaveButton dirty={sellBl.dirty} busy={save.isPending} onClick={() => save.mutate({ sales_settings: { honorific: honorific.trim() || null, language_default: lang as any, proactiveness: pro as any, may_mention_offers: offers, handoff_value_threshold: thr || null } }, { onSuccess: sellBl.commit })} label={tr('Save')} />}>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -237,7 +275,7 @@ function TeamTab({ canEdit }: { canEdit: boolean }) {
   const patch = useMutation({ mutationFn: (v: { id: string; notify: boolean }) => ok(api.PATCH('/api/v1/team/{member_id}', { params: { path: { member_id: v.id } }, body: { notify: v.notify } })), onSuccess: () => qc.invalidateQueries({ queryKey: ['team'] }) })
   const remove = useMutation({ mutationFn: (id: string) => ok(api.DELETE('/api/v1/team/{member_id}', { params: { path: { member_id: id } } })), onSuccess: () => { qc.invalidateQueries({ queryKey: ['team'] }); setDel(null); toast(tr('Removed')) }, onError: (e) => toast((e as Error).message, 'error') })
   return (
-    <Section title={tr('Team')} sub={tr('Everyone signs in with their own WhatsApp number. Staff can chat with customers; only owners change prices and settings.')}
+    <Section title={tr('People who can sign in')} sub={tr('Each person signs in to this dashboard with their own WhatsApp number. Staff can chat with customers; only owners change prices and settings. This is not the number your customers message: that one is under WhatsApp.')}
       footer={canEdit && <button className="btn btn-primary" onClick={() => setAdd(true)}><Plus className="h-4 w-4" /> {tr('Add team member')}</button>}>
       {q.error && <ErrorNote error={q.error} retry={() => q.refetch()} />}
       {q.isLoading && <Skeleton className="h-24" />}
@@ -277,7 +315,8 @@ function NumbersTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolea
   }
   const tone = (s: string) => (s === 'connected' || s === 'active' ? 'green' : s === 'disconnected' ? 'red' : 'amber') as 'green' | 'red' | 'amber'
   return (
-    <Section title={tr('WhatsApp numbers')} sub={tr('Numbers the assistant answers on. Your own WhatsApp Business app keeps working alongside it.')}>
+    <Section title={tr('The assistant’s WhatsApp number')} sub={tr('The number your customers message. The assistant answers on it, and your WhatsApp Business app keeps working alongside it. People who sign in to this dashboard are under People.')}>
+      <div className="rounded-xl bg-surface2/60 px-4 py-3 text-[13.5px] leading-relaxed text-muted"><b className="text-ink">{tr('How messages reach the assistant.')}</b> {tr('When a customer messages this number, WhatsApp passes the message to ChatDeal through a webhook and the assistant replies. Connecting your number sets the webhook up for you, so there is nothing to configure by hand.')}</div>
       {!b.numbers.length && <EmptyState icon={<Phone className="h-6 w-6" />} title={tr('No number connected yet')} body={signup ? tr('Connect your WhatsApp Business number in a few taps.') : tr('Your ChatDeal contact will connect your WhatsApp number with you.')} />}
       {!!cfg.data?.simulator_enabled && canEdit && <div className="flex justify-end"><button className="btn btn-outline" onClick={async () => { try { await ok(api.POST('/api/v1/numbers/test')); await qc.invalidateQueries({ queryKey: ['business'] }); toast(tr('Test number added')) } catch (e) { toast((e as Error).message, 'error') } }}><Plus className="h-4 w-4" /> {tr('Add a test number')}</button></div>}
       {signup && canEdit && <div className="flex justify-end"><button className="btn btn-primary" disabled={connecting} onClick={connect}>{connecting ? <Spinner /> : <Plus className="h-4 w-4" />} {tr('Connect a WhatsApp number')}</button></div>}
@@ -286,7 +325,7 @@ function NumbersTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolea
           <div key={n.id} className="flex flex-wrap items-center gap-3 py-3">
             <span className="grid h-11 w-11 place-items-center rounded-xl bg-brand-soft text-brand-ink"><Phone className="h-5 w-5" /></span>
             <div className="min-w-0 flex-1"><div className="font-bold">{fmtPhone(n.display_phone)}</div><div className="text-[13px] text-muted">{n.verified_name ?? tr('Unverified name')} · {n.channel === 'simulator' ? tr('Test number') : tr('WhatsApp Business')}{n.coexistence ? tr(' · works with your app') : ''}</div></div>
-            <div className="flex flex-wrap gap-1.5"><Badge tone={tone(n.status)} dot>{n.status}</Badge>{n.quality_rating && <Badge tone={n.quality_rating === 'GREEN' ? 'green' : n.quality_rating === 'RED' ? 'red' : 'amber'}>{tr('Quality')} {n.quality_rating.toLowerCase()}</Badge>}</div>
+            <div className="flex flex-wrap gap-1.5"><Badge tone={tone(n.status)} dot>{n.status === 'connected' || n.status === 'active' ? tr('Receiving messages') : n.status === 'disconnected' ? tr('Not receiving: reconnect this number') : n.status}</Badge>{n.quality_rating && <Badge tone={n.quality_rating === 'GREEN' ? 'green' : n.quality_rating === 'RED' ? 'red' : 'amber'}>{tr('Quality')} {n.quality_rating.toLowerCase()}</Badge>}</div>
             {n.status_reason && <p className="w-full text-[13px] text-danger">{n.status_reason}</p>}
           </div>
         ))}
@@ -372,9 +411,9 @@ export default function Settings() {
   const canEdit = role === 'owner' || role === 'operator'
   const dataKey = useMemo(() => JSON.stringify(biz.data ?? null), [biz.data])
   const tabs: { value: Tab; label: ReactNode }[] = [
-    { value: 'shop', label: <span className="inline-flex items-center gap-1.5"><Building2 className="h-4 w-4" />{tr('Shop')}</span> }, { value: 'assistant', label: <span className="inline-flex items-center gap-1.5"><Sliders className="h-4 w-4" />{tr('Assistant')}</span> },
-    { value: 'team', label: <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4" />{tr('Team')}</span> },
-    { value: 'numbers', label: <span className="inline-flex items-center gap-1.5"><Phone className="h-4 w-4" />{tr('Numbers')}</span> }, { value: 'devices', label: <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-4 w-4" />{tr('Security')}</span> },
+    { value: 'shop', label: <span className="inline-flex items-center gap-1.5"><Building2 className="h-4 w-4" />{tr('Shop')}</span> }, { value: 'assistant', label: <span className="inline-flex items-center gap-1.5"><Sliders className="h-4 w-4" />{tr('AI assistant')}</span> },
+    { value: 'team', label: <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4" />{tr('People')}</span> },
+    { value: 'numbers', label: <span className="inline-flex items-center gap-1.5"><Phone className="h-4 w-4" />{tr('WhatsApp')}</span> }, { value: 'devices', label: <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-4 w-4" />{tr('Security')}</span> },
     { value: 'support', label: <span className="inline-flex items-center gap-1.5"><LifeBuoy className="h-4 w-4" />{tr('Support')}</span> },
   ]
   return (
@@ -384,7 +423,7 @@ export default function Settings() {
       {biz.error && <ErrorNote error={biz.error} retry={() => biz.refetch()} />}
       {biz.isLoading && <div className="card card-pad"><FormSkeleton fields={5} /></div>}
       {biz.data && tab === 'shop' && <ShopTab key={dataKey} b={biz.data} canEdit={canEdit} />}
-      {biz.data && tab === 'assistant' && <AssistantTab key={dataKey} b={biz.data} canEdit={canEdit} />}
+      {biz.data && tab === 'assistant' && <AssistantTab key={dataKey} b={biz.data} canEdit={canEdit} goTo={setTab} />}
       {tab === 'support' && <Support />}
       {tab === 'team' && <TeamTab canEdit={canEdit} />}
       {biz.data && tab === 'numbers' && <NumbersTab b={biz.data} canEdit={canEdit} />}
