@@ -10,7 +10,7 @@ test.describe('prices and mandatory fields', () => {
     await page.getByRole('button', { name: 'Add product' }).first().click()
     return page.getByRole('complementary', { name: 'Add a product' })
   }
-  const star = (scope: ReturnType<Page['locator']>, label: string) => scope.getByLabel(label, { exact: true }).first()   // the control of a field; required ones carry aria-required (nothing is drawn)
+  const star = (scope: ReturnType<Page['locator']>, label: string) => scope.locator('label', { hasText: label }).first()
 
   test('DEAL-118: the Price field rejects alphabets and accepts a valid number', async ({ page }) => {
     const panel = await openNewProduct(page)
@@ -57,17 +57,17 @@ test.describe('prices and mandatory fields', () => {
   test('DEAL-113: mandatory fields in the product editor carry a * and are flagged when empty', async ({ page }) => {
     const panel = await openNewProduct(page)
     await expect(panel.getByText(/^\*\s*required$/)).toBeVisible()                  // the "* required" note
-    await expect(star(panel, 'Product name')).toHaveAttribute('aria-required', 'true')
-    await expect(star(panel, 'Price (₹)')).toHaveAttribute('aria-required', 'true')
-    for (const optional of ['Category', 'Description', 'Stock count', 'Availability']) await expect(star(panel, optional)).not.toHaveAttribute('aria-required', 'true')
+    await expect(star(panel, 'Product name')).toContainText('*')
+    await expect(star(panel, 'Price (₹)')).toContainText('*')
+    for (const optional of ['Category', 'Description', 'Stock count', 'Availability']) await expect(star(panel, optional)).not.toContainText('*')
     await panel.getByRole('button', { name: 'Add product' }).click()
     await expect(panel.getByText('Give the product a name')).toBeVisible()
     await expect(panel.getByText('Price is required')).toBeVisible()
     await expect(panel.getByLabel('Product name')).toBeFocused()                              // the first missing field gets the focus
     await expect(panel.getByText('Please fix the 2 highlighted fields.')).toBeVisible()
     await panel.getByRole('radio', { name: 'Price range' }).click()
-    await expect(star(panel, 'Lowest in range')).toHaveAttribute('aria-required', 'true')
-    await expect(star(panel, 'Highest in range')).toHaveAttribute('aria-required', 'true')
+    await expect(star(panel, 'Lowest in range')).toContainText('*')
+    await expect(star(panel, 'Highest in range')).toContainText('*')
     await panel.getByRole('radio', { name: 'On request' }).click()
     await expect(panel.getByText('Price (₹)')).toHaveCount(0)                                 // nothing mandatory about a price that is never quoted
   })
@@ -76,14 +76,14 @@ test.describe('prices and mandatory fields', () => {
     await page.goto(`${SHOP}/offers`)
     await page.getByRole('button', { name: 'New offer' }).first().click()
     const panel = page.getByRole('complementary', { name: 'New offer' })
-    await expect(star(panel, 'Offer name')).toHaveAttribute('aria-required', 'true')
-    await expect(star(panel, 'Percent off')).toHaveAttribute('aria-required', 'true')
-    await expect(star(panel, 'Starts')).not.toHaveAttribute('aria-required', 'true')
+    await expect(star(panel, 'Offer name')).toContainText('*')
+    await expect(star(panel, 'Percent off')).toContainText('*')
+    await expect(star(panel, 'Starts')).not.toContainText('*')
     await panel.getByRole('button', { name: 'Save offer' }).click()
     await expect(panel.getByText('Give the offer a name')).toBeVisible()
     await expect(panel.getByText('Percent off is required')).toBeVisible()
     await panel.getByRole('button', { name: /Free gift/ }).click()
-    await expect(star(panel, 'What’s free?')).toHaveAttribute('aria-required', 'true')
+    await expect(star(panel, 'What’s free?')).toContainText('*')
     await expect(panel.getByLabel('Percent off')).toHaveCount(0)
     await panel.getByRole('button', { name: 'Save offer' }).click()
     await expect(panel.getByText('Say what is free')).toBeVisible()
@@ -91,7 +91,7 @@ test.describe('prices and mandatory fields', () => {
 
   test('DEAL-113: support, shop settings and team forms mark and flag what is mandatory', async ({ page }) => {
     await page.goto(`${SHOP}/settings?tab=support`)
-    await expect(star(page.locator('main'), 'Title')).toHaveAttribute('aria-required', 'true')
+    await expect(star(page.locator('main'), 'Title')).toContainText('*')
     await page.getByRole('button', { name: 'Open a ticket' }).click()
     await expect(page.getByText('Add a short title')).toBeVisible()
     await expect(page.getByText('Tell us what happened')).toBeVisible()
@@ -106,8 +106,8 @@ test.describe('prices and mandatory fields', () => {
     await page.getByRole('tab', { name: 'People' }).click()
     await page.getByRole('button', { name: /Add (a )?team member|Add member|Add someone/ }).first().click()
     const dialog = page.getByRole('dialog')
-    await expect(star(dialog, 'Name')).toHaveAttribute('aria-required', 'true')
-    await expect(star(dialog, 'WhatsApp number')).toHaveAttribute('aria-required', 'true')
+    await expect(star(dialog, 'Name')).toContainText('*')
+    await expect(star(dialog, 'WhatsApp number')).toContainText('*')
     await dialog.getByRole('button', { name: 'Add', exact: true }).click()
     await expect(dialog.getByText('Enter their name')).toBeVisible()
     await expect(dialog.getByText(/Enter a WhatsApp number/)).toBeVisible()
@@ -117,9 +117,9 @@ test.describe('prices and mandatory fields', () => {
 test('DEAL-113: the sign-up steps mark what is mandatory', async ({ page }) => {
   await login(page, freshPhone())
   await expect(page).toHaveURL(/onboarding/)
-  await expect(page.getByLabel('Business name', { exact: true })).toHaveAttribute('aria-required', 'true')
-  await expect(page.getByLabel('Your name', { exact: true }).first()).toHaveAttribute('aria-required', 'true')
-  await expect(page.getByLabel('City', { exact: true })).not.toHaveAttribute('aria-required', 'true')
+  await expect(page.locator('label', { hasText: 'Business name' })).toContainText('*')
+  await expect(page.locator('label', { hasText: 'Your name' }).first()).toContainText('*')
+  await expect(page.locator('label', { hasText: 'City' })).not.toContainText('*')
   await page.getByRole('button', { name: /Create my shop/ }).click()
   await expect(page.getByText('Enter your business name')).toBeVisible()
   await expect(page.getByText('Enter your name', { exact: true })).toBeVisible()

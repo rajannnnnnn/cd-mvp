@@ -12,7 +12,7 @@ import { PhoneInput } from '@/ui/inputs'
 import { isPhone, toE164 } from '@/lib/phone'
 import { tr } from '@/i18n/tr'
 import { currentSlug, shopUrl } from '@/lib/slug'
-import { useDraft } from '@/lib/drafts'
+import { clearDraftGroup, useDraft } from '@/lib/drafts'
 import { useSearchParams } from 'react-router-dom'
 import Voice from '@/features/voice/Voice'
 import Support from '@/features/support/Support'
@@ -144,8 +144,8 @@ function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }
   const [areas, setAreas] = useState<string[]>(keptShop?.areas ?? p.delivery_areas ?? [])
   const [facts, setFacts] = useState<string[]>(keptShop?.facts ?? p.facts ?? [])
   const [hours, setHours] = useState<DayHours>(() => keptHours ?? parseHours(p.hours))
-  const [editShop, setEditShop] = useState(!!keptShop && canEdit)
-  const [editHours, setEditHours] = useState(!!keptHours && canEdit)
+  const [editShop, setEditShop] = useState(!!keptShop && canEdit && JSON.stringify(keptShop) !== JSON.stringify(shopFromServer()))
+  const [editHours, setEditHours] = useState(!!keptHours && canEdit && JSON.stringify(keptHours) !== JSON.stringify(parseHours(p.hours)))
   const save = useSaveBusiness()
   const form: ShopForm = { address, shopPhone, delivery, returns, pay, areas, facts }
   const shopBl = useBaseline(form, shopFromServer())
@@ -158,8 +158,8 @@ function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }
   const hoursBad = Object.values(hoursErr).some(Boolean)
   const hoursPayload = (h: DayHours) => Object.fromEntries(DAYS.map(([k]) => [k, h[k].open ? `${h[k].from}-${h[k].to}` : 'closed']))
   // each part saves on its own: the other part is sent as it is stored, so an unsaved edit in one never goes out with the other
-  const saveShop = () => save.mutate({ profile: { address, phone: shopPhone, delivery, returns, payment_modes: pay, delivery_areas: areas, facts, hours: p.hours ?? hoursPayload(parseHours(p.hours)) } }, { onSuccess: () => { shopBl.commit(); setEditShop(false) } })
-  const saveHours = () => { if (!hoursBad) save.mutate({ profile: { address: p.address ?? '', phone: p.phone ?? '', delivery: p.delivery ?? '', returns: p.returns ?? '', payment_modes: p.payment_modes ?? [], delivery_areas: p.delivery_areas ?? [], facts: p.facts ?? [], hours: hoursPayload(hours) } }, { onSuccess: () => { hoursBl.commit(); setEditHours(false) } }) }
+  const saveShop = () => save.mutate({ profile: { address, phone: shopPhone, delivery, returns, payment_modes: pay, delivery_areas: areas, facts, hours: p.hours ?? hoursPayload(parseHours(p.hours)) } }, { onSuccess: () => { clearDraftGroup('settings.shop'); shopBl.commit(); setEditShop(false) } })
+  const saveHours = () => { if (!hoursBad) save.mutate({ profile: { address: p.address ?? '', phone: p.phone ?? '', delivery: p.delivery ?? '', returns: p.returns ?? '', payment_modes: p.payment_modes ?? [], delivery_areas: p.delivery_areas ?? [], facts: p.facts ?? [], hours: hoursPayload(hours) } }, { onSuccess: () => { clearDraftGroup('settings.hours'); hoursBl.commit(); setEditHours(false) } }) }
   const cancelShop = () => { const s0 = shopFromServer(); setAddress(s0.address); setShopPhone(s0.shopPhone); setDelivery(s0.delivery); setReturns(s0.returns); setPay(s0.pay); setAreas(s0.areas); setFacts(s0.facts); setEditShop(false) }
   const cancelHours = () => { setHours(parseHours(p.hours)); setEditHours(false) }
   const menu = (on: boolean, start: () => void, what: string) => (canEdit && !on ? <KebabMenu label={tr('More actions for {what}', { what })} items={[{ label: tr('Edit'), icon: <Pencil className="h-4 w-4" />, onClick: start }]} /> : undefined)

@@ -5,23 +5,22 @@ import { api, ok } from '@/api/client'
 import { EmptyState, ErrorNote, Field, focusFirstInvalid, Skeleton, Spinner, useToast } from '@/ui'
 import { ago, cx } from '@/lib/format'
 import { tr } from '@/i18n/tr'
-import { CATEGORY_LABEL, StatusBadge, Thread } from './Thread'
+import { StatusBadge, Thread } from './Thread'
 import { useDraft } from '@/lib/drafts'
 
-type Category = keyof typeof CATEGORY_LABEL
 
 /** Settings → Support. Sending the form opens the ticket on the spot; support answers in the same thread. */
 export default function Support() {
   const toast = useToast(); const qc = useQueryClient()
-  const [subject, setSubject] = useDraft('support.subject', ''); const [category, setCategory] = useDraft<Category>('support.category', 'question'); const [message, setMessage] = useDraft('support.message', '')
+  const [subject, setSubject] = useDraft('support.subject', ''); const [message, setMessage] = useDraft('support.message', '')
   const [err, setErr] = useState<string | null>(null)
   const [openId, setOpenId] = useState<string | null>(null)
   const list = useQuery({ queryKey: ['support'], queryFn: () => ok(api.GET('/api/v1/support/tickets')), refetchInterval: 20_000 })
   const detail = useQuery({ enabled: !!openId, queryKey: ['support', openId], queryFn: () => ok(api.GET('/api/v1/support/tickets/{ticket_id}', { params: { path: { ticket_id: openId! } } })), refetchInterval: 10_000 })
 
   const create = useMutation({
-    mutationFn: () => ok(api.POST('/api/v1/support/tickets', { body: { subject: subject.trim(), category, message: message.trim() } })),
-    onSuccess: (t) => { qc.invalidateQueries({ queryKey: ['support'] }); toast(tr('Ticket #{n} opened. Support has it now.', { n: t.number })); setTried(false); setSubject(''); setMessage(''); setCategory('question'); setErr(null); setOpenId(t.id) },
+    mutationFn: () => ok(api.POST('/api/v1/support/tickets', { body: { subject: subject.trim(), category: 'other', message: message.trim() } })),
+    onSuccess: (t) => { qc.invalidateQueries({ queryKey: ['support'] }); toast(tr('Ticket #{n} opened. Support has it now.', { n: t.number })); setTried(false); setSubject(''); setMessage(''); setErr(null); setOpenId(t.id) },
     onError: (e) => setErr((e as Error).message),
   })
   const reply = useMutation({
@@ -50,7 +49,7 @@ export default function Support() {
         {!t && !detail.error && <Skeleton className="h-40 rounded-2xl" />}
         {t && (<>
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div><div className="text-xs font-bold uppercase tracking-wide text-muted">{tr('Ticket #{n}', { n: t.number })} · {tr(CATEGORY_LABEL[t.category])}</div><h2 className="font-display text-xl font-bold">{t.subject}</h2></div>
+            <div><div className="text-xs font-bold uppercase tracking-wide text-muted">{tr('Ticket #{n}', { n: t.number })}</div><h2 className="font-display text-xl font-bold">{t.subject}</h2></div>
             <div className="flex items-center gap-2"><StatusBadge status={t.status} />{t.status !== 'resolved' && <button className="btn btn-outline btn-sm" disabled={resolve.isPending} onClick={() => resolve.mutate()}><CheckCircle2 className="h-4 w-4" /> {tr('Mark as sorted')}</button>}</div>
           </div>
           <Thread messages={t.messages} mine="shop" busy={reply.isPending} onSend={(b) => reply.mutateAsync(b)} placeholder={t.status === 'resolved' ? tr('Write here to reopen this ticket…') : tr('Add more details or reply to support…')} />
@@ -63,11 +62,6 @@ export default function Support() {
       <section className="card card-pad space-y-4" ref={form}>
         <div><h2 className="font-display text-lg font-bold">{tr('Get help')}</h2><p className="text-sm text-muted">{tr('Tell us what you need. Your ticket opens the moment you send it and support replies right here.')}</p></div>
         {err && <div role="alert" className="rounded-xl border border-danger/30 bg-danger-soft px-3.5 py-2.5 text-sm font-medium text-danger">{err}</div>}
-        <Field label={tr('What do you need help with?')}>
-          <div role="radiogroup" aria-label={tr('What do you need help with?')} className="flex flex-wrap gap-2">
-            {(Object.keys(CATEGORY_LABEL) as Category[]).map((c) => <button key={c} type="button" role="radio" aria-checked={category === c} onClick={() => setCategory(c)} className={cx('chip', category === c && 'chip-active')}>{tr(CATEGORY_LABEL[c])}</button>)}
-          </div>
-        </Field>
         
         <Field label={tr('Title')} required error={tried ? errs.subject : undefined}><input className="input" maxLength={160} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={tr('Short title')} /></Field>
         <Field label={tr('Tell us more')} required error={tried ? errs.message : undefined}><textarea className="textarea min-h-[110px]" maxLength={4000} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={tr('What happened, what you expected, and when it started.')} /></Field>
