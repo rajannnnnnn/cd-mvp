@@ -389,7 +389,7 @@ export default function Products() {
       </div>
 
       <Modal open={!!viewing} onClose={() => setViewing(null)} title={viewing?.name}
-        footer={<><button className="btn btn-primary" onClick={() => { const v = viewing; setViewing(null); if (v) setOpen(v) }}><Pencil className="h-4 w-4" /> {tr('Edit')}</button><button className="btn btn-ghost" onClick={() => setViewing(null)}>{tr('Close')}</button></>}>
+        footer={<><button className="btn btn-outline" onClick={() => { const v = viewing; setViewing(null); if (v) setOpen(v) }}><Pencil className="h-4 w-4" /> {tr('Edit')}</button><button className="btn btn-primary" onClick={() => setViewing(null)}>{tr('Close')}</button></>}>
         {viewing && (<div className="space-y-4">
           <div className="text-sm text-muted">{viewing.category ?? tr('Uncategorised')}</div>
           <div className="flex flex-wrap gap-1.5">{badges(viewing)}</div>

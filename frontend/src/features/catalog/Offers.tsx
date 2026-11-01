@@ -274,7 +274,7 @@ export default function Offers() {
       </div>
 
       <Modal open={!!viewing} onClose={() => setViewing(null)} title={viewing?.name}
-        footer={<><button className="btn btn-primary" onClick={() => { const v = viewing; setViewing(null); if (v) setEdit(v) }}><Pencil className="h-4 w-4" /> {tr('Edit')}</button><button className="btn btn-ghost" onClick={() => setViewing(null)}>{tr('Close')}</button></>}>
+        footer={<><button className="btn btn-outline" onClick={() => { const v = viewing; setViewing(null); if (v) setEdit(v) }}><Pencil className="h-4 w-4" /> {tr('Edit')}</button><button className="btn btn-primary" onClick={() => setViewing(null)}>{tr('Close')}</button></>}>
         {viewing && (<div className="space-y-3">
           <div className="text-[15px] font-semibold">{describe(viewing)}</div>
           <div className="flex flex-wrap gap-1.5">{badges(viewing)}</div>
