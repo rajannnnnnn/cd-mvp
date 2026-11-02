@@ -1,0 +1,92 @@
+# WEB (ADR 0025): everything the owner and the platform team see and use. The frontend, the REST API behind it, and the web
+# part's own timer (billing, trials, alert delivery, sign-in data). It never talks to Meta and never calls the agent: when it
+# needs something sent or connected it leaves a request in the database and waits for the gateway's answer.
+#
+#   scripts/stack.sh web             Scale the API:  scripts/stack.sh web --scale api=3
+#
+# Needs deploy/web/.env (copy .env.example). Start the database job (deploy/db) first.
+# Holds: MASTER_KEY, JWT_SECRET, OTP_SECRET. It does NOT hold the Meta app secret or any model key.
+# Published: the site on WEB_PORT (put a TLS proxy in front). The database is external.
+name: chatdeal-web
+
+x-web: &web
+  build: { context: ../../backend }
+  image: ${BACKEND_IMAGE:-chatdeal-backend:local}
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+    interval: 15s
+    timeout: 5s
+    retries: 4
+    start_period: 20s
+  environment: &web-env
+    ENV: ${APP_ENV:?set APP_ENV in deploy/web/.env}
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    TRUST_PROXY: "true"
+    DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in deploy/web/.env}
+    PRICING_DATABASE_URL: ${PRICING_DATABASE_URL:?set PRICING_DATABASE_URL in deploy/web/.env}
+    SYSTEM_DATABASE_URL: ${SYSTEM_DATABASE_URL:?set SYSTEM_DATABASE_URL in deploy/web/.env}
+    MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?set MIGRATION_DATABASE_URL in deploy/web/.env}
+    QUEUE_BACKEND: ${QUEUE_BACKEND:-postgres}
+    REDIS_URL: ${REDIS_URL:-}
+    OTP_CHANNEL: ${OTP_CHANNEL:-whatsapp_cloud}
+    SIMULATOR_ENABLED: ${SIMULATOR_ENABLED:-false}
+    PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-manual}      # production refuses `test`, which settles invoices without taking money
+    PAYMENT_INSTRUCTIONS: ${PAYMENT_INSTRUCTIONS:-Pay by UPI or bank transfer and quote the invoice number.}
+    INVOICE_SELLER_NAME: ${INVOICE_SELLER_NAME:-[Company name]}
+    INVOICE_SELLER_ADDRESS: ${INVOICE_SELLER_ADDRESS:-[Registered address]}
+    INVOICE_SELLER_GSTIN: ${INVOICE_SELLER_GSTIN:-[GSTIN]}
+
+services:
+  api:
+    <<: *web
+    command: ["api"]
+    environment:
+      <<: *web-env
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?set ALLOWED_ORIGINS in deploy/web/.env}
+      MASTER_KEY: ${MASTER_KEY:?set MASTER_KEY in deploy/web/.env}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/web/.env}
+      OTP_SECRET: ${OTP_SECRET:?set OTP_SECRET in deploy/web/.env}
+      OTP_ACCEPT_ANY: ${OTP_ACCEPT_ANY:-false}
+      OTP_MIN_INTERVAL_S: ${OTP_MIN_INTERVAL_S:-20}
+      OTP_PER_PHONE_PER_HOUR: ${OTP_PER_PHONE_PER_HOUR:-5}
+      OTP_PER_IP_PER_HOUR: ${OTP_PER_IP_PER_HOUR:-30}
+      OTP_DELIVERY_WAIT_S: ${OTP_DELIVERY_WAIT_S:-6}
+      NUMBER_CONNECT_WAIT_S: ${NUMBER_CONNECT_WAIT_S:-30}
+      # public values the sign-up button needs (the secret stays with the gateway)
+      META_APP_ID: ${META_APP_ID:-}
+      META_CONFIG_ID: ${META_CONFIG_ID:-}
+      META_GRAPH_VERSION: ${META_GRAPH_VERSION:?set META_GRAPH_VERSION in deploy/web/.env}
+    expose: ["8000"]
+
+  scheduler:
+    <<: *web
+    command: ["scheduler"]
+    environment:
+      <<: *web-env
+      SCHEDULER_COMPONENT: web           # billing, trials, platform alert delivery, sign-in and sign-up data
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+      ALERT_WHATSAPP_NUMBERS: ${ALERT_WHATSAPP_NUMBERS:-}
+      # Operator alerts to WhatsApp use the platform's own sender until alert delivery moves to email (ADR 0029)
+      PLATFORM_SENDER_PHONE_NUMBER_ID: ${PLATFORM_SENDER_PHONE_NUMBER_ID:-sim-platform}
+      PLATFORM_WA_ACCESS_TOKEN: ${PLATFORM_WA_ACCESS_TOKEN:-}
+      META_GRAPH_VERSION: ${META_GRAPH_VERSION:?set META_GRAPH_VERSION in deploy/web/.env}
+      META_GRAPH_BASE: ${META_GRAPH_BASE:-https://graph.facebook.com}
+
+  site:
+    build:
+      context: ../../frontend
+      args:
+        VITE_BRAND: ${BRAND:-ChatDeal}
+        VITE_CONTACT_EMAIL: ${CONTACT_EMAIL:-hello@chatdeal.example}
+    image: ${FRONTEND_IMAGE:-chatdeal-site:local}
+    restart: unless-stopped
+    depends_on: [api]
+    environment:
+      SITE_ADDRESS: ":80"
+      API_BASE: ${API_BASE:-}                       # empty = same origin: the site proxies /api to the API below
+      API_UPSTREAM: api:8000
+      INGRESS_UPSTREAM: ${WEBHOOK_UPSTREAM:-host.docker.internal:8001}   # the gateway's `receive`, so one public address serves both
+      ALLOW_IPS: ${ALLOW_IPS:-0.0.0.0/0 ::/0}
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    ports: ["${WEB_PORT:-8080}:80"]

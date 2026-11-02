@@ -27,7 +27,7 @@ is only used once, when Meta first checks that the callback URL is ours.
 | Graph API version | the version your app shows (versions expire after about two years) | `META_GRAPH_VERSION` | everything that calls Meta |
 | Master key | we generate: `openssl rand -base64 32` | `MASTER_KEY` | wraps the per-business keys that encrypt tokens. **Back it up: if it is lost, every business must reconnect.** |
 | Business token (one per business) | Embedded Signup, exchanged on our server | not an env value: stored encrypted in the database | `send` |
-| Platform number and token (login codes, alerts) | our own WABA | `PLATFORM_SENDER_PHONE_NUMBER_ID`, `PLATFORM_WA_ACCESS_TOKEN` | API, owner worker |
+| Platform number and token (login codes, alerts) | our own WABA | `PLATFORM_SENDER_PHONE_NUMBER_ID`, `PLATFORM_WA_ACCESS_TOKEN` | gateway `send` (ADR 0025: the web part and the agent no longer send) |
 
 Paste the first five into `deploy/gateway/.env` (template: `deploy/gateway/.env.example`). Never put the app secret in the
 frontend or in git.
@@ -47,7 +47,7 @@ frontend or in git.
    the portfolio.
 2. While the app is in development mode you can use Meta's test number and test WABA with your own admins, developers and
    testers. No review is needed for this.
-3. Start the gateway (`scripts\stack.ps1 gateway`) and expose `receive` on a public HTTPS address, for example
+3. Start the gateway (`scripts/stack.sh gateway`, or `scripts\stack.ps1 gateway`; `deploy/README.md`) and expose `receive` on a public HTTPS address, for example
    `https://hooks.example.com/webhooks/whatsapp`. A tunnel with a valid certificate also works for testing.
 4. App Dashboard > WhatsApp > **Configuration** > Edit: enter the callback URL and the verify token. Meta sends a `GET` with
    `hub.mode=subscribe`, `hub.verify_token` and `hub.challenge`; `receive` echoes the challenge only when the token matches.

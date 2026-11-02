@@ -14,7 +14,7 @@ work chunk. Never commit `.env` files, `DockerInstaller.exe`, or other binaries.
 - Branch history: base `propelry`; the backup branch carries the same work plus uncommitted changes
   that existed on 2026-10-31.
 - Work in flight: **channel gateway** (ADR 0020), with `deploy/gateway/` (receive / inbound / send parts),
-  `deploy/standalone/`, migration `0012_webhook_raw_log.sql`, `backend/tests/test_gateway_raw_log.py`,
+  `deploy/db|web|agent/` (ADR 0025; replaced `deploy/standalone/`), migration `0012_webhook_raw_log.sql`, `backend/tests/test_gateway_raw_log.py`,
   `docs/WHATSAPP_GO_LIVE.md`, and helper scripts `scripts/stack.ps1`, `scripts/demo.ps1`, `scripts/dev-frontend.ps1`.
 - The full backend suite was **not run** in the last session: this machine had no Docker daemon, Postgres or `uv`.
 

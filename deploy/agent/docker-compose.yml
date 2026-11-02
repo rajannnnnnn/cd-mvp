@@ -1,0 +1,69 @@
+# AGENT (ADR 0025): the ChatDeal AI. Turn detection, the planner, the pricing engine, the writer and the reply checks, plus
+# what it does for the owner (alerts, daily summary, follow-ups, learning from their answers). It receives clean events from the
+# gateway and asks the gateway to send; it never talks to Meta and never calls the web part. It reads shop settings and writes
+# notifications through the database.
+#
+#   scripts/stack.sh agent            Scale:  scripts/stack.sh agent --scale agent=3
+#
+# Needs deploy/agent/.env (copy .env.example). Start the database job (deploy/db) first.
+# Throughput = copies x AGENT_CONCURRENCY. Replicas are safe: the queue gives each conversation to one worker at a time.
+# Holds: the database and the model key. It does NOT hold the Meta master key, the Meta app secret or any WhatsApp token.
+name: chatdeal-agent
+
+x-agent: &agent
+  build: { context: ../../backend }
+  image: ${BACKEND_IMAGE:-chatdeal-backend:local}
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+    interval: 15s
+    timeout: 5s
+    retries: 4
+    start_period: 20s
+  environment: &agent-env
+    ENV: ${APP_ENV:?set APP_ENV in deploy/agent/.env}
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in deploy/agent/.env}
+    PRICING_DATABASE_URL: ${PRICING_DATABASE_URL:?set PRICING_DATABASE_URL in deploy/agent/.env}   # the agent's pricing engine reads the floors
+    SYSTEM_DATABASE_URL: ${SYSTEM_DATABASE_URL:?set SYSTEM_DATABASE_URL in deploy/agent/.env}
+    MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?set MIGRATION_DATABASE_URL in deploy/agent/.env}
+    QUEUE_BACKEND: ${QUEUE_BACKEND:-postgres}
+    REDIS_URL: ${REDIS_URL:-}
+    OTP_CHANNEL: ${OTP_CHANNEL:-whatsapp_cloud}
+    PAYMENT_PROVIDER: manual            # production refuses `test`; the agent never takes payments
+    SIMULATOR_ENABLED: ${SIMULATOR_ENABLED:-false}
+
+services:
+  agent:
+    <<: *agent
+    command: ["worker"]
+    environment:
+      <<: *agent-env
+      WORKER_QUEUES: conversation.events,conversation.turns,owner.notifications,platform.events
+      WORKER_CONCURRENCY: ${AGENT_CONCURRENCY:-8}
+      # The model: vendor, model and effort per step are settings (ADR 0034). Default: openai/gpt-oss-20b on every step.
+      LLM_PROVIDER: ${LLM_PROVIDER:?set LLM_PROVIDER in deploy/agent/.env}
+      LLM_PROVIDER_PLANNER: ${LLM_PROVIDER_PLANNER:-}
+      LLM_PROVIDER_WRITER: ${LLM_PROVIDER_WRITER:-}
+      LLM_PROVIDER_CHECK: ${LLM_PROVIDER_CHECK:-}
+      LLM_FALLBACK_PROVIDER: ${LLM_FALLBACK_PROVIDER:-none}
+      LLM_FALLBACK_MODEL: ${LLM_FALLBACK_MODEL:-}
+      LLM_MODEL_PLANNER: ${LLM_MODEL_PLANNER:-openai/gpt-oss-20b}
+      LLM_MODEL_WRITER: ${LLM_MODEL_WRITER:-openai/gpt-oss-20b}
+      LLM_MODEL_CHECK: ${LLM_MODEL_CHECK:-openai/gpt-oss-20b}
+      LLM_EFFORT_PLANNER: ${LLM_EFFORT_PLANNER:-medium}
+      LLM_EFFORT_WRITER: ${LLM_EFFORT_WRITER:-medium}
+      LLM_EFFORT_CHECK: ${LLM_EFFORT_CHECK:-low}
+      LLM_PRICES: ${LLM_PRICES:-}
+      LLM_JSON_MODE: ${LLM_JSON_MODE:-json_schema}
+      LLM_TIMEOUT_S: ${LLM_TIMEOUT_S:-30}
+      OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL:-}
+      OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+  scheduler:
+    <<: *agent
+    command: ["scheduler"]
+    environment:
+      <<: *agent-env
+      SCHEDULER_COMPONENT: agent         # daily summaries, follow-ups, conversation data, moving events along. Never calls a model

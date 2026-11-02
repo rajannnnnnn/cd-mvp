@@ -56,6 +56,9 @@ def check_prices(s: Settings) -> None:
 
 
 def make_llm(s: Settings) -> StageRouter:
+    if not s.uses_model:                      # the web and gateway parts never call a model: nothing to configure, check or price
+        inert = ResilientLLM(LocalRulesProvider())
+        return StageRouter({st: inert for st in STAGES}, default=inert)
     register_prices(parse_prices(s.llm_prices))
     check_prices(s)
     built: dict[str, LLMProvider] = {}

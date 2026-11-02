@@ -279,3 +279,14 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
   - **Fixed (2026-11-02):** the long-standing "flaky" raw-log tests (`test_gateway_raw_log.py`) were order-dependent test
     bugs, not product bugs: one scanned every stored webhook and crashed on rows other tests had inserted without a raw
     body; the other counted every rejected webhook in the session. Each now reads only its own rows.
+  - **The component split (ADR 0025), 2026-11-02.** Web, gateway and agent no longer import each other (boundary rule B9, baseline
+    now empty): sign-in codes, number connect, owner alerts and the reading of Meta's webhook each go through a request or event the
+    other side answers (migrations 0017-0020; `gateway_wait.py`; `channel_events` mailbox; new queue `conversation.events`). One
+    scheduler per component (`SCHEDULER_COMPONENT`). The agent's workers no longer need the Meta master key (`SENDING_QUEUES` is
+    just the gateway's send queue); the web API holds no Meta secret; the gateway and web parts are no longer asked for a model key.
+    Deploy: `deploy/db|web|gateway|agent` with their own `.env.example`, `scripts/stack.sh|ps1`, `deploy/README.md`, and
+    `tests/test_deploy_files.py` (reads the compose files as data, no Docker needed). **Not verified:** no image was built or started
+    (no Docker daemon); the compose files only pass `docker compose config` and the tests above.
+    **Still open from ADR 0025:** per-component database roles; the web API still holds the master key for the operator's manual
+    pilot-number registration; the operator-alert WhatsApp sink in the web scheduler still uses the platform token until alert
+    delivery moves to email (ADR 0029). The queue-stats API test now expects five queues (new `conversation.events`).

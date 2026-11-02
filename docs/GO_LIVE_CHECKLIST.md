@@ -5,6 +5,13 @@ can only be made against the real services. Built up as the work goes; each item
 
 ## Keys and configuration (environment)
 
+- [ ] **Build and start each part with Docker** (`scripts/stack.sh all`, `deploy/README.md`). The compose files are validated
+      (`docker compose config`) and tested against the application's production rules, but no image has ever been *built* or
+      *started* in the development environment (no Docker daemon). Confirm each part's `/healthz` and that the site, `receive`,
+      `send` and `agent` come up healthy.
+- [ ] **Each part's `.env`** from its `.env.example` (`deploy/db|web|gateway|agent`). `MASTER_KEY` must be the same in web and
+      gateway; the four database URLs the same everywhere. The web part must hold no Meta secret and the agent no WhatsApp token.
+
 - [ ] **LLM:** `LLM_PROVIDER=openai_compat`, `OPENAI_COMPAT_BASE_URL=https://api.groq.com/openai/v1`,
       `OPENAI_COMPAT_API_KEY` as a secret; allow `api.groq.com` in network access. (ADR 0034)
 - [ ] **Meta:** `META_APP_SECRET`, `META_VERIFY_TOKEN`, platform sender id and token; `MASTER_KEY`, `JWT_SECRET`,

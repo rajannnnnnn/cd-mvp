@@ -45,25 +45,62 @@ def test_the_inbound_and_agent_workers_hold_no_secrets_at_all():
         build("worker", WORKER_QUEUES=queues)
 
 
-def test_only_the_gateways_send_queue_needs_the_master_key():
+def test_only_the_gateways_send_queue_needs_the_master_key_and_the_meta_app_secret():
+    # it decrypts the shop's WhatsApp token to send, and completes Embedded Signup with Meta (ADR 0025)
     for queues in ("outbound.actions", "inbound.events,outbound.actions", "conversation.turns,outbound.actions"):
-        with pytest.raises(ValidationError, match="MASTER_KEY"):
-            build("worker", WORKER_QUEUES=queues)
-        build("worker", keep=("MASTER_KEY",), WORKER_QUEUES=queues)
+        for missing in ("MASTER_KEY", "META_APP_SECRET"):
+            with pytest.raises(ValidationError, match=missing):
+                build("worker", keep=tuple(k for k in ("MASTER_KEY", "META_APP_SECRET") if k != missing), WORKER_QUEUES=queues)
+        build("worker", keep=("MASTER_KEY", "META_APP_SECRET"), WORKER_QUEUES=queues)
 
 
-def test_a_worker_with_the_default_queues_is_a_sender_and_needs_the_master_key():
+def test_the_sender_needs_the_platform_token_when_codes_go_out_over_whatsapp():
+    keep = ("MASTER_KEY", "META_APP_SECRET")
+    build("worker", keep=keep, WORKER_QUEUES="outbound.actions")                                    # simulator channel: no token needed
+    with pytest.raises(ValidationError, match="PLATFORM_WA_ACCESS_TOKEN"):
+        build("worker", keep=keep, WORKER_QUEUES="outbound.actions", OTP_CHANNEL="whatsapp_cloud")
+    build("worker", keep=keep, WORKER_QUEUES="outbound.actions", OTP_CHANNEL="whatsapp_cloud", PLATFORM_WA_ACCESS_TOKEN="EAAtoken")
+
+
+def test_the_web_api_holds_no_meta_secret_at_all():
+    web = ("MASTER_KEY", "JWT_SECRET", "OTP_SECRET")                                                # master key: operator's manual pilot numbers
+    s = build("api", keep=web)
+    assert s.meta_app_secret == "" and s.meta_verify_token == ""
+    for name in web:
+        with pytest.raises(ValidationError, match=name):
+            build("api", keep=tuple(k for k in web if k != name))
+
+
+def test_a_worker_with_the_default_queues_is_a_sender_and_needs_the_gateways_secrets():
     with pytest.raises(ValidationError, match="MASTER_KEY"):
         build("worker")
-    build("worker", keep=("MASTER_KEY",))
+    build("worker", keep=("MASTER_KEY", "META_APP_SECRET"))
 
 
-def test_api_and_all_in_one_need_every_secret():
-    for role in ("api", "all"):
-        build(role, keep=tuple(SECRETS))
-        for name in SECRETS:
-            with pytest.raises(ValidationError, match=name):
-                build(role, keep=tuple(k for k in SECRETS if k != name))
+def test_all_in_one_needs_every_secret():
+    build("all", keep=tuple(SECRETS))
+    for name in SECRETS:
+        with pytest.raises(ValidationError, match=name):
+            build("all", keep=tuple(k for k in SECRETS if k != name))
+
+
+PROD = {"ENV": "production", "SIMULATOR_ENABLED": "false", "OTP_CHANNEL": "whatsapp_cloud", "PAYMENT_PROVIDER": "manual",
+        "PLATFORM_WA_ACCESS_TOKEN": "EAAtoken"}
+
+
+def test_only_the_agents_workers_need_a_model_configured_in_production():
+    # the web and gateway parts never call a model, so asking them for an API key (or refusing the stand-in) is noise
+    build("api", keep=("MASTER_KEY", "JWT_SECRET", "OTP_SECRET"), **PROD)
+    build("ingress", keep=("META_APP_SECRET", "META_VERIFY_TOKEN"), **PROD)
+    build("scheduler", **PROD)
+    build("worker", keep=("MASTER_KEY", "META_APP_SECRET"), WORKER_QUEUES="outbound.actions,inbound.events", **PROD)
+    for queues in ("conversation.turns", "owner.notifications", "conversation.events,conversation.turns,owner.notifications"):
+        with pytest.raises(ValidationError, match="local"):
+            build("worker", WORKER_QUEUES=queues, **PROD)                                          # the agent does call one
+        build("worker", WORKER_QUEUES=queues, LLM_PROVIDER="openai_compat", OPENAI_COMPAT_BASE_URL="https://llm.example/v1",
+              OPENAI_COMPAT_API_KEY="key", **PROD)
+    with pytest.raises(ValidationError, match="local"):
+        build("all", keep=tuple(SECRETS), **PROD)
 
 
 def test_scheduler_and_migrate_need_no_secrets_unless_the_simulator_signs_webhooks():

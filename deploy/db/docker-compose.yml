@@ -1,0 +1,25 @@
+# Database migrations (ADR 0025): its own one-off job, run before anything else and again after every release.
+# It is the only part that holds the schema-owner credential (MIGRATION_DATABASE_URL); the live parts never alter the schema.
+# The database itself is external and never part of a compose file. To create the roles first: db/bootstrap_roles.sql.
+#
+#   scripts/stack.sh db              (or: docker compose --env-file .env -f docker-compose.yml up --build, from deploy/db)
+#
+# Safe to run any number of times: applied migrations are skipped (checksummed), and a lock stops two runs overlapping.
+name: chatdeal-db
+
+services:
+  migrate:
+    build: { context: ../../backend }
+    image: ${BACKEND_IMAGE:-chatdeal-backend:local}
+    restart: "no"
+    command: ["migrate"]
+    environment:
+      ENV: ${APP_ENV:?set APP_ENV in deploy/db/.env}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in deploy/db/.env}
+      PRICING_DATABASE_URL: ${PRICING_DATABASE_URL:?set PRICING_DATABASE_URL in deploy/db/.env}
+      SYSTEM_DATABASE_URL: ${SYSTEM_DATABASE_URL:?set SYSTEM_DATABASE_URL in deploy/db/.env}
+      MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?set MIGRATION_DATABASE_URL in deploy/db/.env}
+      PAYMENT_PROVIDER: manual          # production refuses the test gateway; a migration never takes payments
+      SIMULATOR_ENABLED: "false"        # production refuses the simulator, which is on by default for development
+      OTP_CHANNEL: ${OTP_CHANNEL:-whatsapp_cloud}

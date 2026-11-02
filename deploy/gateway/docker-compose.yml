@@ -1,17 +1,20 @@
-# Channel gateway (ADR 0020): everything between WhatsApp and the rest of the system. No LLM, no sales logic.
-#   receive   public webhook: verify signature, store the raw event, enqueue, answer 200 (NFR-1)
-#   inbound   turn stored webhooks into clean messages / statuses / account events, hand the conversation to the agent
-#   send      the only way out to Meta: window + per-number limit + pacing, then send. Holds the WhatsApp tokens
+# GATEWAY (ADR 0020, ADR 0025): the only part that talks to Meta. No sales logic and no AI model.
+#   receive    the public webhook: verify the signature, store the raw request, queue it, answer 200 at once (NFR-1)
+#   inbound    read what Meta sent and hand the agent clean events (it never sees Meta's wire format)
+#   send       the only way out to Meta: replies, owner alerts, sign-in codes, and connecting a number for the web part.
+#              Holds the WhatsApp tokens. Checks the 24-hour window and the per-number limit at the moment of sending
+#   scheduler  this part's own timer: its raw-request log, and moving events along
 #
-# Start:   scripts\stack.ps1 gateway           Scale one part:  scripts\stack.ps1 gateway -Service send -Scale 2
-# Needs deploy/gateway/.env (copy .env.example). Migrations are run by the backend stack, so start that first.
-# Independent of the demo stack and of every other stack: own project name, env file and image tag.
-# Only `receive` is published (127.0.0.1:8001); point your public tunnel for Meta at it.
+#   scripts/stack.sh gateway          Scale one part:  scripts/stack.sh gateway --scale send=2
+#
+# Needs deploy/gateway/.env (copy .env.example). Start the database job (deploy/db) first.
+# Only `receive` is published (127.0.0.1:8001); point your public tunnel or proxy for Meta at it.
+# Each part is given only the secrets it uses (INV-11).
 name: chatdeal-gateway
 
 x-gateway: &gateway
   build: { context: ../../backend }
-  image: chatdeal-gateway:local
+  image: ${BACKEND_IMAGE:-chatdeal-backend:local}
   restart: unless-stopped
   healthcheck:
     test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
@@ -29,18 +32,13 @@ x-gateway: &gateway
     MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?set MIGRATION_DATABASE_URL in deploy/gateway/.env}
     QUEUE_BACKEND: ${QUEUE_BACKEND:-postgres}
     REDIS_URL: ${REDIS_URL:-}
-    # No secrets here on purpose (ADR 0020 follow-up 2, INV-11): each part below is given only the secrets it uses.
-    #   receive  META_APP_SECRET, META_VERIFY_TOKEN     inbound  none     send  MASTER_KEY (opens the WhatsApp tokens)
-    # JWT_SECRET and OTP_SECRET belong to the API and are not part of the gateway.
     META_APP_ID: ${META_APP_ID:-}
     META_CONFIG_ID: ${META_CONFIG_ID:-}
     META_GRAPH_VERSION: ${META_GRAPH_VERSION:?set META_GRAPH_VERSION in deploy/gateway/.env}
     META_GRAPH_BASE: ${META_GRAPH_BASE:-https://graph.facebook.com}
     OTP_CHANNEL: ${OTP_CHANNEL:-whatsapp_cloud}
-    PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-manual}      # production refuses `test`; the gateway never takes payments
+    PAYMENT_PROVIDER: manual            # production refuses `test`; the gateway never takes payments
     SIMULATOR_ENABLED: ${SIMULATOR_ENABLED:-false}
-    LLM_PROVIDER: ${LLM_PROVIDER:-local}
-    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
 
 services:
   receive:
@@ -67,4 +65,14 @@ services:
       <<: *gateway-env
       WORKER_QUEUES: outbound.actions
       WORKER_CONCURRENCY: ${SEND_CONCURRENCY:-8}
-      MASTER_KEY: ${MASTER_KEY:?set MASTER_KEY in deploy/gateway/.env}
+      MASTER_KEY: ${MASTER_KEY:?set MASTER_KEY in deploy/gateway/.env}                   # opens each shop's WhatsApp token
+      META_APP_SECRET: ${META_APP_SECRET:?set META_APP_SECRET in deploy/gateway/.env}   # completes Embedded Signup for the web part
+      PLATFORM_SENDER_PHONE_NUMBER_ID: ${PLATFORM_SENDER_PHONE_NUMBER_ID:-sim-platform}  # the platform's own number: sign-in codes, and
+      PLATFORM_WA_ACCESS_TOKEN: ${PLATFORM_WA_ACCESS_TOKEN:-}                            #   alerts when a shop's own number is down
+
+  scheduler:
+    <<: *gateway
+    command: ["scheduler"]
+    environment:
+      <<: *gateway-env
+      SCHEDULER_COMPONENT: gateway

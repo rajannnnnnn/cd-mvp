@@ -19,6 +19,8 @@ ALL_QUEUES = (
     "owner.notifications",
     "platform.events",
 )
+# Queues whose workers call a model: the agent's turns, and the owner loop's config-by-chat (ADR 0025, ADR 0034).
+MODEL_QUEUES = {"conversation.turns", "owner.notifications"}
 # Queues whose jobs send to WhatsApp, so the process needs the master key to open the owner's access token.
 # Only the gateway's send queue does (ADR 0025): the owner loop and the platform events no longer send, they ask the gateway.
 SENDING_QUEUES = {"outbound.actions"}
@@ -167,12 +169,16 @@ class Settings(BaseSettings):
     def _required_secrets(self) -> Settings:
         """INV-11 / ADR 0020: each role gets the secrets it uses and no more; a required one that is missing stops startup."""
         need: set[str] = set()
-        if self.role in ("api", "all"):
+        if self.role == "all":
             need |= {"master_key", "jwt_secret", "otp_secret", "meta_app_secret", "meta_verify_token"}
+        elif self.role == "api":                       # the web part holds no Meta secret (ADR 0025); the master key is for the
+            need |= {"master_key", "jwt_secret", "otp_secret"}   # operator's manual pilot numbers, retired by Tech Provider approval
         elif self.role == "ingress":
             need |= {"meta_app_secret", "meta_verify_token"}
         elif self.role == "worker" and set(self.queues) & SENDING_QUEUES:
-            need.add("master_key")                     # decrypts the owner's WhatsApp token to send
+            need |= {"master_key", "meta_app_secret"}  # the gateway's send part: opens the WhatsApp tokens, completes Embedded Signup
+            if self.otp_channel == "whatsapp_cloud":
+                need.add("platform_wa_access_token")   # the platform's own sender: sign-in codes, and alerts when a shop's number is down
         if self.simulator_enabled and self.role not in ("web", "migrate"):
             need.add("meta_app_secret")                # the simulator signs the webhooks it plays back
         for name in sorted(need):
@@ -184,10 +190,18 @@ class Settings(BaseSettings):
                 raise ValueError(f"{name.upper()} must be at least {minimum} characters")
         return self
 
+    @property
+    def uses_model(self) -> bool:
+        """Whether this process can call a model: the agent's workers, or everything-in-one. The web and gateway parts never do."""
+        return self.role == "all" or (self.role == "worker" and bool(set(self.queues) & MODEL_QUEUES))
+
     @model_validator(mode="after")
     def _llm_rules(self) -> Settings:
         """ADR 0034: a vendor any stage (or the fallback) uses must be reachable, and a model must suit its vendor.
-        Prices are checked by the agent's factory at startup; here only their shape, since config imports no module."""
+        Prices are checked by the agent's factory at startup; here only their shape, since config imports no module.
+        Only processes that can call a model are held to this: asking the web or gateway part for an API key is noise."""
+        if not self.uses_model:
+            return self
         stages = {st: self.llm_stage_provider(st) for st in ("planner", "writer", "check")}
         used = set(stages.values()) | ({self.llm_fallback_provider} - {"none"})
         if "anthropic" in used and not self.anthropic_api_key:
