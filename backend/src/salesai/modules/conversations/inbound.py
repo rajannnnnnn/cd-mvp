@@ -58,6 +58,14 @@ class InboundRouter:
 
     async def process_payload(self, payload: dict[str, Any]) -> None:
         for ev in parse_webhook(payload):
+            if isinstance(ev, AccountEvent):
+                numbers = await self._numbers_for_account(ev)
+                if not numbers:
+                    await self._unknown_number(ev.phone_number_id, ev)
+                for acct_number in numbers:
+                    with bind(business_id=acct_number["business_id"]):
+                        await self._account(acct_number, ev)
+                continue
             pn = event_phone_number_id(ev)
             number = await self._resolve_number(pn) if pn else None
             if number is None:
@@ -70,27 +78,50 @@ class InboundRouter:
                     await self._echo(number, ev)
                 elif isinstance(ev, StatusUpdate):
                     await self._status(number, ev)
-                elif isinstance(ev, AccountEvent):
-                    await self._account(number, ev)
 
     async def _resolve_number(self, phone_number_id: str) -> dict[str, Any] | None:
         async with self.db.system_tx() as c:
             return await (await c.execute(
-                "SELECT id, business_id, display_phone, status, channel FROM whatsapp_numbers WHERE phone_number_id=%s",
+                "SELECT id, business_id, display_phone, status, channel, phone_number_id FROM whatsapp_numbers WHERE phone_number_id=%s",
                 (phone_number_id,))).fetchone()
+
+    async def _numbers_for_account(self, ev: AccountEvent) -> list[dict[str, Any]]:
+        """Account webhooks usually name the WhatsApp Business Account, not a phone number (FR-ON-4). Most specific
+        first: the phone-number id, then a display phone within that account, then every number on the account — on
+        the platform's own account that rightly means every pilot shop, since they all go down together."""
+        if ev.phone_number_id:
+            one = await self._resolve_number(ev.phone_number_id)
+            return [one] if one else []
+        digits = "".join(ch for ch in str(ev.detail.get("display_phone_number") or ev.detail.get("phone_number") or "") if ch.isdigit())
+        async with self.db.system_tx() as c:
+            if digits:
+                rows = await (await c.execute(
+                    """SELECT id, business_id, display_phone, status, channel, phone_number_id FROM whatsapp_numbers
+                        WHERE regexp_replace(display_phone, '[^0-9]', '', 'g') = %s AND (%s::text IS NULL OR waba_id = %s)""",
+                    (digits, ev.waba_id, ev.waba_id))).fetchall()
+                if rows:
+                    return list(rows)
+            if ev.waba_id:
+                return list(await (await c.execute(
+                    "SELECT id, business_id, display_phone, status, channel, phone_number_id FROM whatsapp_numbers WHERE waba_id=%s",
+                    (ev.waba_id,))).fetchall())
+        return []
 
     async def _unknown_number(self, pn: str | None, ev: ChannelEvent) -> None:
         """INV-12: never silent. A webhook for a number we do not know is an operator alert."""
-        log.error("webhook for unknown phone_number_id %s", pn)
+        waba = ev.waba_id if isinstance(ev, AccountEvent) else None
+        log.error("webhook for unknown phone_number_id %s (business account %s)", pn, waba)
         async with self.db.system_tx() as c:
             exists = await (await c.execute(
-                "SELECT 1 FROM operator_alerts WHERE kind='unknown_number' AND detail->>'phone_number_id'=%s AND resolved_at IS NULL",
-                (pn,))).fetchone()
+                "SELECT 1 FROM operator_alerts WHERE kind='unknown_number' AND detail->>'phone_number_id' IS NOT DISTINCT FROM %s"
+                " AND detail->>'waba_id' IS NOT DISTINCT FROM %s AND resolved_at IS NULL",
+                (pn, waba))).fetchone()
             if not exists:
                 import json
                 await c.execute(
                     "INSERT INTO operator_alerts (severity, kind, message, detail) VALUES ('warning','unknown_number',%s,%s::jsonb)",
-                    (f"Webhook received for unknown WhatsApp number id {pn}", json.dumps({"phone_number_id": pn})))
+                    (f"Webhook received for unknown WhatsApp number id {pn} (business account {waba})",
+                     json.dumps({"phone_number_id": pn, "waba_id": waba})))
 
     # ---------------------------------------------------------------- inbound customer / owner messages
     async def _inbound(self, number: dict[str, Any], ev: InboundMessage) -> None:
@@ -251,8 +282,8 @@ class InboundRouter:
     # ---------------------------------------------------------------- account events
     async def _account(self, number: dict[str, Any], ev: AccountEvent) -> None:
         async with self.db.tenant(number["business_id"]) as c:
-            await emit(c, "platform.account_update",
-                       {"phone_number_id": ev.phone_number_id or "", "kind": ev.kind, "detail": ev.detail},
+            await emit(c, "platform.account_update",                # the number we resolved, not whatever the payload carried
+                       {"phone_number_id": number["phone_number_id"], "kind": ev.kind, "detail": ev.detail},
                        business_id=number["business_id"], ordering_key=f"biz:{number['business_id']}")
 
 

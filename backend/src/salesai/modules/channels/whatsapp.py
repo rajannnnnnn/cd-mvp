@@ -22,6 +22,7 @@ from salesai.modules.channels.base import (
     SendResult,
     StatusUpdate,
 )
+from salesai.obs import WEBHOOK_UNHANDLED
 
 log = logging.getLogger("salesai.channels.whatsapp")
 
@@ -114,21 +115,37 @@ def parse_webhook(payload: dict[str, Any]) -> list[ChannelEvent]:
                     events.append(EchoMessage(
                         channel_message_id=m["id"], from_phone_number_id=pn or "", to_id=m.get("to", ""),
                         kind=_kind(m.get("type", "other")), text=_body(m), timestamp=_ts(m.get("timestamp")), raw=m))
-            elif field_ in ("account_update", "phone_number_quality_update", "account_review_update"):
+            elif field_ in ACCOUNT_FIELDS:
                 events.append(_account_event(field_, v, waba, pn))
+            else:
+                WEBHOOK_UNHANDLED.labels(str(field_ or "?")).inc()
+                log.info("webhook field %r not handled; the raw event is kept in the webhook log", field_)
     return events
+
+
+# `account_offboarded` / `account_reconnected`: coexistence webhooks Meta added in April 2026 (FR-ON-4). Their exact
+# shape could not be checked against Meta's docs here, so both a field of their own and an event inside
+# `account_update` are accepted; confirm with a recorded payload before go-live.
+ACCOUNT_FIELDS = ("account_update", "phone_number_quality_update", "account_review_update",
+                  "account_offboarded", "account_reconnected")
+DISCONNECTED = ("PARTNER_REMOVED", "DISABLED_UPDATE", "ACCOUNT_DELETED", "COEXISTENCE_DISCONNECTED", "ACCOUNT_OFFBOARDED", "OFFBOARDED")
 
 
 def _account_event(field_: str, v: dict[str, Any], waba: str | None, pn: str | None) -> AccountEvent:
     ev = str(v.get("event") or "").upper()
-    detail: dict[str, Any] = {"field": field_, "event": ev, **{k: v[k] for k in ("current_limit", "decision", "display_phone_number") if k in v}}
+    detail: dict[str, Any] = {"field": field_, "event": ev,
+                              **{k: v[k] for k in ("current_limit", "decision", "display_phone_number", "phone_number") if k in v}}
+    if field_ == "account_offboarded":
+        return AccountEvent(pn, waba, "disconnected", {**detail, "event": ev or "ACCOUNT_OFFBOARDED"})
+    if field_ == "account_reconnected":
+        return AccountEvent(pn, waba, "reconnected", {**detail, "event": ev or "ACCOUNT_RECONNECTED"})
     if field_ == "phone_number_quality_update":
         rating = {"FLAGGED": "yellow", "UNFLAGGED": "green", "DOWNGRADE": "red", "ONBOARDING": "green"}.get(ev)
         if v.get("quality_rating"):
             rating = str(v["quality_rating"]).lower()
         detail["quality_rating"] = rating
         return AccountEvent(pn, waba, "quality", detail)
-    if ev in ("PARTNER_REMOVED", "DISABLED_UPDATE", "ACCOUNT_DELETED", "COEXISTENCE_DISCONNECTED"):
+    if ev in DISCONNECTED:
         return AccountEvent(pn, waba, "disconnected", detail)
     if ev in ("ACCOUNT_RESTRICTION", "ACCOUNT_VIOLATION", "RESTRICTED"):
         return AccountEvent(pn, waba, "restricted", detail)

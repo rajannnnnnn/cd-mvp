@@ -321,7 +321,9 @@ class OwnerLoop:
         kind, detail, pn = p["kind"], p.get("detail", {}), p.get("phone_number_id")
         async with self.db.tenant(bid) as c:
             num = await (await c.execute("SELECT * FROM whatsapp_numbers WHERE phone_number_id=%s", (pn,))).fetchone()
-        if num is None:
+        if num is None:                         # INV-12: an account event that matches no number is never dropped quietly
+            await self._operator_alert(bid, "account_event_unmatched", f"WhatsApp account event '{kind}' matched no number",
+                                       {"phone_number_id": pn, "detail": detail})
             return
         if kind == "quality":
             rating = detail.get("quality_rating")
