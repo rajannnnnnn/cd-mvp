@@ -11,7 +11,8 @@ import logging
 import uuid
 from typing import Any
 
-from salesai.db import Database, jsonb
+from salesai.alerts import raise_alert
+from salesai.db import Database
 from salesai.modules.channels.registry import ChannelRegistry
 from salesai.queue.base import Job
 from salesai.rules import window_open
@@ -68,6 +69,5 @@ class OwnerSender:
 
     async def _alert(self, bid: uuid.UUID, kind: str, message: str, detail: dict[str, Any]) -> None:
         async with self.db.system_tx() as s:
-            await s.execute("INSERT INTO operator_alerts (business_id, severity, kind, message, detail) VALUES (%s,'warning',%s,%s,%s)",
-                            (bid, kind, message, jsonb(detail)))
+            await raise_alert(s, "medium", kind, message, business_id=bid, detail=detail)
 

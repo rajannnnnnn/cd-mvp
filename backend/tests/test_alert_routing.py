@@ -1,8 +1,9 @@
-"""Operator alerts are pushed to the platform team (webhook and WhatsApp), once, with reminders for unresolved critical ones."""
+"""Operator alerts are pushed to the platform team (webhook and WhatsApp), once, with reminders for unresolved critical ones. (Grouping, cooldowns and email: test_alert_email.py.)."""
 from __future__ import annotations
 
 import pytest
 
+from salesai.alerts import raise_alert
 from salesai.modules.alerting import AlertRouter
 from salesai.modules.alerting.router import WhatsAppSink
 from salesai.modules.alerting.webhook_sink import WebhookSink
@@ -18,10 +19,12 @@ def hook():
     h.stop()
 
 
-async def _alert(world, shop, severity="warning", kind="send_failed", message="Outbound message failed: window_closed"):
-    async with world.rt.db.system_tx() as c:
-        return (await (await c.execute(
-            "INSERT INTO operator_alerts (business_id, severity, kind, message) VALUES (%s,%s,%s,%s) RETURNING id", (shop.business_id, severity, kind, message))).fetchone())["id"]
+_n = iter(range(10**6))
+
+
+async def _alert(world, shop, severity="high", kind="send_failed", message="Outbound message failed: window_closed", dedup_key=""):
+    async with world.rt.db.system_tx() as c:          # each call is its own cause unless the test says otherwise
+        return await raise_alert(c, severity, kind, message, business_id=shop.business_id, dedup_key=dedup_key or f"t{next(_n)}")
 
 
 async def _row(world, aid):
@@ -35,7 +38,7 @@ async def test_alert_reaches_webhook_once_and_names_the_business(world, hook):
     aid = await _alert(world, shop)
     assert await router.dispatch() >= 1
     mine = [m for m in hook.received if m["id"] == aid]
-    assert len(mine) == 1 and "Sharma Sarees" in mine[0]["text"] and mine[0]["severity"] == "warning" and "window_closed" in mine[0]["text"]
+    assert len(mine) == 1 and "Sharma Sarees" in mine[0]["text"] and mine[0]["severity"] == "high" and "window_closed" in mine[0]["text"]
     await router.dispatch()                                                           # already notified: not sent again
     assert len([m for m in hook.received if m["id"] == aid]) == 1
     assert (await _row(world, aid))["notified_at"] is not None
@@ -56,7 +59,7 @@ async def test_alert_reaches_the_team_on_whatsapp(world):
 async def test_minimum_severity_is_respected(world, hook):
     shop = await world.make_shop("Quiet Shop")
     router = AlertRouter(world.rt.db, [WebhookSink(hook.url)], min_severity="critical")
-    low = await _alert(world, shop, "warning")
+    low = await _alert(world, shop, "medium")
     high = await _alert(world, shop, "critical")
     await router.dispatch()
     ids = {m["id"] for m in hook.received}
@@ -93,14 +96,14 @@ async def test_unresolved_critical_alerts_are_repeated_and_resolved_ones_are_not
     async with world.rt.db.system_tx() as c:
         await c.execute("UPDATE operator_alerts SET notified_at = now() - interval '2 hours', resolved_at = now() WHERE id=%s", (aid,))
     await router.dispatch()
-    assert len([m for m in hook.received if m["id"] == aid]) == 2                      # resolved: silence
+    assert len([m for m in hook.received if m["id"] == aid and not m["recovered"]]) == 2     # resolved: no more reminders (a recovery notice, once, is test_alert_email.py)
 
 
 async def test_alert_text_never_carries_customer_content(world, hook):
     shop = await world.make_shop("Private Shop")
     router = AlertRouter(world.rt.db, [WebhookSink(hook.url)])
     async with world.rt.db.system_tx() as c:
-        await c.execute("INSERT INTO operator_alerts (business_id, severity, kind, message, detail) VALUES (%s,'warning','send_failed','Outbound message failed: x', %s::jsonb)",
+        await c.execute("INSERT INTO operator_alerts (business_id, severity, kind, message, detail) VALUES (%s,'high','send_failed','Outbound message failed: x', %s::jsonb)",
                         (shop.business_id, '{"detail": "secret customer text 9876543210"}'))
     await router.dispatch()
     assert all("secret customer text" not in str(m) for m in hook.received)

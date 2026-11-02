@@ -10,6 +10,7 @@ from typing import Any
 
 from psycopg.types.json import Jsonb
 
+from salesai.alerts import raise_alert
 from salesai.db import Conn, Database, jsonb
 from salesai.events.outbox import emit
 from salesai.modules.channels.base import (
@@ -218,7 +219,6 @@ class ConversationIntake:
 
     async def _failed_delivery(self, c: Conn, bid: uuid.UUID, msg: dict[str, Any], ev: StatusUpdate) -> None:
         """INV-12: a message that Meta reports as failed becomes a handoff + operator alert."""
-        import json
         open_h = await (await c.execute(
             "SELECT 1 FROM handoffs WHERE conversation_id=%s AND status='open'", (msg["conversation_id"],))).fetchone()
         if not open_h and msg["sender"] == "ai":
@@ -228,8 +228,8 @@ class ConversationIntake:
             await emit(c, "handoff.created", {"handoff_id": h["id"], "conversation_id": msg["conversation_id"], "reason": "system_failure"},
                        business_id=bid, ordering_key=f"biz:{bid}")
         async with self.db.system_tx() as s:
-            await s.execute("INSERT INTO operator_alerts (business_id, severity, kind, message, detail) VALUES (%s,'warning','delivery_failed',%s,%s::jsonb)",
-                            (bid, f"Delivery failed: {ev.error_code} {ev.error}", json.dumps({"code": ev.error_code, "message_id": ev.channel_message_id})))
+            await raise_alert(s, "medium", "delivery_failed", f"Delivery failed: {ev.error_code} {ev.error}", business_id=bid,
+                              dedup_key=str(ev.error_code), detail={"code": ev.error_code, "message_id": ev.channel_message_id})
 
     # ---------------------------------------------------------------- account events
     async def _account(self, number: dict[str, Any], ev: AccountEvent) -> None:

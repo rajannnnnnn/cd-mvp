@@ -8,10 +8,10 @@ Safe to repeat: a request already handed over is skipped, and (request, position
 failed half way never duplicates an event. Every step that cannot place an event raises an operator alert (INV-12)."""
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 
+from salesai.alerts import raise_alert
 from salesai.db import Database, jsonb
 from salesai.events.outbox import emit
 from salesai.modules.channels.base import (
@@ -124,12 +124,5 @@ class WebhookRouter:
         waba = ev.waba_id if isinstance(ev, AccountEvent) else None
         log.error("webhook for unknown phone_number_id %s (business account %s)", pn, waba)
         async with self.db.system_tx() as c:
-            exists = await (await c.execute(
-                "SELECT 1 FROM operator_alerts WHERE kind='unknown_number' AND detail->>'phone_number_id' IS NOT DISTINCT FROM %s"
-                " AND detail->>'waba_id' IS NOT DISTINCT FROM %s AND resolved_at IS NULL",
-                (pn, waba))).fetchone()
-            if not exists:
-                await c.execute(
-                    "INSERT INTO operator_alerts (severity, kind, message, detail) VALUES ('warning','unknown_number',%s,%s::jsonb)",
-                    (f"Webhook received for unknown WhatsApp number id {pn} (business account {waba})",
-                     json.dumps({"phone_number_id": pn, "waba_id": waba})))
+            await raise_alert(c, "high", "unknown_number", f"Webhook received for unknown WhatsApp number id {pn} (business account {waba})",
+                              dedup_key=f"{pn}|{waba}", detail={"phone_number_id": pn, "waba_id": waba})

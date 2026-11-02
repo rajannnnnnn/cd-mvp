@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 
 import psycopg
 
+from salesai.alerts import raise_alert
 from salesai.config import ALL_QUEUES
 from salesai.events.outbox import emit
 from salesai.obs import QUEUE_DEAD, QUEUE_DEPTH, QUEUE_OLDEST_AGE
@@ -176,11 +177,12 @@ class Scheduler:
             QUEUE_DEAD.labels(s.queue).set(s.dead)
             if s.dead:
                 async with self.rt.db.system_tx() as c:
-                    exists = await (await c.execute("SELECT 1 FROM operator_alerts WHERE kind='dead_letter' AND detail->>'queue'=%s AND resolved_at IS NULL", (s.queue,))).fetchone()
+                    # lost customer messages are Critical; any other queue stuck is High (ADR 0029). Only the first sighting is
+                    # raised, so a long-dead queue is one alert, not a count that grows with the timer.
+                    exists = await (await c.execute("SELECT 1 FROM operator_alerts WHERE kind='dead_letter' AND dedup_key=%s AND resolved_at IS NULL", (s.queue,))).fetchone()
                     if not exists:
-                        import json
-                        await c.execute("INSERT INTO operator_alerts (severity, kind, message, detail) VALUES ('critical','dead_letter',%s,%s::jsonb)",
-                                        (f"{s.dead} dead-lettered job(s) in {s.queue}", json.dumps({"queue": s.queue})))
+                        await raise_alert(c, "critical" if s.queue in ("inbound.events", "conversation.events") else "high", "dead_letter",
+                                          f"{s.dead} dead-lettered job(s) in {s.queue}", dedup_key=s.queue, detail={"queue": s.queue})
 
     async def tick_slow(self, *, tidy: bool) -> None:
         """The work done every half minute (and the hourly tidy-up when `tidy`), limited to this component's duties."""

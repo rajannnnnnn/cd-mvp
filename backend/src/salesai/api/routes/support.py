@@ -10,9 +10,10 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Query, Response, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 
+from salesai.alerts import raise_alert
 from salesai.api.deps import RT, Operator, Tenant, tx
 from salesai.api.errors import ApiError
-from salesai.db import Conn, jsonb
+from salesai.db import Conn
 from salesai.modules.catalog import repo
 
 router = APIRouter(tags=["support"])
@@ -133,8 +134,8 @@ async def open_ticket(body: TicketIn, rt: RT, p: Tenant) -> TicketDetail:
         out = await _detail(c, row["id"])
         name = (await (await c.execute("SELECT name FROM businesses WHERE id=%s", (p.bid,))).fetchone())["name"]
     async with rt.db.system_tx() as s:      # support gets told right away
-        await s.execute("INSERT INTO operator_alerts (business_id, severity, kind, message, detail) VALUES (%s,'info','support_ticket',%s,%s::jsonb)",
-                        (p.bid, f"Support ticket #{row['number']} from {name}: {body.subject.strip()[:80]}", jsonb({"ticket_id": str(row["id"]), "number": row["number"]})))
+        await raise_alert(s, "low", "support_ticket", f"Support ticket #{row['number']} from {name}: {body.subject.strip()[:80]}", business_id=p.bid,
+                          dedup_key=str(row["id"]), detail={"ticket_id": str(row["id"]), "number": row["number"]})
     return out
 
 

@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
+from salesai.alerts import raise_alert
 from salesai.db import Conn, Database, jsonb, required
 from salesai.events.outbox import emit
 from salesai.modules.agent import LLMProvider, LLMRequest, LLMUnavailable, prompts
@@ -58,10 +59,9 @@ class OwnerLoop:
             await emit(c, "owner.message_requested", {"owner_message_id": row["id"]}, business_id=bid,
                        ordering_key=f"owner:{user['id']}")                        # one owner's messages stay in order
 
-    async def _operator_alert(self, bid: uuid.UUID | None, kind: str, message: str, detail: dict[str, Any], severity: str = "warning") -> None:
+    async def _operator_alert(self, bid: uuid.UUID | None, kind: str, message: str, detail: dict[str, Any], severity: str = "medium") -> None:
         async with self.db.system_tx() as s:
-            await s.execute("INSERT INTO operator_alerts (business_id, severity, kind, message, detail) VALUES (%s,%s,%s,%s,%s)",
-                            (bid, severity, kind, message, jsonb(detail)))
+            await raise_alert(s, severity, kind, message, business_id=bid, detail=detail)
 
     # ------------------------------------------------------------------ notify (handoff / deal / generic) — owner.notifications:notify
     async def notify(self, job: Job) -> None:
@@ -319,7 +319,7 @@ class OwnerLoop:
                 async with self.db.tenant(bid) as c:
                     await c.execute("UPDATE whatsapp_numbers SET quality_rating=%s WHERE id=%s", (rating, num["id"]))
                 if rating != "green":
-                    await self._operator_alert(bid, "quality_drop", f"WhatsApp quality rating is now {rating}", {"number": num["display_phone"]}, "critical" if rating == "red" else "warning")
+                    await self._operator_alert(bid, "quality_drop", f"WhatsApp quality rating is now {rating}", {"number": num["display_phone"]}, "high" if rating == "red" else "medium")
         elif kind in ("disconnected", "restricted"):
             await self._set_status(bid, num, kind, detail.get("event", kind))
         elif kind == "reconnected":
@@ -341,7 +341,7 @@ class OwnerLoop:
 
     async def _alert_disconnected(self, bid: uuid.UUID, num: dict[str, Any], reason: str) -> None:
         """FR-ON-4: stop the AI (ai_block_reason sees the disconnected number) and alert owner + operator."""
-        await self._operator_alert(bid, "number_disconnected", f"WhatsApp number {num['display_phone']} disconnected: {reason}", {"number": num["display_phone"], "reason": reason}, "critical")
+        await self._operator_alert(bid, "number_disconnected", f"WhatsApp number {num['display_phone']} disconnected: {reason}", {"number": num["display_phone"], "reason": reason}, "high")
         async with self.db.tenant(bid) as c:
             await emit(c, "owner.notification_requested", {"purpose": "disconnect_alert", "data": {"number": num["display_phone"], "reason": reason}},
                        business_id=bid, ordering_key=f"biz:{bid}")

@@ -7,9 +7,11 @@ silently ignored), and the part's .env.example must document every variable the 
 This keeps the deploy files honest as the code changes."""
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 from typing import Any
+from unittest import mock
 
 import pytest
 import yaml
@@ -20,14 +22,14 @@ DEPLOY = Path(__file__).resolve().parents[2] / "deploy"
 PARTS = ("db", "web", "gateway", "agent")
 
 SECRETS = {"MASTER_KEY", "JWT_SECRET", "OTP_SECRET", "META_APP_SECRET", "META_VERIFY_TOKEN", "PLATFORM_WA_ACCESS_TOKEN",
-           "OPENAI_COMPAT_API_KEY", "ANTHROPIC_API_KEY"}
+           "OPENAI_COMPAT_API_KEY", "ANTHROPIC_API_KEY", "SMTP_PASSWORD"}
 
 # What each service may hold. This table is the architecture, written as a test: a secret added to a service must be added here
 # deliberately, with a reason.
 EXPECTED_SECRETS: dict[str, set[str]] = {
     "db/migrate": set(),
     "web/api": {"MASTER_KEY", "JWT_SECRET", "OTP_SECRET"},                     # master key: the operator's manual pilot numbers (ADR 0025)
-    "web/scheduler": {"PLATFORM_WA_ACCESS_TOKEN"},                             # operator alerts to WhatsApp, until they move to email (ADR 0029)
+    "web/scheduler": {"PLATFORM_WA_ACCESS_TOKEN", "SMTP_PASSWORD"},            # platform alerts: email to the founder, and Critical on WhatsApp (ADR 0029)
     "gateway/receive": {"META_APP_SECRET", "META_VERIFY_TOKEN"},
     "gateway/inbound": set(),
     "gateway/send": {"MASTER_KEY", "META_APP_SECRET", "PLATFORM_WA_ACCESS_TOKEN"},
@@ -73,7 +75,10 @@ def _settings_for(svc: dict[str, Any]) -> Settings:
     role = svc["command"][0]
     env = {k: _resolve(k, v) for k, v in (svc.get("environment") or {}).items()}
     env["ROLE"] = role
-    return Settings(_env_file=None, **{k.lower(): v for k, v in env.items()})  # type: ignore[arg-type]
+    # A container starts with only what its compose file gives it. The rest of the suite sets settings in this process's
+    # environment (conftest), which would otherwise fill in what the file left out and hide a missing or placeholder value.
+    with mock.patch.dict(os.environ, {}, clear=True):
+        return Settings(_env_file=None, **{k.lower(): v for k, v in env.items()})  # type: ignore[arg-type]
 
 
 RUNNABLE = [(sid, svc, part) for sid, svc, part in _services() if "command" in svc]

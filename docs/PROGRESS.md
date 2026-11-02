@@ -288,5 +288,15 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
     `tests/test_deploy_files.py` (reads the compose files as data, no Docker needed). **Not verified:** no image was built or started
     (no Docker daemon); the compose files only pass `docker compose config` and the tests above.
     **Still open from ADR 0025:** per-component database roles; the web API still holds the master key for the operator's manual
-    pilot-number registration; the operator-alert WhatsApp sink in the web scheduler still uses the platform token until alert
-    delivery moves to email (ADR 0029). The queue-stats API test now expects five queues (new `conversation.events`).
+    pilot-number registration; the platform-alert WhatsApp copy (Critical only) in the web scheduler still uses the platform token. The queue-stats API test now expects five queues (new `conversation.events`).
+  - **Platform alerts by email (ADR 0029), 2026-11-02.** Four severities (low, medium, high, critical; migration 0021). Every
+    component raises through `salesai/alerts.py::raise_alert`: one open alert per cause with an occurrence count. Critical goes
+    out at once and every 30 minutes until resolved; High at once with a 30-minute cooldown and only on news; Medium is an
+    hourly rollup; Low a daily digest; Critical and High get one recovery notice. Email is SMTP behind the sink port (no new
+    dependency), settings `ALERT_EMAIL_TO`, `ALERT_EMAIL_FROM`, `SMTP_*`, intervals `ALERT_*_MINUTES`; documented in both
+    `.env.example` files; the SMTP password is held by the web scheduler only (deploy test). Never to subscribers: proven by a
+    behaviour test and by a test that fails if the alerting code touches any table but the alert table and a shop's name.
+    `tests/test_alert_email.py` (20 tests, real SMTP exchange against `tests/fake_smtp.py`). Operator console shows the new
+    severities and "happened N times". **Fixed along the way:** `tests/test_deploy_files.py` failed inside the full suite (not alone)
+    because other tests leave settings in the process environment, which filled in what a compose file left out; each service is now
+    built from a clean environment. **Not built:** automatic resolution when a cause clears; cost-spike and eval-drift rules (admin plane).

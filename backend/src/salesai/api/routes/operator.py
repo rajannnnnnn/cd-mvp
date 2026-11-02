@@ -84,6 +84,8 @@ class AlertOut(BaseModel):
     message: str
     created_at: datetime
     resolved_at: datetime | None
+    occurrences: int = 1                     # how many times this same cause has happened while open (ADR 0029)
+    last_seen_at: datetime | None = None
 
 
 @router.get("/businesses", response_model=list[TenantRow], summary="Tenants with connection status, quality, AI status, volume and error rates (FR-OP-1)")
@@ -190,7 +192,7 @@ async def alerts(rt: RT, p: Operator, resolved: bool = False, limit: Annotated[i
     async with rt.db.system_tx() as c:
         return await (await c.execute(
             """SELECT a.*, b.name AS business_name FROM operator_alerts a LEFT JOIN businesses b ON b.id=a.business_id
-               WHERE (a.resolved_at IS NOT NULL) = %s ORDER BY a.created_at DESC LIMIT %s""", (resolved, limit))).fetchall()
+               WHERE (a.resolved_at IS NOT NULL) = %s ORDER BY a.last_seen_at DESC LIMIT %s""", (resolved, limit))).fetchall()
 
 
 @router.post("/alerts/{alert_id}/resolve", status_code=204)

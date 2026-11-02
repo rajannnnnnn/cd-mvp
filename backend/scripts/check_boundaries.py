@@ -110,6 +110,7 @@ VENDOR_ADAPTERS = {
     "httpx": {"modules/channels/whatsapp.py", "modules/channels/embedded_signup.py", "modules/agent/llm/anthropic_provider.py",
               "modules/agent/llm/openai_compat_provider.py", "modules/alerting/webhook_sink.py"},
     "redis": {"queue/redis_backend.py"},
+    "smtplib": {"modules/alerting/email_sink.py"},
 }
 # B5
 QUEUE_BACKENDS = {"salesai.queue.postgres", "salesai.queue.redis_backend"}

@@ -12,6 +12,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from salesai.alerts import raise_alert
 from salesai.db import Database, jsonb, required
 from salesai.modules.billing.payments import PaymentProvider
 from salesai.modules.billing.plans import GRACE_DAYS, PLANS, TRIAL_DAYS, TRIAL_PLAN, Plan, gst_for
@@ -231,7 +232,7 @@ class BillingService:
         if b and b["ai_enabled"]:
             ob["billing_paused"] = True
             await c.execute("UPDATE businesses SET ai_enabled=false, onboarding=%s WHERE id=%s", (jsonb(ob), business_id))
-        await c.execute("INSERT INTO operator_alerts (business_id, severity, kind, message) VALUES (%s,'info','subscription_lapsed',%s)", (business_id, f"Subscription lapsed: {why}"))
+        await raise_alert(c, "low", "subscription_lapsed", f"Subscription lapsed: {why}", business_id=business_id)
 
     # ------------------------------------------------------------------ cancel / resume
     async def cancel(self, business_id: uuid.UUID) -> dict[str, Any]:
@@ -302,8 +303,8 @@ class BillingService:
             for inv in await (await c.execute("SELECT i.*, s.status AS sub_status FROM invoices i JOIN subscriptions s ON s.business_id=i.business_id WHERE i.status='open' AND i.due_at <= %s", (now,))).fetchall():
                 if inv["sub_status"] == "active":
                     await c.execute("UPDATE subscriptions SET status='past_due' WHERE business_id=%s", (inv["business_id"],))
-                    await c.execute("INSERT INTO operator_alerts (business_id, severity, kind, message) VALUES (%s,'warning','payment_overdue',%s)",
-                                    (inv["business_id"], f"Invoice {inv['number']} is overdue"))
+                    await raise_alert(c, "medium", "payment_overdue", f"Invoice {inv['number']} is overdue", business_id=inv["business_id"],
+                                      dedup_key=str(inv["number"]))
                     done["past_due"] += 1
                 if inv["due_at"] + timedelta(days=GRACE_DAYS) <= now:
                     sub = await self._sub(c, inv["business_id"])

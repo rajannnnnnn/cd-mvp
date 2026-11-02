@@ -14,7 +14,7 @@ import { TableSkeleton } from '@/ui/skeletons'
 
 export const STASH_KEY = 'chatdeal.operator.stash'
 type Tab = 'tenants' | 'alerts' | 'queues' | 'webhooks' | 'turns' | 'costs' | 'billing' | 'support'
-const sevTone = (s: string) => (s === 'critical' || s === 'error' ? 'red' : s === 'warning' ? 'amber' : 'blue') as 'red' | 'amber' | 'blue'
+const sevTone = (s: string) => (s === 'critical' || s === 'high' ? 'red' : s === 'medium' ? 'amber' : 'blue') as 'red' | 'amber' | 'blue'
 
 function Table({ head, children, empty }: { head: string[]; children: ReactNode; empty?: ReactNode }) {
   return (
@@ -127,7 +127,7 @@ function Alerts() {
       <div className="space-y-2.5">{q.data?.map((a) => (
         <div key={a.id} className="card card-pad flex flex-wrap items-center gap-3">
           <Badge tone={sevTone(a.severity)}>{a.severity}</Badge>
-          <div className="min-w-0 flex-1"><div className="text-sm font-semibold">{a.message}</div><div className="text-[12.5px] text-muted">{a.kind}{a.business_name ? ` · ${a.business_name}` : ''} · {ago(a.created_at)}</div></div>
+          <div className="min-w-0 flex-1"><div className="text-sm font-semibold">{a.message}</div><div className="text-[12.5px] text-muted">{a.kind}{a.business_name ? ` · ${a.business_name}` : ''}{a.occurrences > 1 ? ` · happened ${a.occurrences} times` : ''} · {ago(a.last_seen_at ?? a.created_at)}</div></div>
           {!a.resolved_at && <button className="btn btn-outline btn-sm" onClick={() => resolve.mutate(a.id)}>Resolve</button>}
         </div>))}</div>
     </div>

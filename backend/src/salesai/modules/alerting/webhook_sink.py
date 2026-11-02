@@ -9,6 +9,7 @@ import httpx
 
 class WebhookSink:
     name = "webhook"
+    levels = frozenset({"high", "critical"})
 
     def __init__(self, url: str, *, timeout_s: float = 5.0, client: httpx.AsyncClient | None = None):
         self.url = url
@@ -17,7 +18,8 @@ class WebhookSink:
 
     async def send(self, alert: dict[str, Any], text: str) -> None:
         body = {"text": text, "id": alert["id"], "severity": alert["severity"], "kind": alert["kind"],
-                "business": alert.get("business_name"), "created_at": alert["created_at"].isoformat()}
+                "business": alert.get("business_name"), "created_at": alert["created_at"].isoformat(),
+                "occurrences": alert.get("occurrences", 1), "recovered": bool(alert.get("recovered"))}
         client = self._client or httpx.AsyncClient(timeout=self.timeout_s)
         try:
             r = await client.post(self.url, json=body)

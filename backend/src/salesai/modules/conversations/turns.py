@@ -2,11 +2,11 @@
 conversation by the queue's ordering key. Every wait is a DELAYED JOB, never a sleep inside a worker."""
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 
+from salesai.alerts import raise_alert
 from salesai.db import Database, required
 from salesai.events.outbox import emit
 from salesai.modules.agent import AgentService
@@ -110,5 +110,5 @@ class TurnWorker:
             await c.execute("UPDATE messages SET answered=true WHERE conversation_id=%s AND direction='in' AND NOT answered", (cid,))
             await c.execute("UPDATE conversations SET state='idle' WHERE id=%s", (cid,))
         async with self.db.system_tx() as s:
-            await s.execute("INSERT INTO operator_alerts (business_id, severity, kind, message, detail) VALUES (%s,'critical','turn_failed',%s,%s::jsonb)",
-                            (bid, "AI turn failed repeatedly; conversation handed off", json.dumps({"conversation_id": str(cid)})))
+            await raise_alert(s, "high", "turn_failed", "AI turn failed repeatedly; conversation handed off", business_id=bid,
+                              detail={"conversation_id": str(cid)})

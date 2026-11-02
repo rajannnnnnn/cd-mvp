@@ -65,9 +65,18 @@ services:
     environment:
       <<: *web-env
       SCHEDULER_COMPONENT: web           # billing, trials, platform alert delivery, sign-in and sign-up data
+      # Platform alerts to the founder (ADR 0029): email first; Critical also on WhatsApp; High and Critical to the webhook
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+      ALERT_EMAIL_FROM: ${ALERT_EMAIL_FROM:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURITY: ${SMTP_SECURITY:-starttls}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      ALERT_MIN_SEVERITY: ${ALERT_MIN_SEVERITY:-low}
       ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
       ALERT_WHATSAPP_NUMBERS: ${ALERT_WHATSAPP_NUMBERS:-}
-      # Operator alerts to WhatsApp use the platform's own sender until alert delivery moves to email (ADR 0029)
+      # The WhatsApp copy of a Critical alert goes out from the platform's own sender
       PLATFORM_SENDER_PHONE_NUMBER_ID: ${PLATFORM_SENDER_PHONE_NUMBER_ID:-sim-platform}
       PLATFORM_WA_ACCESS_TOKEN: ${PLATFORM_WA_ACCESS_TOKEN:-}
       META_GRAPH_VERSION: ${META_GRAPH_VERSION:?set META_GRAPH_VERSION in deploy/web/.env}

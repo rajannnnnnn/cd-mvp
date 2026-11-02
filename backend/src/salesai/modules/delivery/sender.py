@@ -9,6 +9,7 @@ import uuid
 from typing import Any
 
 from salesai import ratelimit
+from salesai.alerts import raise_alert
 from salesai.db import Database, required
 from salesai.events.outbox import emit
 from salesai.modules.channels import ChannelRegistry, SendResult
@@ -115,10 +116,9 @@ class OutboundSender:
             if msg:
                 await c.execute("UPDATE messages SET status='failed', error=%s WHERE id=%s", (f"{kind}: {detail}"[:500], msg["id"]))
             await create_handoff(c, bid, cid, "system_failure", f"Reply could not be delivered ({kind}): {detail}", pause_minutes=None)
-        import json
         async with self.db.system_tx() as s:
-            await s.execute("INSERT INTO operator_alerts (business_id, severity, kind, message, detail) VALUES (%s,'warning','send_failed',%s,%s::jsonb)",
-                            (bid, f"Outbound message failed: {kind}", json.dumps({"detail": detail[:300], "conversation_id": str(cid)})))
+            await raise_alert(s, "medium", "send_failed", f"Outbound message failed: {kind}", business_id=bid, dedup_key=kind,
+                              detail={"detail": detail[:300], "conversation_id": str(cid)})
 
     async def _number_problem(self, bid: uuid.UUID, number_id: uuid.UUID, status: str, res: SendResult) -> None:
         async with self.db.tenant(bid) as c:

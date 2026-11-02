@@ -13,6 +13,7 @@ from salesai.events.relay import OutboxRelay
 from salesai.modules.agent import AgentService, Models
 from salesai.modules.agent.llm.factory import make_llm
 from salesai.modules.alerting import AlertRouter
+from salesai.modules.alerting.email_sink import EmailSink
 from salesai.modules.alerting.router import WhatsAppSink
 from salesai.modules.alerting.webhook_sink import WebhookSink
 from salesai.modules.auth import AuthService
@@ -37,11 +38,16 @@ log = logging.getLogger("salesai.runtime")
 
 def build_alert_router(db: Database, channels: ChannelRegistry, settings: Settings) -> AlertRouter:
     sinks: list[Any] = []
+    if settings.alert_emails:                  # the founder's inbox first (ADR 0029); these addresses are configuration, nothing else
+        sinks.append(EmailSink(settings.smtp_host, settings.smtp_port, sender=settings.alert_email_from, to=settings.alert_emails,
+                               security=settings.smtp_security, username=settings.smtp_username, password=settings.smtp_password))
     if settings.alert_webhook_url:
         sinks.append(WebhookSink(settings.alert_webhook_url))
     if settings.alert_numbers:
         sinks.append(WhatsAppSink(channels, settings.alert_numbers))
-    return AlertRouter(db, sinks, min_severity=settings.alert_min_severity, reminder_minutes=settings.alert_reminder_minutes)
+    return AlertRouter(db, sinks, min_severity=settings.alert_min_severity, reminder_minutes=settings.alert_reminder_minutes,
+                       high_cooldown_minutes=settings.alert_high_cooldown_minutes, medium_rollup_minutes=settings.alert_medium_rollup_minutes,
+                       low_digest_minutes=settings.alert_low_digest_minutes)
 
 
 class Runtime:

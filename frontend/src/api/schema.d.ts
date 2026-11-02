@@ -1691,8 +1691,15 @@ export interface components {
             id: number;
             /** Kind */
             kind: string;
+            /** Last Seen At */
+            last_seen_at?: string | null;
             /** Message */
             message: string;
+            /**
+             * Occurrences
+             * @default 1
+             */
+            occurrences: number;
             /** Resolved At */
             resolved_at: string | null;
             /** Severity */

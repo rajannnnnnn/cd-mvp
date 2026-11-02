@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 from functools import lru_cache
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -129,11 +130,28 @@ class Settings(BaseSettings):
     invoice_seller_address: str = "[Registered address]"
     invoice_seller_gstin: str = "[GSTIN]"
 
-    # --- alert routing: where operator alerts are pushed (empty = console only)
+    # --- alert routing (ADR 0029): where platform alerts go. Empty = the operator console only. They go to the platform team
+    # (the founder) and never to a shop owner: the recipients below are the only addresses the alert path knows.
+    alert_email_to: str = ""                # comma-separated addresses, e.g. you@yourcompany.example
+    alert_email_from: str = ""              # the sender address the mail provider allows, e.g. alerts@yourcompany.example
+    smtp_host: str = ""
+    smtp_port: int = Field(587, ge=1, le=65535)
+    smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
+    smtp_username: str = ""
+    smtp_password: str = Field("", description="the mail provider's SMTP password or API key. Web part only")
     alert_webhook_url: str = ""
-    alert_whatsapp_numbers: str = ""        # comma-separated E.164 numbers of the platform team
-    alert_min_severity: Literal["info", "warning", "critical"] = "warning"
-    alert_reminder_minutes: int = 60        # unresolved critical alerts repeat at this interval
+    alert_whatsapp_numbers: str = ""        # comma-separated E.164 numbers of the platform team (Critical only)
+    alert_min_severity: Literal["low", "medium", "high", "critical"] = "low"
+    alert_reminder_minutes: int = Field(30, ge=1)           # an unresolved Critical alert repeats at this interval
+    alert_high_cooldown_minutes: int = Field(30, ge=1)      # a High alert is repeated at most this often, and only if it happened again
+    alert_medium_rollup_minutes: int = Field(60, ge=1)      # Medium alerts are gathered into one email per this interval
+    alert_low_digest_minutes: int = Field(1440, ge=1)       # Low alerts are gathered into one digest per this interval
+
+    @field_validator("alert_min_severity", mode="before")
+    @classmethod
+    def _old_severity_names(cls, v: Any) -> Any:
+        """Existing env files say info / warning; they mean low / medium."""
+        return {"info": "low", "warning": "medium"}.get(v, v)
 
     # --- safety bounds
     max_turn_wait_ms_ceiling: int = 60_000
@@ -248,6 +266,16 @@ class Settings(BaseSettings):
             for name in ("jwt_secret", "otp_secret", "meta_app_secret", "meta_verify_token"):
                 if any(w in getattr(self, name).lower() for w in weak):
                     raise ValueError(f"{name.upper()} looks like a placeholder; set a real secret")
+        for e in self.alert_emails:
+            if not re.fullmatch(r"[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+", e):
+                raise ValueError(f"ALERT_EMAIL_TO entry {e!r} is not an email address")
+        if self.alert_emails:
+            if not self.smtp_host:
+                raise ValueError("SMTP_HOST is required when ALERT_EMAIL_TO is set")
+            if not self.alert_email_from:
+                raise ValueError("ALERT_EMAIL_FROM is required when ALERT_EMAIL_TO is set")
+        if self.smtp_username and not self.smtp_password:
+            raise ValueError("SMTP_PASSWORD is required when SMTP_USERNAME is set")
         for n in self.alert_numbers:
             if not n.startswith("+") or not n[1:].isdigit():
                 raise ValueError(f"ALERT_WHATSAPP_NUMBERS entry {n!r} must look like +919999900000")
@@ -259,6 +287,10 @@ class Settings(BaseSettings):
     @property
     def queues(self) -> list[str]:
         return [q.strip() for q in self.worker_queues.split(",") if q.strip()]
+
+    @property
+    def alert_emails(self) -> list[str]:
+        return [e.strip() for e in self.alert_email_to.split(",") if e.strip()]
 
     @property
     def alert_numbers(self) -> list[str]:
