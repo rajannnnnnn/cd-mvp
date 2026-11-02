@@ -33,7 +33,7 @@ async def _x(world, shop, sql: str, *args) -> None:
 
 async def _conversation(world, shop) -> str:
     await world.customer_says(shop, "+919800000001", "hello")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     return str((await world.conv(shop, "+919800000001"))["id"])
 
 
@@ -132,7 +132,7 @@ async def test_an_echo_from_the_business_app_is_marked_as_not_sent_by_us(world):
     shop = await world.make_shop()
     await _conversation(world, shop)
     await world.owner_replies_from_app(shop, "+919800000001", "I'll call you")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     rows = await world.q(shop, "SELECT sent_via FROM messages WHERE direction='out' AND sender='owner'")
     assert rows and {r["sent_via"] for r in rows} == {"business_app"}
 

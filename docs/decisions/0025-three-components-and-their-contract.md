@@ -98,6 +98,15 @@ time; a new crossing fails the build, and so does a listed one that no longer oc
   and cleared on success, failure, expiry, when the web side gives up, and by the scheduler for requests the gateway
   never reached. The plain code therefore lives at most one code lifetime. A database-level attacker already holds far
   more than a five-minute code, so this is judged acceptable; an encrypted hand-off is a possible later hardening.
+- **Owner alerts and the reading of Meta's webhook now follow the same shape** (migrations 0019 and 0020): the agent records
+  an owner message and the gateway sends it; the gateway parses each webhook into channel-neutral events and hands them to the
+  agent through a `channel_events` mailbox, queuing only the event's id. The agent no longer imports anything from the
+  gateway, and `KNOWN_CROSSINGS` is empty. A new queue, `conversation.events`, is the agent's intake.
+- **What the split bought, concretely:** the agent's workers (`conversation.events`, `conversation.turns`,
+  `owner.notifications`, `platform.events`) no longer need the Meta master key; only the gateway's send queue does
+  (`SENDING_QUEUES`). A retry of one owner's alert no longer replays everyone's. The 24-hour window is re-checked at send
+  time from the database for owner messages too.
 - **Not yet done:** the web API role still holds the master key, because the operator's manual pilot registration of a
   number (FR-ON-3) encrypts a pasted token itself. That path retires when Tech Provider approval makes Embedded Signup
-  the only route; until then web cannot drop the key. Two crossings remain: owner alerts and the Meta payload parser.
+  the only route; until then web cannot drop the key. Per-component database roles, and per-component compose files for
+  web and the agent, are the next steps of this ADR.

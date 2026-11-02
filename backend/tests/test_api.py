@@ -247,7 +247,7 @@ async def test_filters_pagination_and_search(world, client):
     shop, tok = await owner(world, client)
     for i in range(5):
         await world.customer_says(shop, f"+91981110{i:04d}", f"hello {i}", name=f"Cust{i}")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     page1 = (await client.get(f"{V1}/conversations", headers=hdr(tok), params={"limit": 2})).json()
     assert len(page1["items"]) == 2 and page1["next_cursor"]
     page2 = (await client.get(f"{V1}/conversations", headers=hdr(tok), params={"limit": 2, "cursor": page1["next_cursor"]})).json()
@@ -367,7 +367,7 @@ async def test_operator_console_onboarding_support_and_guards(world, client):
     assert me["impersonated"] is True
     assert (await client.patch(f"{V1}/operator/businesses/{r.json()['id']}", headers=hdr(op), json={"plan": "growth", "limits": {"llm_tokens_per_day": 1000}})).status_code == 204
     qs = (await client.get(f"{V1}/operator/queues", headers=hdr(op))).json()
-    assert {q["queue"] for q in qs} >= {"inbound.events", "conversation.turns", "outbound.actions"}
+    assert {q["queue"] for q in qs} >= {"inbound.events", "conversation.events", "conversation.turns", "outbound.actions"}
     assert (await client.get(f"{V1}/operator/costs", headers=hdr(op))).status_code == 200
     assert (await client.get(f"{V1}/operator/turns", headers=hdr(op))).status_code == 200
 

@@ -12,7 +12,7 @@ from tests.world import BACKEND
 async def test_message_is_stored_routed_and_versioned(world):
     shop = await world.make_shop()
     await world.customer_says(shop, "+919800000001", "Hi, do you have silk sarees?")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     conv = await world.conv(shop, "+919800000001")
     assert conv["version"] == 1 and conv["state"] == "listening" and conv["last_inbound_at"] is not None
     [m] = await world.q(shop, "SELECT * FROM messages WHERE conversation_id=%s", conv["id"])
@@ -27,7 +27,7 @@ async def test_duplicate_delivery_by_meta_message_id_is_ignored(world):
     wamid = f"wamid.DUP{uuid.uuid4().hex[:10]}"
     for _ in range(3):
         await world.customer_says(shop, "+919800000002", "hello", wamid=wamid)
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     msgs = await world.q(shop, "SELECT 1 FROM messages")
     assert len(msgs) == 1
     conv = await world.conv(shop, "+919800000002")
@@ -43,7 +43,8 @@ async def test_reprocessing_the_same_webhook_job_has_no_side_effects(world):
     from salesai.queue.base import Job, JobSpec
     job = Job("0", JobSpec("inbound.events", "route_webhook", {"webhook_event_id": wid}), 1)
     await world.rt.router.route_webhook(job)
-    await world.rt.router.route_webhook(job)
+    await world.rt.router.route_webhook(job)                  # the gateway's part, twice: it hands the agent one event
+    await world.drain(["conversation.events"])                # the agent's part
     assert len(await world.q(shop, "SELECT 1 FROM messages")) == 1
     assert (await world.conv(shop, "+919800000003"))["version"] == 1
 
@@ -75,9 +76,9 @@ async def test_non_meta_payload_shape_is_rejected(world):
 async def test_new_message_cancels_pending_work_for_the_old_version(world):
     shop = await world.make_shop()
     await world.customer_says(shop, "+919800000005", "hi")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     await world.customer_says(shop, "+919800000005", "i want a saree")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     conv = await world.conv(shop, "+919800000005")
     assert conv["version"] == 2
     if BACKEND == "postgres":        # the shared queue suite proves supersession on every backend; this checks the rows
@@ -91,9 +92,9 @@ async def test_new_message_cancels_pending_work_for_the_old_version(world):
 async def test_owner_reply_from_business_app_pauses_ai_and_supersedes_plans(world):
     shop = await world.make_shop()
     await world.customer_says(shop, "+919800000006", "need help")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     await world.owner_replies_from_app(shop, "+919800000006", "Hello, I will help you")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     conv = await world.conv(shop, "+919800000006")
     assert conv["ai_paused_until"] is not None and conv["ai_paused_reason"] == "owner_reply"
     assert conv["version"] == 2 and conv["state"] == "idle"
@@ -109,7 +110,7 @@ async def test_echo_for_unknown_chat_is_never_ingested(world):
     """Privacy: owner's personal chats must not flow into the system."""
     shop = await world.make_shop()
     await world.owner_replies_from_app(shop, "+919800000007", "personal message to a friend")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     assert await world.q(shop, "SELECT 1 FROM customers") == []
     assert await world.q(shop, "SELECT 1 FROM messages") == []
 
@@ -117,22 +118,22 @@ async def test_echo_for_unknown_chat_is_never_ingested(world):
 async def test_personal_contact_and_opt_out_are_recorded_but_never_queued_for_a_reply(world):
     shop = await world.make_shop()
     await world.customer_says(shop, "+919800000008", "hi")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     async with world.rt.db.tenant(shop.business_id) as c:
         await c.execute("UPDATE customers SET is_personal=true WHERE wa_id='919800000008'")
     n0 = (await world.rt.queue.stats(["conversation.turns"]))[0].pending
     await world.customer_says(shop, "+919800000008", "are you there?")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     msgs = await world.q(shop, "SELECT body, answered FROM messages WHERE direction='in' ORDER BY created_at")
     assert [m["body"] for m in msgs] == ["hi", "are you there?"] and msgs[1]["answered"]
     assert (await world.rt.queue.stats(["conversation.turns"]))[0].pending == n0
 
     await world.customer_says(shop, "+919800000009", "STOP")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     [cust] = await world.q(shop, "SELECT opted_out FROM customers WHERE wa_id='919800000009'")
     assert cust["opted_out"] is True
     await world.customer_says(shop, "+919800000009", "start")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     [cust] = await world.q(shop, "SELECT opted_out FROM customers WHERE wa_id='919800000009'")
     assert cust["opted_out"] is False
 
@@ -140,7 +141,7 @@ async def test_personal_contact_and_opt_out_are_recorded_but_never_queued_for_a_
 async def test_owner_number_messages_go_to_owner_channel_not_customers(world):
     shop = await world.make_shop()
     await world.customer_says(shop, shop.owner_phone, "stop")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     assert await world.q(shop, "SELECT 1 FROM customers") == []
     [om] = await world.q(shop, "SELECT body, direction FROM owner_messages")
     assert om["body"] == "stop" and om["direction"] == "in"
@@ -149,7 +150,7 @@ async def test_owner_number_messages_go_to_owner_channel_not_customers(world):
 async def test_status_updates_record_delivery_and_read_timestamps(world):
     shop = await world.make_shop()
     await world.customer_says(shop, "+919800000010", "hi")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     conv = await world.conv(shop, "+919800000010")
     wamid = f"wamid.OUT{uuid.uuid4().hex[:10]}"
     async with world.rt.db.tenant(shop.business_id) as c:
@@ -159,7 +160,7 @@ async def test_status_updates_record_delivery_and_read_timestamps(world):
     await world.status(shop, "+919800000010", wamid, "delivered")
     await world.status(shop, "+919800000010", wamid, "read")
     await world.status(shop, "+919800000010", wamid, "delivered")      # out-of-order: must not regress
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     [m] = await world.q(shop, "SELECT status, delivered_at, read_at FROM messages WHERE wa_message_id=%s", wamid)
     assert m["status"] == "read" and m["delivered_at"] and m["read_at"]
 
@@ -167,7 +168,7 @@ async def test_status_updates_record_delivery_and_read_timestamps(world):
 async def test_webhook_for_unknown_number_raises_operator_alert(world):
     payload = build_message_payload("sim-unknown-number", "+919000000099", "+919800000011", "hello")
     await world.post(payload)
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     async with world.rt.db.system_tx() as c:
         rows = await (await c.execute("SELECT 1 FROM operator_alerts WHERE kind='unknown_number'")).fetchall()
     assert rows
@@ -177,6 +178,6 @@ async def test_two_shops_never_mix_conversations(world):
     a, b = await world.make_shop("A"), await world.make_shop("B")
     await world.customer_says(a, "+919811111111", "for A")
     await world.customer_says(b, "+919811111111", "for B")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     assert [m["body"] for m in await world.q(a, "SELECT body FROM messages")] == ["for A"]
     assert [m["body"] for m in await world.q(b, "SELECT body FROM messages")] == ["for B"]

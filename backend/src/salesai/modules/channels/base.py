@@ -3,7 +3,7 @@ WhatsApp Cloud API and the simulator are adapters behind this interface (Built f
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from datetime import datetime
 from typing import Any, Literal, Protocol
 
@@ -78,6 +78,28 @@ class AccountEvent:
 
 
 ChannelEvent = InboundMessage | EchoMessage | StatusUpdate | AccountEvent
+
+# The gateway hands these to the agent through a mailbox (ADR 0025): serialised to plain JSON on one side, rebuilt on the other.
+_EVENT_TYPES: dict[str, type] = {"inbound": InboundMessage, "echo": EchoMessage, "status": StatusUpdate, "account": AccountEvent}
+_KIND_OF: dict[type, str] = {v: k for k, v in _EVENT_TYPES.items()}
+
+
+def event_to_dict(ev: ChannelEvent) -> dict[str, Any]:
+    out: dict[str, Any] = {"type": _KIND_OF[type(ev)], "data": {}}
+    for f in fields(ev):
+        v = getattr(ev, f.name)
+        out["data"][f.name] = v.isoformat() if isinstance(v, datetime) else v
+    return out
+
+
+def event_from_dict(d: dict[str, Any]) -> ChannelEvent:
+    cls = _EVENT_TYPES.get(str(d.get("type")))
+    if cls is None:
+        raise ValueError(f"unknown channel event type {d.get('type')!r}")
+    data = dict(d["data"])
+    if "timestamp" in data and isinstance(data["timestamp"], str):
+        data["timestamp"] = datetime.fromisoformat(data["timestamp"])
+    return cls(**data)  # type: ignore[no-any-return]
 
 
 class MessagingChannel(Protocol):

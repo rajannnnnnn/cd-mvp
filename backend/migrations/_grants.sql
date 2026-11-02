@@ -62,3 +62,5 @@ GRANT SELECT, INSERT ON platform_audit_log TO app_system;   -- append-only; the 
 GRANT SELECT, INSERT, UPDATE, DELETE ON otp_deliveries TO app_system;   -- the web side writes it, the gateway answers it (ADR 0025)
 GRANT SELECT, INSERT, UPDATE ON number_connect_requests TO app_user;          -- the web side asks and may give up (ADR 0025)
 GRANT SELECT, UPDATE, DELETE ON number_connect_requests TO app_system;        -- the gateway answers; retention clears
+GRANT SELECT, INSERT, UPDATE ON channel_events TO app_user;     -- the gateway hands events over, the agent marks them handled (ADR 0025)
+GRANT SELECT, DELETE ON channel_events TO app_system;           -- retention removes handled events

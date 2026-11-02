@@ -38,12 +38,15 @@ def test_receive_needs_only_the_meta_secrets():
 
 
 def test_the_inbound_and_agent_workers_hold_no_secrets_at_all():
-    for queues in ("inbound.events", "conversation.turns", "inbound.events,conversation.turns"):
+    # ADR 0025: the agent decides and asks, the gateway sends, so none of the agent's queues needs the master key
+    agent = "conversation.events,conversation.turns,owner.notifications,platform.events"
+    for queues in ("inbound.events", "conversation.events", "conversation.turns", "owner.notifications", "platform.events", agent,
+                   f"inbound.events,{agent}"):
         build("worker", WORKER_QUEUES=queues)
 
 
-def test_every_queue_that_can_send_needs_the_master_key():
-    for queues in ("outbound.actions", "owner.notifications", "platform.events", "inbound.events,outbound.actions"):
+def test_only_the_gateways_send_queue_needs_the_master_key():
+    for queues in ("outbound.actions", "inbound.events,outbound.actions", "conversation.turns,outbound.actions"):
         with pytest.raises(ValidationError, match="MASTER_KEY"):
             build("worker", WORKER_QUEUES=queues)
         build("worker", keep=("MASTER_KEY",), WORKER_QUEUES=queues)

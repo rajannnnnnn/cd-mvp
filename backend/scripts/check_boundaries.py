@@ -69,12 +69,12 @@ COMPONENT_OF_UNIT: dict[str, str] = {
 }
 # File-level overrides: the unit's default is wrong for these files.
 COMPONENT_OF_FILE: dict[str, str] = {
+    "modules/channels/base.py": "shared",         # the channel-neutral contract between gateway and agent (events, send results)
     "api/routes/system.py": "gateway",            # the public webhook endpoints are the gateway's receive part
     "modules/delivery/sender.py": "gateway",      # the only way out to Meta is the gateway's send part
 }
 # Crossings that exist today and are being removed (ADR 0025 build order). "<importing file> -> <imported module>".
 KNOWN_CROSSINGS: frozenset[str] = frozenset({
-    "modules/conversations/inbound.py -> salesai.modules.channels",   # the Meta payload parser: moves to the gateway's inbound part
 })
 
 

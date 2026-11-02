@@ -32,7 +32,7 @@ def test_agent_path_never_selects_every_column_of_whatsapp_numbers():
 async def test_loaded_turn_context_carries_no_token(world):
     shop = await world.make_shop()
     await world.customer_says(shop, "+919800002001", "hello")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     [conv] = await world.q(shop, "SELECT id FROM conversations")
     ctx = await context.load(world.rt.db, shop.business_id, conv["id"], datetime.now(UTC))
     assert not any("token" in k for k in ctx.number)

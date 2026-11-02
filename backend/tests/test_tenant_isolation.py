@@ -11,7 +11,7 @@ TENANT_TABLES = [
     "business_users", "whatsapp_numbers", "style_examples", "products", "product_variants",
     "pricing_policies", "price_floors", "offers", "customers", "conversations", "turns",
     "messages", "negotiations", "deals", "handoffs", "knowledge_gaps", "owner_messages",
-    "config_proposals", "audit_log", "learning_observations", "number_connect_requests",
+    "config_proposals", "audit_log", "learning_observations", "number_connect_requests", "channel_events",
     "support_tickets", "support_messages", "support_attachments",          # shops read and write their own tickets
     "subscriptions", "invoices", "payments",                               # written by us, readable by the shop
 ]
@@ -64,6 +64,7 @@ async def make_tenant(db, name: str) -> dict:
                         " VALUES (%s,%s,%s,%s,'refund?','no','dashboard')", (bid, conv["id"], cust["id"], h["id"]))
         await c.execute("INSERT INTO number_connect_requests (business_id, waba_id, phone_number_id, coexistence)"
                         " VALUES (%s,'w','pn-iso',false)", (bid,))
+        await c.execute("INSERT INTO channel_events (business_id, number_id, kind, event) VALUES (%s,%s,'status','{}')", (bid, num["id"]))
         tk = await (await c.execute(
             "INSERT INTO support_tickets (business_id, subject, category) VALUES (%s,'Help','question') RETURNING id", (bid,))).fetchone()
         sm = await (await c.execute(

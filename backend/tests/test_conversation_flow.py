@@ -110,7 +110,7 @@ async def test_new_message_after_planning_discards_the_stale_reply(world):
     phone = "+919700000006"
     await world.customer_says(shop, phone, "silk saree price?")
     for _ in range(40):                                            # run until the turn is committed (sends are ~1s away)
-        await world.drain_for(0.1, ["inbound.events", "conversation.turns"])
+        await world.drain_for(0.1, ["inbound.events", "conversation.events", "conversation.turns"])
         if await world.q(shop, "SELECT 1 FROM turns"):
             break
     assert await sim_texts(world, shop, phone) == []
@@ -131,7 +131,7 @@ async def test_ai_reply_is_never_sent_after_the_24h_window_closes(world):
     phone = "+919700000031"
     await world.customer_says(shop, phone, "silk saree price?")
     for _ in range(40):
-        await world.drain_for(0.1, ["inbound.events", "conversation.turns"])
+        await world.drain_for(0.1, ["inbound.events", "conversation.events", "conversation.turns"])
         if await world.q(shop, "SELECT 1 FROM turns"):
             break
     assert await world.q(shop, "SELECT 1 FROM messages WHERE direction='out' AND status='queued'")      # planned, not yet sent
@@ -153,7 +153,7 @@ async def test_owner_manual_reply_pauses_the_ai(world):
     await settle(world, shop, phone)
     n0 = len(await sim_texts(world, shop, phone))
     await world.owner_replies_from_app(shop, phone, "Hi, owner here — one moment")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     await world.customer_says(shop, phone, "silk saree price?")
     await world.drain_for(1.5)
     assert len(await sim_texts(world, shop, phone)) == n0           # INV-10: paused, recorded but not answered

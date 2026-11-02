@@ -27,7 +27,7 @@ async def _x(world, shop, sql: str, *args) -> None:
 async def _handed_over(world, shop, question: str = "do you give refunds?") -> dict:
     """A customer asked something, and the AI handed the conversation to the owner."""
     await world.customer_says(shop, PHONE, question)
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     conv = await world.conv(shop, PHONE)
     await _x(world, shop, "INSERT INTO handoffs (business_id, conversation_id, reason, note) VALUES (%s,%s,'unknown_answer','refund question')",
              shop.business_id, conv["id"])
@@ -43,7 +43,7 @@ async def test_an_owner_answer_from_the_business_app_is_recorded_with_its_contex
     shop, _ = await shop_with_catalog(world)
     conv = await _handed_over(world, shop)
     await world.owner_replies_from_app(shop, PHONE, "No refund on sarees, sorry.")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     [o] = await _observations(world, shop)
     assert o["owner_text"] == "No refund on sarees, sorry." and "refunds" in o["customer_text"]
     assert (o["source"], o["reason"], o["conversation_id"], o["customer_id"]) == ("business_app", "unknown_answer", conv["id"], conv["customer_id"])
@@ -63,9 +63,9 @@ async def test_an_owner_answer_from_the_dashboard_is_recorded_too(world, client)
 async def test_nothing_is_recorded_when_the_ai_had_not_handed_over(world):
     shop, _ = await shop_with_catalog(world)
     await world.customer_says(shop, PHONE, "hi")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     await world.owner_replies_from_app(shop, PHONE, "Hello! How can I help?")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     assert await _observations(world, shop) == []
 
 
@@ -78,7 +78,7 @@ async def test_a_failure_while_recording_never_loses_the_owners_reply(world, mon
     monkeypatch.setattr(learning, "_record", boom)
     before = LEARNING_CAPTURE_FAILED._value.get()
     await world.owner_replies_from_app(shop, PHONE, "No refund on sarees, sorry.")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     rows = await world.q(shop, "SELECT body FROM messages WHERE conversation_id=%s AND sender='owner'", conv["id"])
     assert [r["body"] for r in rows] == ["No refund on sarees, sorry."]                 # the reply itself survived
     [c] = await world.q(shop, "SELECT ai_paused_reason FROM conversations WHERE id=%s", conv["id"])
@@ -92,7 +92,7 @@ async def test_one_shop_never_sees_another_shops_records(world):
     for shop in (a, b):
         await _handed_over(world, shop)
         await world.owner_replies_from_app(shop, PHONE, f"answer from {shop.business_id}")
-        await world.drain(["inbound.events"])
+        await world.drain(["inbound.events", "conversation.events"])
     for shop in (a, b):
         rows = await _observations(world, shop)
         assert len(rows) == 1 and {r["business_id"] for r in rows} == {shop.business_id}   # both sides have rows: not vacuous

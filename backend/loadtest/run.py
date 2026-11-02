@@ -118,7 +118,7 @@ async def conversations(args: argparse.Namespace) -> dict:
     deadline = time.time() + args.drain_s
     with psycopg.connect(s.system_database_url, row_factory=dict_row) as conn:
         while time.time() < deadline:
-            pending = conn.execute("SELECT count(*) AS c FROM jobs WHERE status IN ('pending','running') AND queue IN ('inbound.events','conversation.turns','outbound.actions')").fetchone()["c"]
+            pending = conn.execute("SELECT count(*) AS c FROM jobs WHERE status IN ('pending','running') AND queue IN ('inbound.events','conversation.events','conversation.turns','outbound.actions')").fetchone()["c"]
             if pending == 0:
                 break
             await asyncio.sleep(1)

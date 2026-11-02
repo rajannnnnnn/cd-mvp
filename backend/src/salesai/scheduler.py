@@ -106,6 +106,8 @@ class Scheduler:
             out["otp_expired"] = (await c.execute(
                 "UPDATE otp_deliveries SET status='failed', error='expired', code=NULL WHERE status='pending' AND expires_at < now()")).rowcount
             out["otp_deliveries"] = (await c.execute("DELETE FROM otp_deliveries WHERE created_at < now() - interval '2 days'")).rowcount
+            # handled events only: an event nobody has acted on yet is a customer message and is never discarded (NFR-3)
+            out["channel_events"] = (await c.execute("DELETE FROM channel_events WHERE status='done' AND created_at < now() - interval '7 days'")).rowcount
             out["connect_expired"] = (await c.execute(       # Meta's one-time code is short-lived: never hold one past its use
                 "UPDATE number_connect_requests SET status='failed', code=NULL, error_status=422, error_code='code_exchange_failed', "
                 "error_message='Sign-up took too long. Please start again.', finished_at=now() "

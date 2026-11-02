@@ -19,7 +19,7 @@ def saree(price="1000", floor="800", steps=3, **kw) -> ProductIn:
 
 async def setup_conv(world, shop, phone="+919822222222"):
     await world.customer_says(shop, phone, "hi")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     return (await world.conv(shop, phone))["id"]
 
 

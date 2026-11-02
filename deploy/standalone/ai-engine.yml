@@ -13,5 +13,5 @@ services:
     extends: { file: backend.yml, service: worker }
     depends_on: !reset {}
     environment:
-      WORKER_QUEUES: conversation.turns
+      WORKER_QUEUES: conversation.events,conversation.turns
       WORKER_CONCURRENCY: ${AI_CONCURRENCY:-8}

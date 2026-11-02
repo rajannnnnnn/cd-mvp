@@ -77,7 +77,7 @@ async def test_consent_changes_are_audited(world, client):
     shop, _ = await shop_with_catalog(world)
     owner = await login(client, shop.owner_phone)
     await world.customer_says(shop, "+919600000301", "hi")
-    await world.drain(["inbound.events"])
+    await world.drain(["inbound.events", "conversation.events"])
     [cust] = await world.q(shop, "SELECT id FROM customers WHERE wa_id='919600000301'")
     await client.patch(f"{V1}/customers/{cust['id']}", headers=hdr(owner), json={"opted_out": True})
     await client.post(f"{V1}/contacts/personal", headers=hdr(owner), json={"phone": "+919600000302", "name": "Mum"})
@@ -115,7 +115,7 @@ async def test_chat_retention_once_set_removes_only_old_rows_in_every_shop(world
     shops = [(await shop_with_catalog(world))[0] for _ in range(2)]
     for shop in shops:
         await world.customer_says(shop, "+919600000303", "hello")
-        await world.drain(["inbound.events"])
+        await world.drain(["inbound.events", "conversation.events"])
         [conv] = await world.q(shop, "SELECT id FROM conversations")
         for when, body in ((OLD, "old"), (NEW, "new")):
             await _x(world, shop, f"INSERT INTO messages (business_id, conversation_id, direction, sender, body, created_at) VALUES (%s,%s,'in','customer',%s,{when})",  # noqa: S608

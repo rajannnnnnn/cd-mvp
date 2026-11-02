@@ -91,6 +91,10 @@ class OtpRequested(_P):
     delivery_id: uuid.UUID                 # only the id travels; the code stays in the request row until it is sent
 
 
+class ChannelEventReceived(_P):
+    channel_event_id: uuid.UUID            # only the id travels; the message itself stays in the mailbox row
+
+
 class OwnerMessageRequested(_P):
     owner_message_id: uuid.UUID            # only the id travels; the text (customer names, prices) stays in the row
 
@@ -124,6 +128,7 @@ def _e(name: str, model: type[BaseModel], *subs: tuple[str, str], version: int =
 
 CATALOG: dict[str, EventSpec] = {s.name: s for s in [
     _e("webhook.received", WebhookReceived, ("inbound.events", "route_webhook")),
+    _e("channel.event_received", ChannelEventReceived, ("conversation.events", "channel_event")),   # the gateway hands the agent what Meta sent
     _e("message.received", MessageReceived, ("conversation.turns", "eot_check")),
     _e("conversation.eot_recheck", MessageReceived, ("conversation.turns", "eot_check")),
     _e("conversation.nudge_due", NudgeDue, ("conversation.turns", "nudge")),

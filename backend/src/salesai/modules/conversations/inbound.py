@@ -1,6 +1,6 @@
-"""Event router: Meta webhook payload -> messages, versions, pauses, statuses, account events.
-Runs as the `route_webhook` job on inbound.events. Idempotent: reprocessing a payload never produces
-duplicate messages or side effects (INV-6)."""
+"""Conversation intake: channel-neutral events -> messages, versions, pauses, statuses, account events (ADR 0025).
+Runs as the `channel_event` job on conversation.events, after the gateway has read Meta's webhook and handed the agent
+one event per change. Idempotent: handling an event twice never produces duplicate messages or side effects (INV-6)."""
 from __future__ import annotations
 
 import logging
@@ -12,13 +12,12 @@ from psycopg.types.json import Jsonb
 
 from salesai.db import Conn, Database, jsonb
 from salesai.events.outbox import emit
-from salesai.modules.channels import (
+from salesai.modules.channels.base import (
     AccountEvent,
-    ChannelEvent,
     EchoMessage,
     InboundMessage,
     StatusUpdate,
-    parse_webhook,
+    event_from_dict,
 )
 from salesai.modules.handoffs import capture_owner_answer
 from salesai.obs import bind
@@ -29,100 +28,50 @@ log = logging.getLogger("salesai.inbound")
 _RANK = {"queued": 0, "sent": 1, "delivered": 2, "read": 3}
 
 
-def event_phone_number_id(ev: ChannelEvent) -> str | None:
-    if isinstance(ev, InboundMessage):
-        return ev.to_phone_number_id
-    if isinstance(ev, EchoMessage):
-        return ev.from_phone_number_id
-    return ev.phone_number_id
+class ConversationIntake:
+    """The agent's `intake`: acts on the channel-neutral events the gateway handed over (ADR 0025).
 
+    It never sees Meta's wire format and never resolves a number from a payload: the gateway did both. Each event is a
+    row in `channel_events`; handling one is idempotent (a duplicate message id, a repeated status, a repeated account
+    update change nothing), so at-least-once delivery from the queue is safe."""
 
-class InboundRouter:
     def __init__(self, db: Database, queue: Queue):
         self.db, self.queue = db, queue
 
-    # ---------------------------------------------------------------- job handler
-    async def route_webhook(self, job: Job) -> None:
-        wid = job.spec.payload["webhook_event_id"]
-        async with self.db.system_tx() as c:
-            row = await (await c.execute("SELECT payload, signature_valid FROM webhook_events WHERE id=%s", (wid,))).fetchone()
-        if row is None or not row["signature_valid"] or row["payload"] is None:
-            return                                   # never process a request that failed verification or could not be read
+    async def handle(self, job: Job) -> None:
+        bid = job.spec.business_id
+        assert bid is not None
+        eid = uuid.UUID(str(job.spec.payload["channel_event_id"]))
+        async with self.db.tenant(bid) as c:
+            row = await (await c.execute("SELECT * FROM channel_events WHERE id=%s", (eid,))).fetchone()
+            if row is None or row["status"] == "done":
+                return                                                           # handled already (at-least-once delivery)
+            number = await (await c.execute(
+                "SELECT id, business_id, display_phone, status, channel, phone_number_id FROM whatsapp_numbers WHERE id=%s",
+                (row["number_id"],))).fetchone()
+        if number is None:                                                       # the number was removed before we got to it
+            await self._finish(bid, eid, None)
+            return
+        ev = event_from_dict(row["event"])
         try:
-            await self.process_payload(row["payload"])
-        except Exception as e:
-            async with self.db.system_tx() as c:
-                await c.execute("UPDATE webhook_events SET error=%s WHERE id=%s", (str(e)[:500], wid))
-            raise
-        async with self.db.system_tx() as c:
-            await c.execute("UPDATE webhook_events SET processed_at=now(), error=NULL WHERE id=%s", (wid,))
-
-    async def process_payload(self, payload: dict[str, Any]) -> None:
-        for ev in parse_webhook(payload):
-            if isinstance(ev, AccountEvent):
-                numbers = await self._numbers_for_account(ev)
-                if not numbers:
-                    await self._unknown_number(ev.phone_number_id, ev)
-                for acct_number in numbers:
-                    with bind(business_id=acct_number["business_id"]):
-                        await self._account(acct_number, ev)
-                continue
-            pn = event_phone_number_id(ev)
-            number = await self._resolve_number(pn) if pn else None
-            if number is None:
-                await self._unknown_number(pn, ev)
-                continue
-            with bind(business_id=number["business_id"]):
+            with bind(business_id=bid):
                 if isinstance(ev, InboundMessage):
                     await self._inbound(number, ev)
                 elif isinstance(ev, EchoMessage):
                     await self._echo(number, ev)
                 elif isinstance(ev, StatusUpdate):
                     await self._status(number, ev)
+                elif isinstance(ev, AccountEvent):
+                    await self._account(number, ev)
+        except Exception as e:
+            async with self.db.tenant(bid) as c:
+                await c.execute("UPDATE channel_events SET error=%s WHERE id=%s", (str(e)[:500], eid))
+            raise                                                                # the queue retries it; nothing is lost (NFR-3)
+        await self._finish(bid, eid, None)
 
-    async def _resolve_number(self, phone_number_id: str) -> dict[str, Any] | None:
-        async with self.db.system_tx() as c:
-            return await (await c.execute(
-                "SELECT id, business_id, display_phone, status, channel, phone_number_id FROM whatsapp_numbers WHERE phone_number_id=%s",
-                (phone_number_id,))).fetchone()
-
-    async def _numbers_for_account(self, ev: AccountEvent) -> list[dict[str, Any]]:
-        """Account webhooks usually name the WhatsApp Business Account, not a phone number (FR-ON-4). Most specific
-        first: the phone-number id, then a display phone within that account, then every number on the account — on
-        the platform's own account that rightly means every pilot shop, since they all go down together."""
-        if ev.phone_number_id:
-            one = await self._resolve_number(ev.phone_number_id)
-            return [one] if one else []
-        digits = "".join(ch for ch in str(ev.detail.get("display_phone_number") or ev.detail.get("phone_number") or "") if ch.isdigit())
-        async with self.db.system_tx() as c:
-            if digits:
-                rows = await (await c.execute(
-                    """SELECT id, business_id, display_phone, status, channel, phone_number_id FROM whatsapp_numbers
-                        WHERE regexp_replace(display_phone, '[^0-9]', '', 'g') = %s AND (%s::text IS NULL OR waba_id = %s)""",
-                    (digits, ev.waba_id, ev.waba_id))).fetchall()
-                if rows:
-                    return list(rows)
-            if ev.waba_id:
-                return list(await (await c.execute(
-                    "SELECT id, business_id, display_phone, status, channel, phone_number_id FROM whatsapp_numbers WHERE waba_id=%s",
-                    (ev.waba_id,))).fetchall())
-        return []
-
-    async def _unknown_number(self, pn: str | None, ev: ChannelEvent) -> None:
-        """INV-12: never silent. A webhook for a number we do not know is an operator alert."""
-        waba = ev.waba_id if isinstance(ev, AccountEvent) else None
-        log.error("webhook for unknown phone_number_id %s (business account %s)", pn, waba)
-        async with self.db.system_tx() as c:
-            exists = await (await c.execute(
-                "SELECT 1 FROM operator_alerts WHERE kind='unknown_number' AND detail->>'phone_number_id' IS NOT DISTINCT FROM %s"
-                " AND detail->>'waba_id' IS NOT DISTINCT FROM %s AND resolved_at IS NULL",
-                (pn, waba))).fetchone()
-            if not exists:
-                import json
-                await c.execute(
-                    "INSERT INTO operator_alerts (severity, kind, message, detail) VALUES ('warning','unknown_number',%s,%s::jsonb)",
-                    (f"Webhook received for unknown WhatsApp number id {pn} (business account {waba})",
-                     json.dumps({"phone_number_id": pn, "waba_id": waba})))
+    async def _finish(self, bid: uuid.UUID, eid: uuid.UUID, error: str | None) -> None:
+        async with self.db.tenant(bid) as c:
+            await c.execute("UPDATE channel_events SET status='done', error=%s, handled_at=now() WHERE id=%s", (error, eid))
 
     # ---------------------------------------------------------------- inbound customer / owner messages
     async def _inbound(self, number: dict[str, Any], ev: InboundMessage) -> None:

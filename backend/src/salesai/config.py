@@ -13,13 +13,15 @@ Role = Literal["api", "ingress", "web", "worker", "scheduler", "migrate", "all"]
 
 ALL_QUEUES = (
     "inbound.events",
+    "conversation.events",
     "conversation.turns",
     "outbound.actions",
     "owner.notifications",
     "platform.events",
 )
 # Queues whose jobs send to WhatsApp, so the process needs the master key to open the owner's access token.
-SENDING_QUEUES = {"outbound.actions", "owner.notifications", "platform.events"}
+# Only the gateway's send queue does (ADR 0025): the owner loop and the platform events no longer send, they ask the gateway.
+SENDING_QUEUES = {"outbound.actions"}
 
 
 class Settings(BaseSettings):

@@ -21,8 +21,9 @@ from salesai.modules.channels import ChannelRegistry
 from salesai.modules.channels.connect import NumberConnector
 from salesai.modules.channels.otp import OtpSender
 from salesai.modules.channels.owner_send import OwnerSender
+from salesai.modules.channels.router import WebhookRouter
 from salesai.modules.channels.simulator import SimulatorNetwork
-from salesai.modules.conversations import HeuristicEOT, InboundRouter, TurnWorker
+from salesai.modules.conversations import ConversationIntake, HeuristicEOT, TurnWorker
 from salesai.modules.delivery.sender import OutboundSender
 from salesai.modules.notifications import OwnerLoop
 from salesai.modules.pricing import PricingService
@@ -53,7 +54,8 @@ class Runtime:
                                         platform_phone_number_id=settings.platform_sender_phone_number_id,
                                         platform_token=settings.platform_wa_access_token)
         self.relay = OutboxRelay(db, queue)
-        self.router = InboundRouter(db, queue)
+        self.router = WebhookRouter(db)                         # the gateway reads Meta's webhook
+        self.intake = ConversationIntake(db, queue)             # the agent acts on what the gateway handed over
         self.registry = HandlerRegistry()
         self.staleness = StalenessResolver()
         self.pricing = PricingService(db)
@@ -99,7 +101,8 @@ class Runtime:
         await self.pump()
 
     def _wire(self) -> None:
-        self.registry.add("inbound.events", "route_webhook", self.router.route_webhook)
+        self.registry.add("inbound.events", "route_webhook", self.router.route_webhook)                      # gateway: read Meta
+        self.registry.add("conversation.events", "channel_event", self.intake.handle)                       # agent: act on it
         self.registry.add("conversation.turns", "eot_check", self.turns.eot_check)
         self.registry.add("conversation.turns", "nudge", self.turns.nudge)
         self.registry.add("outbound.actions", "execute", self.sender.execute)

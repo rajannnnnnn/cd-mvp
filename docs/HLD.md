@@ -71,9 +71,10 @@ All work after the webhook acknowledgment flows through named queues behind one 
 
 | Queue | Producer | Consumer | Ordering key | Notes |
 |---|---|---|---|---|
-| `inbound.events` | Webhook ingress | Event router | None | Raw Meta events normalized into domain events |
-| `conversation.turns` | Event router, scheduler | Conversation worker | `conversation_id` | Serialized per conversation; carries `conversation_version` |
-| `outbound.actions` | Conversation worker, notifications | Outbound sender | `whatsapp_number_id` | Mark read, typing, send; rate-limited per number |
+| `inbound.events` | Webhook ingress | Gateway inbound | None | Reads Meta's wire format into channel-neutral events and hands them to the agent (ADR 0025) |
+| `conversation.events` | Gateway inbound | Agent intake | per customer | One mailbox row per event (`channel_events`); the agent never sees Meta's wire format |
+| `conversation.turns` | Agent intake, scheduler | Conversation worker | `conversation_id` | Serialized per conversation; carries `conversation_version` |
+| `outbound.actions` | Conversation worker, owner loop, web requests | Gateway send | `conversation_id`, `owner:<id>` | Mark read, typing, send; rate-limited per number. Also the gateway's answers to web requests: sign-in codes, number connect (ADR 0025) |
 | `media.transcribe` | Event router | Media worker | None | Downloads audio, stores in blob storage, transcribes |
 | `owner.notifications` | Conversation worker, scheduler | Notifications worker | `business_id` | Handoff alerts, daily summary, setup interview |
 | `platform.events` | Event router | Platform worker | `business_id` | Account updates, quality changes, disconnections |
