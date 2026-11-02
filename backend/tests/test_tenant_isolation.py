@@ -11,7 +11,7 @@ TENANT_TABLES = [
     "business_users", "whatsapp_numbers", "style_examples", "products", "product_variants",
     "pricing_policies", "price_floors", "offers", "customers", "conversations", "turns",
     "messages", "negotiations", "deals", "handoffs", "knowledge_gaps", "owner_messages",
-    "config_proposals", "audit_log", "learning_observations",
+    "config_proposals", "audit_log", "learning_observations", "number_connect_requests",
     "support_tickets", "support_messages", "support_attachments",          # shops read and write their own tickets
     "subscriptions", "invoices", "payments",                               # written by us, readable by the shop
 ]
@@ -62,6 +62,8 @@ async def make_tenant(db, name: str) -> dict:
         await c.execute("INSERT INTO audit_log (business_id, actor_label, action, entity) VALUES (%s,'owner','test','business')", (bid,))
         await c.execute("INSERT INTO learning_observations (business_id, conversation_id, customer_id, handoff_id, customer_text, owner_text, source)"
                         " VALUES (%s,%s,%s,%s,'refund?','no','dashboard')", (bid, conv["id"], cust["id"], h["id"]))
+        await c.execute("INSERT INTO number_connect_requests (business_id, waba_id, phone_number_id, coexistence)"
+                        " VALUES (%s,'w','pn-iso',false)", (bid,))
         tk = await (await c.execute(
             "INSERT INTO support_tickets (business_id, subject, category) VALUES (%s,'Help','question') RETURNING id", (bid,))).fetchone()
         sm = await (await c.execute(
@@ -163,12 +165,12 @@ async def test_outbox_is_write_only_for_tenant_role(db, two_tenants):
 
 async def test_platform_tables_unreachable_by_tenant_role(db):
     async with db.tenant(uuid.uuid4()) as c:
-        for t in ["jobs", "webhook_events", "auth_sessions", "otp_challenges", "business_keys", "sim_messages", "operator_alerts", "platform_audit_log"]:
+        for t in ["jobs", "webhook_events", "auth_sessions", "otp_challenges", "business_keys", "sim_messages", "operator_alerts", "platform_audit_log", "otp_deliveries"]:
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
                 await c.execute(f"SELECT 1 FROM {t}")  # noqa: S608
             # a failed statement aborts the txn; open a fresh one for the next table
             break
-    for t in ["jobs", "webhook_events", "auth_sessions", "otp_challenges", "business_keys", "sim_messages", "operator_alerts", "platform_audit_log"]:
+    for t in ["jobs", "webhook_events", "auth_sessions", "otp_challenges", "business_keys", "sim_messages", "operator_alerts", "platform_audit_log", "otp_deliveries"]:
         async with db.tenant(uuid.uuid4()) as c:
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
                 await c.execute(f"SELECT 1 FROM {t}")  # noqa: S608
@@ -240,6 +242,7 @@ PLATFORM_ONLY: dict[str, str] = {   # no grant at all to the shop role (test_pla
     "jobs": "the queue; work is scheduled through the outbox, never by the shop role",
     "operator_alerts": "platform alerts about a shop, for the platform team only",
     "platform_audit_log": "the platform's own trail of actions on a shop; outlives the shop (ADR 0030)",
+    "otp_deliveries": "sign-in code requests between the web and gateway components (ADR 0025); no shop is involved",
 }
 
 

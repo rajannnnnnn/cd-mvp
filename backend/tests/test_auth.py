@@ -13,7 +13,7 @@ from salesai.modules.auth import AuthError, AuthService
 
 @pytest.fixture
 async def auth(rt):
-    return AuthService(rt.db, rt.channels, rt.settings)
+    return AuthService(rt.db, rt.settings, pump=rt.auth.pump)
 
 
 async def otp_for(world, phone: str) -> str:

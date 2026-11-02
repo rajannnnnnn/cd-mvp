@@ -72,3 +72,32 @@ start below it. Changes stay backward compatible for one release so components c
 If operating four deployables proves heavier than the isolation is worth at pilot scale, collapse web and
 its scheduler back into one image — the import rules and table ownership survive that. Do not collapse the
 gateway or the agent back into web: token isolation and model isolation are the point.
+
+## Implementation notes (2026-11-02)
+
+**Reconciling this ADR with the Technical Design.** The Technical Design requires *one backend build artifact that runs in
+different roles*; this ADR proposed three packages and three images. Dropping that property is the founder's call, not
+mine, so what is built keeps one codebase and one artifact. A component is a **set of modules plus the roles and queues
+that run them**, enforced by the boundary check (rule B9), and each component deploys on its own from the same artifact
+with only its own secrets (ADR 0020). The founder still gets what the split was for: clone, configure and launch only the
+parts needed, and scale them separately. Truly separate images with separate dependency sets remain possible later.
+
+**Measured before changing anything:** only four imports crossed the lines, not the six first feared (the webhook routes
+and the delivery planner were already on the right side). They are recorded in `KNOWN_CROSSINGS` and removed one at a
+time; a new crossing fails the build, and so does a listed one that no longer occurs.
+
+**Sign-in codes and number connect now go through a request the gateway answers** (migrations 0017 and 0018):
+- The web side writes a request and waits for the answer (`salesai/gateway_wait.py`, one helper for every such request).
+  In production the gateway is another process and the wait is a short poll; tests run the real send queue inline.
+  Everything the owner sees is unchanged: the same responses and error codes (the nine existing connect tests and the
+  auth tests pass untouched), and a sign-in failure still reaches the person waiting for the code.
+- If the gateway does not answer in time the request is marked failed in a way that cannot race the gateway, the owner is
+  told, and a gateway that comes back later finds nothing to send, so no stale code or half-finished sign-up appears.
+- **Secrets in the request rows:** the plain sign-in code (and Meta's single-use authorization code) has to reach the
+  gateway, so each is held in its request row only until used, never in an event or job payload (only the id travels),
+  and cleared on success, failure, expiry, when the web side gives up, and by the scheduler for requests the gateway
+  never reached. The plain code therefore lives at most one code lifetime. A database-level attacker already holds far
+  more than a five-minute code, so this is judged acceptable; an encrypted hand-off is a possible later hardening.
+- **Not yet done:** the web API role still holds the master key, because the operator's manual pilot registration of a
+  number (FR-ON-3) encrypts a pasted token itself. That path retires when Tech Provider approval makes Embedded Signup
+  the only route; until then web cannot drop the key. Two crossings remain: owner alerts and the Meta payload parser.

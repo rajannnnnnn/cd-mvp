@@ -10,11 +10,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from salesai.api.deps import RT, Owner, Tenant, tx
 from salesai.api.errors import ApiError
 from salesai.db import jsonb, required
+from salesai.events.outbox import emit
+from salesai.gateway_wait import wait_for_gateway
 from salesai.modules.auth import Principal
 from salesai.modules.catalog import repo
-from salesai.modules.channels import SignupError, complete_signup
 from salesai.modules.tenants import (
-    add_cloud_number,
     add_simulated_number,
     delete_tenant,
     export_tenant,
@@ -209,19 +209,34 @@ async def connect_number(body: ConnectIn, rt: RT, p: Owner) -> Any:
     s = rt.settings
     if not (s.meta_app_id and s.meta_config_id):
         raise ApiError(503, "signup_unavailable", "Connecting a WhatsApp number is not switched on yet. Your ChatDeal contact can connect it for you.")
-    try:
-        res = await complete_signup(graph_base=s.meta_graph_base, version=s.meta_graph_version, app_id=s.meta_app_id,
-                                    app_secret=s.meta_app_secret, code=body.code, waba_id=body.waba_id,
-                                    phone_number_id=body.phone_number_id, coexistence=body.coexistence)
-    except SignupError as e:
-        raise ApiError(502 if e.retryable else 422, e.code, e.message) from e
-    nid = await add_cloud_number(rt.db, rt.vault, p.bid, phone_number_id=res.phone_number_id, waba_id=res.waba_id,
-                                 display_phone=res.display_phone, access_token=res.access_token,
-                                 coexistence=res.coexistence, verified_name=res.verified_name)
+    # The web component does not talk to Meta (ADR 0025): it asks the gateway to complete the sign-up and waits for the answer.
     async with tx(rt, p) as c:
-        if res.quality_rating:
-            await c.execute("UPDATE whatsapp_numbers SET quality_rating=%s WHERE id=%s", (res.quality_rating, nid))
-        await repo.audit(c, p.bid, p.account_id, p.role, "number.connected", "whatsapp_number", str(nid), {"coexistence": res.coexistence})
+        req = required(await (await c.execute(
+            "INSERT INTO number_connect_requests (business_id, code, waba_id, phone_number_id, coexistence) VALUES (%s,%s,%s,%s,%s) RETURNING id",
+            (p.bid, body.code, body.waba_id, body.phone_number_id, body.coexistence))).fetchone(), "connect request")
+        await emit(c, "number.connect_requested", {"request_id": req["id"]}, business_id=p.bid)
+
+    async def look() -> dict[str, Any] | None:
+        async with tx(rt, p) as c:
+            r = await (await c.execute("SELECT * FROM number_connect_requests WHERE id=%s", (req["id"],))).fetchone()
+        return r if r and r["status"] != "pending" else None
+
+    async def give_up() -> dict[str, Any] | None:
+        async with tx(rt, p) as c:
+            r = await (await c.execute(
+                "UPDATE number_connect_requests SET status='failed', code=NULL, error_status=502, error_code='gateway_unavailable', "
+                "error_message=%s, finished_at=now() WHERE id=%s AND status='pending' RETURNING *",
+                ("We couldn't reach the WhatsApp connection just now. Please try again in a minute.", req["id"]))).fetchone()
+        return r
+
+    done = await wait_for_gateway(look, give_up, rt.auth.pump, s.number_connect_wait_s)
+    if done["status"] == "failed":
+        if done["error_code"] is None:                                  # a number already connected somewhere: same answer as any conflict
+            raise ApiError(done["error_status"] or 409, "conflict", "That already exists.")
+        raise ApiError(done["error_status"] or 422, done["error_code"], done["error_message"] or "Could not connect the number.")
+    nid = done["number_id"]
+    async with tx(rt, p) as c:
+        await repo.audit(c, p.bid, p.account_id, p.role, "number.connected", "whatsapp_number", str(nid), {"coexistence": body.coexistence})
     await _activate_after_number(rt, p)
     return next(n for n in (await _load(rt, p)).numbers if str(n.id) == str(nid))
 

@@ -116,6 +116,13 @@ async def rt(env: dict[str, str], request: pytest.FixtureRequest):  # noqa: ARG0
         prefix = f"{{salesai:e2e{uuid.uuid4().hex[:6]}}}:"
         factory = lambda _db, _s: RedisQueue(url, prefix=prefix, backoff_base=0.05)  # noqa: E731
     runtime = await Runtime.create(get_settings(), queue_factory=factory)
+    gateway_send = runtime.worker(["outbound.actions"], tenant_cap=None)
+
+    async def pump_gateway() -> None:
+        """While the web side waits for a sign-in code, run the gateway's real send queue inline (as World.drain does)."""
+        await runtime.relay.publish_batch()
+        await gateway_send.run_once()
+    runtime.pump = pump_gateway
     yield runtime
     await runtime.close()
 
@@ -174,3 +181,21 @@ async def client(app):
         yield c
 
 
+# ---- a fake Meta Graph server, shared by every test that connects a number (Embedded Signup completion)
+@pytest.fixture(scope="module")
+def graph():
+    from tests.fake_graph import FakeGraph
+    g = FakeGraph()
+    g.start()
+    yield g
+    g.stop()
+
+
+@pytest.fixture
+def signup_on(rt, graph):
+    s = rt.settings
+    saved = (s.meta_app_id, s.meta_config_id, s.meta_graph_base)
+    s.meta_app_id, s.meta_config_id, s.meta_graph_base = "123456789", "cfg-1", graph.base
+    graph.reset()
+    yield graph
+    s.meta_app_id, s.meta_config_id, s.meta_graph_base = saved

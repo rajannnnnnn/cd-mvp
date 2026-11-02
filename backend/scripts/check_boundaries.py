@@ -74,8 +74,6 @@ COMPONENT_OF_FILE: dict[str, str] = {
 }
 # Crossings that exist today and are being removed (ADR 0025 build order). "<importing file> -> <imported module>".
 KNOWN_CROSSINGS: frozenset[str] = frozenset({
-    "modules/auth/service.py -> salesai.modules.channels",            # sign-in codes: becomes a request the gateway sends
-    "api/routes/business.py -> salesai.modules.channels",             # number connect: becomes a request the gateway performs
     "modules/notifications/service.py -> salesai.modules.channels",   # owner alerts: the agent asks the gateway to send them
     "modules/conversations/inbound.py -> salesai.modules.channels",   # the Meta payload parser: moves to the gateway's inbound part
 })

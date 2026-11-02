@@ -102,6 +102,15 @@ class Scheduler:
                 (cfg.raw_webhook_retention_days, cfg.invalid_webhook_retention_days))).rowcount
             out["outbox"] = (await c.execute("DELETE FROM outbox WHERE published_at < now() - interval '7 days'")).rowcount
             out["otp_challenges"] = (await c.execute("DELETE FROM otp_challenges WHERE created_at < now() - interval '2 days'")).rowcount
+            # a gateway that was down never cleared these codes: expire them so the plain code lives one code lifetime at most
+            out["otp_expired"] = (await c.execute(
+                "UPDATE otp_deliveries SET status='failed', error='expired', code=NULL WHERE status='pending' AND expires_at < now()")).rowcount
+            out["otp_deliveries"] = (await c.execute("DELETE FROM otp_deliveries WHERE created_at < now() - interval '2 days'")).rowcount
+            out["connect_expired"] = (await c.execute(       # Meta's one-time code is short-lived: never hold one past its use
+                "UPDATE number_connect_requests SET status='failed', code=NULL, error_status=422, error_code='code_exchange_failed', "
+                "error_message='Sign-up took too long. Please start again.', finished_at=now() "
+                "WHERE status='pending' AND created_at < now() - interval '30 minutes'")).rowcount
+            out["number_connect_requests"] = (await c.execute("DELETE FROM number_connect_requests WHERE created_at < now() - interval '7 days'")).rowcount
             out["auth_sessions"] = (await c.execute("DELETE FROM auth_sessions WHERE (revoked_at IS NOT NULL AND revoked_at < now() - interval '30 days') OR expires_at < now() - interval '30 days'")).rowcount
             # ADR 0030: clearly temporary data, on the platform role
             out["sim_messages"] = (await c.execute(

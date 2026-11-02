@@ -10,9 +10,11 @@
 Tenant context is derived from the session's business, never from anything the client sends (HLD Security)."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -22,8 +24,9 @@ import jwt
 from salesai import crypto
 from salesai.config import Settings
 from salesai.db import Conn, Database, required
-from salesai.modules.channels import ChannelRegistry
-from salesai.phone import normalize_phone, wa_id
+from salesai.events.outbox import emit
+from salesai.gateway_wait import wait_for_gateway
+from salesai.phone import normalize_phone
 
 log = logging.getLogger("salesai.auth")
 
@@ -61,9 +64,16 @@ class TokenPair:
     role: str
 
 
+async def _wait_a_moment() -> None:
+    await asyncio.sleep(0.1)
+
+
 class AuthService:
-    def __init__(self, db: Database, channels: ChannelRegistry, settings: Settings):
-        self.db, self.channels, self.s = db, channels, settings
+    def __init__(self, db: Database, settings: Settings, *, pump: Callable[[], Awaitable[None]] = _wait_a_moment):
+        # The web component never sends a WhatsApp message (ADR 0025): it asks the gateway and waits for the answer.
+        # `pump` is what happens between looks at the answer: in production the gateway is another process and we simply
+        # wait; tests run the real send queue inline there, as World.drain does everywhere.
+        self.db, self.s, self.pump = db, settings, pump
         self._revoked_cache: dict[uuid.UUID, tuple[float, bool]] = {}
 
     # ------------------------------------------------------------------ one-time codes
@@ -93,13 +103,40 @@ class AuthService:
                 (phone, self._hash(phone, code), self.s.otp_ttl_s, ip))
         # Sign-up is open: any valid mobile number gets a code (a number's existence is not a secret). Blocked accounts get none.
         if acct is None or acct["status"] == "active":
-            ref, channel = self.channels.platform_sender()
-            res = await channel.send_template(ref, wa_id(phone), "otp_login", acct["language"] if acct else "en", [code])
-            if not res.ok:
-                log.error("otp delivery failed: %s", res.error)
+            ok, error = await self._deliver(phone, code, acct["language"] if acct else "en")
+            if not ok:
+                log.error("otp delivery failed: %s", error)
                 if not self.s.otp_accept_any:
                     raise AuthError("delivery_failed", "We couldn't send the code to WhatsApp. Please try again.", 502)
         return {"status": "sent", "expires_in": self.s.otp_ttl_s}
+
+    async def _deliver(self, phone: str, code: str, language: str) -> tuple[bool, str | None]:
+        """Ask the gateway to send the code and wait (briefly) for its answer, so a failure still reaches the person who is
+        waiting for the code. If the gateway does not answer in time the request is marked failed, so that a gateway coming
+        back later never sends a code nobody is waiting for."""
+        async with self.db.system_tx() as c:
+            row = await (await c.execute(
+                "INSERT INTO otp_deliveries (phone, language, code, expires_at) VALUES (%s,%s,%s, now() + make_interval(secs => %s)) RETURNING id",
+                (phone, language, code, self.s.otp_ttl_s))).fetchone()
+            delivery_id = required(row, "otp delivery")["id"]
+            await emit(c, "platform.otp_requested", {"delivery_id": delivery_id}, business_id=None)
+        async def look() -> tuple[bool, str | None] | None:
+            status, error = await self._delivery_state(delivery_id)
+            return None if status == "pending" else (status == "sent", error)
+
+        async def give_up() -> tuple[bool, str | None] | None:
+            async with self.db.system_tx() as c:
+                gave_up = await (await c.execute(
+                    "UPDATE otp_deliveries SET status='failed', error='the gateway did not answer in time', code=NULL "
+                    "WHERE id=%s AND status='pending' RETURNING 1", (delivery_id,))).fetchone()
+            return (False, "the gateway did not answer in time") if gave_up else None
+
+        return await wait_for_gateway(look, give_up, self.pump, self.s.otp_delivery_wait_s)
+
+    async def _delivery_state(self, delivery_id: uuid.UUID) -> tuple[str, str | None]:
+        async with self.db.system_tx() as c:
+            r = required(await (await c.execute("SELECT status, error FROM otp_deliveries WHERE id=%s", (delivery_id,))).fetchone(), "otp delivery")
+        return r["status"], r["error"]
 
     async def verify_otp(self, raw_phone: str, code: str, ip: str | None, device: str | None, source: str | None = None) -> TokenPair | dict[str, Any]:
         """Exchange a code for a session. A number that has no account yet is signed up on the spot; one with no business gets a

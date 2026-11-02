@@ -2,8 +2,9 @@
 scheduler) and every test builds the same graph; roles differ only in which loops they run."""
 from __future__ import annotations
 
+import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from salesai.config import Settings, get_settings
@@ -17,6 +18,8 @@ from salesai.modules.alerting.webhook_sink import WebhookSink
 from salesai.modules.auth import AuthService
 from salesai.modules.billing import BillingService, ManualProvider, MetaUsage, TestGateway
 from salesai.modules.channels import ChannelRegistry
+from salesai.modules.channels.connect import NumberConnector
+from salesai.modules.channels.otp import OtpSender
 from salesai.modules.channels.simulator import SimulatorNetwork
 from salesai.modules.conversations import HeuristicEOT, InboundRouter, TurnWorker
 from salesai.modules.delivery.sender import OutboundSender
@@ -60,12 +63,15 @@ class Runtime:
                                   llm_checks=settings.llm_stage_provider("check") != "local")
         self.turns = TurnWorker(db, self.agent, HeuristicEOT(), max_turns_per_10min=settings.max_ai_turns_per_conversation_10min)
         self.sender = OutboundSender(db, self.channels)
+        self.otp = OtpSender(db, self.channels)
+        self.connector = NumberConnector(db, self.vault, settings)
         self.owner = OwnerLoop(db, self.channels, self.llm, settings.llm_model_check)
-        self.auth = AuthService(db, self.channels, settings)
+        self.auth = AuthService(db, settings, pump=self._pump)
         self.sim = SimulatorNetwork(db, settings.meta_app_secret)
         self.alerts = build_alert_router(db, self.channels, settings)
         self.billing = BillingService(db, ManualProvider(settings.payment_instructions) if settings.payment_provider == "manual" else TestGateway(), seller={"name": settings.invoice_seller_name, "address": settings.invoice_seller_address, "gstin": settings.invoice_seller_gstin})
         self.meta_usage = MetaUsage(db, rates_inr=settings.meta_rates, free_service_per_number=settings.meta_free_service_per_number)
+        self.pump: Callable[[], Awaitable[None]] = self._wait_a_moment
         self.hub: Any = None
         self.extra: dict[str, Any] = {}
         self._wire()
@@ -82,11 +88,21 @@ class Runtime:
         await self.channels.cloud.aclose()
         await self.db.close()
 
+    async def _wait_a_moment(self) -> None:
+        await asyncio.sleep(0.1)
+
+    async def _pump(self) -> None:
+        """What the web side does between looks at a request the gateway is answering. In production the gateway is another
+        process and this just waits; tests replace `pump` to run the real send queue inline, as World.drain does."""
+        await self.pump()
+
     def _wire(self) -> None:
         self.registry.add("inbound.events", "route_webhook", self.router.route_webhook)
         self.registry.add("conversation.turns", "eot_check", self.turns.eot_check)
         self.registry.add("conversation.turns", "nudge", self.turns.nudge)
         self.registry.add("outbound.actions", "execute", self.sender.execute)
+        self.registry.add("outbound.actions", "send_otp", self.otp.send_otp)            # the gateway sends what the web asked for
+        self.registry.add("outbound.actions", "connect_number", self.connector.connect)  # ...and completes number sign-ups for it
         self.registry.add("owner.notifications", "notify", self.owner.notify)
         self.registry.add("owner.notifications", "owner_chat", self.owner.owner_chat)
         self.registry.add("owner.notifications", "daily_summary", self.owner.daily_summary)

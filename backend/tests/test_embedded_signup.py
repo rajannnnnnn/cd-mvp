@@ -1,31 +1,10 @@
 """Embedded Signup completion against a fake Graph server (real HTTP, real database, real encryption)."""
 from __future__ import annotations
 
-import pytest
-
 from salesai.config import get_settings
-from tests.fake_graph import FakeGraph
 from tests.test_api import V1, hdr, owner
 
 CODE = "valid-code-1234567890"
-
-
-@pytest.fixture(scope="module")
-def graph():
-    g = FakeGraph()
-    g.start()
-    yield g
-    g.stop()
-
-
-@pytest.fixture
-def signup_on(rt, graph):
-    s = rt.settings
-    saved = (s.meta_app_id, s.meta_config_id, s.meta_graph_base)
-    s.meta_app_id, s.meta_config_id, s.meta_graph_base = "123456789", "cfg-1", graph.base
-    graph.reset()
-    yield graph
-    s.meta_app_id, s.meta_config_id, s.meta_graph_base = saved
 
 
 def body(**kw):

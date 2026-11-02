@@ -69,6 +69,8 @@ class Settings(BaseSettings):
     otp_max_attempts: int = 5
     otp_accept_any: bool = False          # DEMO ONLY: any code signs a number in (refused in production, see _production_rules)
     otp_min_interval_s: int = 20          # spacing between code requests for one number
+    otp_delivery_wait_s: float = Field(6.0, gt=0, le=30)   # how long a sign-in request waits for the gateway to send the code
+    number_connect_wait_s: float = Field(30.0, gt=0, le=120)   # how long a connect request waits for the gateway (several Meta calls)
     otp_per_phone_per_hour: int = 5
     otp_per_ip_per_hour: int = 30
 
