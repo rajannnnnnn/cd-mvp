@@ -3,7 +3,7 @@
 **Read this first in every session** (see `CLAUDE.md`). It is the project's memory: where things stand, what is verified,
 what is open, and what to do next. Keep it current; update it at the end of every session.
 
-_Last updated: 2026-10-04._
+_Last updated: 2026-11-02._
 
 ## 1. The product in two paragraphs
 
@@ -134,6 +134,10 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
 
 ## 7. Next steps, in priority order
 
+> **Superseded by `docs/PLAN_V1_LOCK.md` (2026-11-02).** That document is the locked v1 plan: the Meta
+> constraints as they stand now, unit economics, the four-phase build sequence, and ADRs 0025–0031. The
+> list below is kept because its items survive inside that plan, but read the plan first.
+
 **P0 – make the demo stack boringly reliable**
 1. Run `scripts/up.sh --demo` where a Docker daemon exists; fix whatever breaks (images, Caddy routes, CSP, `config.json`,
    role passwords); confirm the CI `compose` and `e2e` jobs go green. Record results here.
@@ -215,3 +219,24 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
   was not run.** Still open from ADR 0020: (1) raw webhook log fidelity (exact bytes, signature header, keep bad-signature requests, `RAW_WEBHOOK_RETENTION_DAYS`),
   (2) per-role secrets (only `send` needs `MASTER_KEY`), (3) agent context loader must not read `access_token_enc`, (4) `/metrics` ports for the monitor.
   Next: do (1) and (2) test-first on a machine where the Postgres suite can run.
+
+- **Session 5 (planning only, 2026-11-02).** No product code changed. The founder asked for v1 to be finalised and locked, with Meta
+  treated as the primary constraint, and said to raise only feature-level questions. Output: **`docs/PLAN_V1_LOCK.md`** plus **ADRs
+  0025–0031** (component contract; channel cost as a budget; AI priorities, caching and evals; admin plane and founder dashboard;
+  platform alerting by email to the founder; auditing, retention and DPDP; per-tenant learning loop).
+  **Findings that change the plan, all from research this session:**
+  (a) Meta's AI Providers clause has been in force since 15 Jan 2026 — it permits a business to retain an AI provider as its service
+  provider, and **forbids using WhatsApp data to train or improve any model, even aggregated, except exclusively for that one business**;
+  this rules out the documented v2 cross-tenant learned models and bandit tuning, and is proposed to the founder as INV-13.
+  (b) Since **1 Oct 2026 service messages are billed** — 1,000 free per business number per month, then ~₹0.115 in India — and billing has
+  been per delivered message since Jul 2025, so **every part of a multi-part reply is now money**; nothing in the code counts Meta messages.
+  (c) **Prompt caching is not implemented** (no `cache_control` in the agent) and the cheap model slot still points at `claude-haiku-4-5`
+  ($1/$5) instead of `claude-haiku-5-5` ($0.10/$0.50) — together the largest cost item, removable at zero quality cost.
+  (d) Illustrative variable cost is **~₹2.6 per conversation**, which implies plan inclusions in the low hundreds, not thousands.
+  (e) The eval suite proves invariants but **not selling ability**, so it can pass while the assistant is safely useless.
+  (f) Embedded Signup v2 was deprecated 15 Oct 2026; our coexistence parameters are already correct, but the Apr 2026 `account_offboarded`
+  and `account_reconnected` webhooks are missing from the fixtures.
+  **Caveat:** Meta's own domains are blocked by this environment's network policy, so every Meta figure above comes from secondary 2026
+  sources and must be re-read against Meta's pages before pilot. The branch was also fast-forwarded from the Oct 12 commit to `b8445a9`.
+  **Still only on the founder's machine:** commit `ef05e4f` (client-rendered marketing pages, standalone web stack, `scripts/stack.sh`,
+  ADR 0024). ADR number 0024 is reserved for it; do not reuse.
