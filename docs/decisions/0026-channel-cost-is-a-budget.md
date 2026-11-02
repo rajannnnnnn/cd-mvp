@@ -40,9 +40,27 @@ tenant and its number. A per-number monthly counter models the 1,000-message fre
 cost of the next message is known at all times, not reconstructed from an invoice. Meta's own billing
 stays the source of truth; ours is the estimate we steer by, and the two are reconciled.
 
-**Reply parts become a budget.** `MAX_REPLY_PARTS` is per-tenant configuration with a sane default, not a
-constant. The delivery planner already produces one action per part, so this is a cap at planning time,
-and the writer is told the budget so it composes to fit rather than being truncated.
+**Splitting becomes adaptive, not a rule** (founder's instruction, and it corrects an earlier
+underestimate of the cost). Today pacing can split habitually. Instead:
+
+- **One message is the default.** A reply is split only when the content is genuinely long.
+- **Mirror the customer.** If they write one long message, answer in one; if they write in short bursts,
+  match that. This extends FR-CV-5 (mirror language, script and formality) from wording to message shape,
+  which is where it always belonged.
+- `MAX_REPLY_PARTS` stays as a per-tenant ceiling, a safety valve rather than a target.
+
+**Correcting the arithmetic.** An earlier estimate put the whole lever at ~₹150/month by comparing a 1.8
+average against 1.3. Against a habit of three parts it is much larger. For 900 conversations and three AI
+replies each (2,700 replies), after the 1,000 free messages:
+
+| Average parts per reply | Billed messages | Meta cost/month |
+|---|---|---|
+| 1 | 1,700 | ≈ ₹196 |
+| 2 | 4,400 | ≈ ₹506 |
+| 3 | 7,100 | ≈ ₹817 |
+
+So the spread is roughly **₹620 a month** on one busy shop — about a quarter of a ₹2,499 plan, not a
+rounding error. Splitting had to become content-driven on cost grounds as well as UX grounds.
 
 **Reduce messages before reducing quality.** When a tenant is near or past its free tier the lever is
 fewer, better-composed parts — never a weaker model. Model cost is addressed separately in ADR 0027 by
@@ -62,9 +80,9 @@ must be set from.
   a material change to the placeholder plans.
 - The free tier means small shops cost almost nothing to serve, so a cheap entry tier is genuinely
   profitable. That shapes the pricing ladder in our favour.
-- A part budget slightly flattens the assistant's rhythm at the margin. Whether to spend money on
-  naturalness is a product call, so the cap's default is a founder decision; the mechanism is built
-  either way.
+- Adaptive splitting improves both sides at once: short answers stop arriving as three buzzes, and the
+  bill falls. There is no quality-versus-cost trade here, which is why it was the wrong place to look
+  for a trade-off in the first place.
 - Adds a counter on the hot send path. It is one row per send next to work already being done.
 
 ## How to revisit

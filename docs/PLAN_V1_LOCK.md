@@ -297,8 +297,8 @@ Each has a default already in force, so the plan proceeds either way.
 
 | # | Decision | Default in force |
 |---|---|---|
-| 1 | ~~Reply parts vs cost~~ — **decided 2026-11-02.** Measured at ~₹150/month on a busy shop against ~₹1,900 of model cost, so parts are not where the money is. Natural multi-part pacing stays; a per-tenant cap exists only as a safety valve. | settled |
-| 2 | ~~Plan shape~~ — **decided by the founder 2026-11-02:** packages by number of conversations, so a growing shop upgrades; billing by AI usage ruled out. Market check and provisional inclusions in **ADR 0032**; final numbers from Phase 2 measurement. | settled |
+| 1 | ~~Reply parts vs cost~~ — **decided 2026-11-02, after correcting my own figure.** The spread is ~₹620/month on a busy shop (1 part vs 3), not ₹150. Splitting becomes **adaptive**: one message by default, split only for genuinely long answers, mirroring the customer's own rhythm (ADR 0026). Better UX and lower cost together. | settled |
+| 2 | ~~Plan shape~~ — **decided by the founder 2026-11-02:** packages with a conversation **cap**, no per-unit billing and no overage charge; reaching the cap prompts an upgrade. Billing by AI usage ruled out. Market check and provisional caps in **ADR 0032**; final numbers from Phase 2. | settled |
 | 3 | **INV-13: no cross-tenant model training.** Meta's clause forbids training on WhatsApp data even aggregated. Make it an invariant with tests, which closes off cross-tenant learned models and bandit tuning? | Treated as binding and designed for; not yet a tested invariant |
 | 4 | **ADR 0006.** The last concession step equals the floor and is quoted as a final price. My recommendation changed to **stop just above the floor**: if the final quote always equals the floor, a persistent customer learns the exact number INV-1 exists to protect. | As built |
 | 5 | Owner app in Hindi | English only |

@@ -23,7 +23,7 @@ prices by conversation or resolution. The founder's instinct lands between the t
 ## Options
 
 1. **Seats**, like the Indian incumbents. Meaningless to a one-person shop, which is most of the market.
-2. **Conversations included per month, with overage.** Matches the value delivered and our cost shape.
+2. **Conversations included per month, as a package limit.** Matches the value delivered and our cost shape.
 3. **Per resolution**, like Fin. Best value alignment, but "resolution" is a definition argument with a
    non-technical owner every month, and disputes land on a founder with no support team.
 4. **AI usage (tokens).** Ruled out by the founder, and correctly: an owner cannot predict it, and it
@@ -31,8 +31,15 @@ prices by conversation or resolution. The founder's instinct lands between the t
 
 ## Decision
 
-Option 2. Conversations included per month, with a per-conversation overage rate, keeping the metering
-and overage machinery ADR 0019 already built.
+Option 2, **as a package limit and not as per-unit billing** (founder: "we are not charging per things
+we give in packages and just restrict the counts per package"). The shop buys a package; the count is
+capped; reaching the cap prompts an upgrade. **No overage charge.** The metering ADR 0019 built is reused;
+its overage rate is left unused rather than removed.
+
+Why a cap beats billing the excess: a non-technical owner cannot be sent a bill they did not expect and
+did not choose. Bill shock is one of the fastest ways to lose a small shop, and it arrives exactly when
+the shop is doing well. A cap turns the same moment into an upgrade conversation, which is the behaviour
+the founder wanted the packages to produce.
 
 **Why conversations is the right unit here:** it is the unit the owner already thinks in — "how many
 customers messaged me" — it rises with the value they get, and it makes upgrading a natural consequence
@@ -41,7 +48,7 @@ of their business growing. Seats are irrelevant to a shop where the owner is the
 **Inclusions follow measured cost**, not instinct. At roughly ₹2.6 variable cost per conversation
 (ADR 0026, ADR 0027) and a target of variable cost near 35–40% of plan price, the shape is:
 
-| Tier | Price/month | Included conversations | ≈ per day |
+| Tier | Price/month | Conversation cap | ≈ per day |
 |---|---|---|---|
 | Entry | ~₹999 | ~150 | ~5 |
 | Growth | ~₹2,499 | ~400 | ~13 |
@@ -65,8 +72,11 @@ check the count themselves and see it rise, or the meter becomes a support burde
 - Inclusions in the low hundreds will look small beside competitors advertising unlimited broadcasts.
   The answer is that those are broadcast credits, not answered leads; marketing has to make that clear
   or the entry tier reads as stingy.
-- Overage needs to be gentle and visible — a surprise bill loses a shop that was otherwise growing.
-  Warn in-app and on WhatsApp before the limit, never after.
+- Hitting the cap must never silently stop answering customers. The sequence is: warn on WhatsApp and
+  in-app well before the limit, then at the limit keep answering for a short grace period while asking
+  the owner to upgrade. A shop whose assistant goes quiet mid-month loses real sales and blames us.
+- Revenue per shop is capped by the tier, so upgrades matter more than overage ever would. The warning
+  copy and timing are effectively the upgrade funnel.
 - Each tier's margin depends on ADR 0026 and ADR 0027 landing first; without channel and model cost
   accounting these numbers cannot be trusted.
 
