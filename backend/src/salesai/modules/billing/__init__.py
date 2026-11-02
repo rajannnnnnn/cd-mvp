@@ -1,4 +1,5 @@
 """Billing: plans, trials, subscriptions, usage, GST invoices and payments. Public interface of the module."""
+from salesai.modules.billing.meta_usage import MetaUsage  # noqa: F401
 from salesai.modules.billing.payments import (  # noqa: F401
     Checkout,
     ManualProvider,

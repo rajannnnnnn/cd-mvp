@@ -106,6 +106,15 @@ class Settings(BaseSettings):
     def llm_stage_provider(self, stage: str) -> str:
         return str(getattr(self, f"llm_provider_{stage}", "") or self.llm_provider)
 
+    # --- Meta message pricing (ADR 0026). Estimates only: Meta changed these twice in 2026; re-check Meta's own pricing
+    # page. Rates in INR per delivered message by category; the allowance is free service messages per number per month.
+    meta_rates_inr: str = '{"service": 0.115, "utility": 0.115, "authentication": 0.115, "marketing": 0.8631}'
+    meta_free_service_per_number: int = Field(default=1000, ge=0)
+
+    @property
+    def meta_rates(self) -> dict[str, float]:
+        return {k: float(v) for k, v in json.loads(self.meta_rates_inr).items()}
+
     # --- billing: how money is collected. `test` settles instantly (demo); `manual` = bank transfer/UPI marked paid by the platform team
     payment_provider: Literal["test", "manual"] = "test"
     payment_instructions: str = "Pay by UPI or bank transfer to the account shared by our team and quote the invoice number."
@@ -189,6 +198,13 @@ class Settings(BaseSettings):
                     for r in rows.values()):
                 raise ValueError("LLM_PRICES must map each model to four non-negative numbers: "
                                  "[input, output, cached_input, cache_write] in USD per 1M tokens")
+        try:
+            rates = json.loads(self.meta_rates_inr)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"META_RATES_INR is not valid JSON: {e}") from e
+        if not (isinstance(rates, dict) and {"service", "utility"} <= set(rates)
+                and all(isinstance(v, int | float) and v >= 0 for v in rates.values())):
+            raise ValueError("META_RATES_INR must map categories to non-negative INR rates and include service and utility")
         if self.env == "production" and "local" in used:
             raise ValueError("the local LLM stand-in is not allowed in production on any stage or as the fallback")
         return self

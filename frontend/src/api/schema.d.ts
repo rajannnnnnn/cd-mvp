@@ -930,6 +930,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/operator/businesses/{business_id}/meta-usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Estimated Meta message charges for a shop's month (ADR 0026)
+         * @description Delivered messages per number, the free allowance, who pays (the shop's own WhatsApp account or ours) and an
+         *     estimated cost. Platform-only: a shop never sees this view. Meta's invoice is the source of truth.
+         */
+        get: operations["meta_usage_api_v1_operator_businesses__business_id__meta_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/operator/businesses/{business_id}/numbers": {
         parameters: {
             query?: never;
@@ -5933,6 +5954,44 @@ export interface operations {
     impersonate_api_v1_operator_businesses__business_id__impersonate_post: {
         parameters: {
             query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                business_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    meta_usage_api_v1_operator_businesses__business_id__meta_usage_get: {
+        parameters: {
+            query: {
+                /** @description YYYY-MM, UTC */
+                month: string;
+            };
             header?: {
                 authorization?: string | null;
             };

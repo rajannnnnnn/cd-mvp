@@ -190,8 +190,8 @@ class InboundRouter:
                 latency = int((ev.timestamp - conv["last_inbound_at"]).total_seconds() * 1000)
             ins = await (await c.execute(
                 """INSERT INTO messages (business_id, conversation_id, wa_message_id, direction, sender, kind, body, payload,
-                                         status, gap_ms, answered, wa_timestamp, sent_at)
-                   VALUES (%s,%s,%s,'out','owner',%s,%s,%s,'sent',%s,true,%s,%s)
+                                         status, gap_ms, answered, wa_timestamp, sent_at, sent_via)
+                   VALUES (%s,%s,%s,'out','owner',%s,%s,%s,'sent',%s,true,%s,%s,'business_app')
                    ON CONFLICT (wa_message_id) DO NOTHING RETURNING id""",
                 (bid, conv_id, ev.channel_message_id, ev.kind, ev.text, _json(ev.raw), latency, ev.timestamp, ev.timestamp))).fetchone()
             if ins is None:

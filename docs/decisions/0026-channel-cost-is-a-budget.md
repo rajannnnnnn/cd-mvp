@@ -90,3 +90,16 @@ must be set from.
 If Meta changes the free tier or the rates — likely, given 2026 — the free-tier model is configuration,
 not code. If measurement shows channel cost is a small fraction of model cost, relax the part budget and
 spend the saving on naturalness; the counters will say so.
+
+## Implementation note (2026-11-02)
+
+Counting is built (migration 0014, `modules/billing/meta_usage.py`, operator endpoint
+`GET /api/v1/operator/businesses/{id}/meta-usage?month=YYYY-MM`). It reads what is already recorded rather than adding
+a write to every send: customer messages that reached the customer, and owner alerts that reached the owner. Two facts
+were added to make the estimate correct: `messages.sent_via` (`api` or `business_app`) — an owner reply typed in the
+WhatsApp Business app comes back as an echo but Meta does not bill it — and `owner_messages.whatsapp_number_id`, since
+owner alerts go out from the shop's own number (using its free allowance) or, when that is down, from the platform's
+sender. **Who pays** follows whose WhatsApp account the number is on: a number holding its own token came through
+Embedded Signup and Meta bills the shop; a pilot number under our account bills us. That corrects the earlier framing
+in this ADR: once shops connect their own numbers, customer-reply fees are the shop's cost, not the platform's — they
+still matter to the shop's total cost of using the product. Adaptive reply splitting is a separate agent item.

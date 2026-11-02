@@ -146,6 +146,15 @@ async def impersonate(business_id: uuid.UUID, rt: RT, p: Operator) -> dict[str, 
     return {"access_token": pair.access_token, "refresh_token": pair.refresh_token, "expires_in": pair.expires_in, "business_id": str(business_id), "role": "owner"}
 
 
+@router.get("/businesses/{business_id}/meta-usage", summary="Estimated Meta message charges for a shop's month (ADR 0026)")
+async def meta_usage(business_id: uuid.UUID, rt: RT, p: Operator,
+                     month: Annotated[str, Query(pattern=r"^\d{4}-(0[1-9]|1[0-2])$", description="YYYY-MM, UTC")]) -> dict[str, Any]:
+    """Delivered messages per number, the free allowance, who pays (the shop's own WhatsApp account or ours) and an
+    estimated cost. Platform-only: a shop never sees this view. Meta's invoice is the source of truth."""
+    year, mon = (int(x) for x in month.split("-"))
+    return await rt.meta_usage.month(business_id, year, mon)
+
+
 @router.get("/businesses/{business_id}/export", summary="Per-tenant data export (no floors, tokens or secrets)")
 async def export(business_id: uuid.UUID, rt: RT, p: Operator) -> dict[str, Any]:
     return await export_tenant(rt.db, business_id)

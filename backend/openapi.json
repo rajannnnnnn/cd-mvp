@@ -2377,6 +2377,7 @@
                 "type": "number"
               },
               {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
                 "type": "string"
               }
             ],
@@ -2389,6 +2390,7 @@
                 "type": "number"
               },
               {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
                 "type": "string"
               }
             ],
@@ -2401,6 +2403,7 @@
                 "type": "number"
               },
               {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
                 "type": "string"
               }
             ],
@@ -2419,6 +2422,7 @@
       "LadderOut": {
         "properties": {
           "list_price": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "List Price",
             "type": "string"
           },
@@ -2427,6 +2431,7 @@
             "items": {
               "anyOf": [
                 {
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                   "type": "string"
                 },
                 {
@@ -3053,6 +3058,7 @@
                     "type": "number"
                   },
                   {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                     "type": "string"
                   }
                 ],
@@ -3186,6 +3192,7 @@
                 "decimal_places": 2,
                 "gt": 0,
                 "max_digits": 12,
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -3859,6 +3866,7 @@
                     "type": "number"
                   },
                   {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                     "type": "string"
                   }
                 ],
@@ -3880,6 +3888,7 @@
                     "type": "number"
                   },
                   {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                     "type": "string"
                   }
                 ],
@@ -3906,6 +3915,7 @@
                     "type": "number"
                   },
                   {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                     "type": "string"
                   }
                 ],
@@ -3927,6 +3937,7 @@
                     "type": "number"
                   },
                   {
+                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                     "type": "string"
                   }
                 ],
@@ -3947,6 +3958,7 @@
                 "type": "number"
               },
               {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
                 "type": "string"
               }
             ],
@@ -4000,6 +4012,7 @@
           "list_price": {
             "anyOf": [
               {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -4015,6 +4028,7 @@
           "range_max": {
             "anyOf": [
               {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -4026,6 +4040,7 @@
           "range_min": {
             "anyOf": [
               {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -4035,6 +4050,7 @@
             "title": "Range Min"
           },
           "round_to": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Round To",
             "type": "string"
           }
@@ -4527,6 +4543,7 @@
                 "type": "number"
               },
               {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -10050,6 +10067,80 @@
           }
         },
         "summary": "Short-lived owner access for support (audited)",
+        "tags": [
+          "operator"
+        ]
+      }
+    },
+    "/api/v1/operator/businesses/{business_id}/meta-usage": {
+      "get": {
+        "description": "Delivered messages per number, the free allowance, who pays (the shop's own WhatsApp account or ours) and an\nestimated cost. Platform-only: a shop never sees this view. Meta's invoice is the source of truth.",
+        "operationId": "meta_usage_api_v1_operator_businesses__business_id__meta_usage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "YYYY-MM, UTC",
+            "in": "query",
+            "name": "month",
+            "required": true,
+            "schema": {
+              "description": "YYYY-MM, UTC",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Month",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Meta Usage Api V1 Operator Businesses  Business Id  Meta Usage Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Estimated Meta message charges for a shop's month (ADR 0026)",
         "tags": [
           "operator"
         ]

@@ -59,10 +59,12 @@ class OwnerLoop:
         res = await (channel.send_template(ref, to, template or "", user["language"], params or []) if use_template else channel.send_text(ref, to, body))
         async with self.db.tenant(bid) as c:
             await c.execute(
-                """INSERT INTO owner_messages (business_id, business_user_id, direction, kind, purpose, template_name, body, wa_message_id, status, error, sent_at)
-                   VALUES (%s,%s,'out',%s,%s,%s,%s,%s,%s,%s, now())""",
+                """INSERT INTO owner_messages (business_id, business_user_id, direction, kind, purpose, template_name, body, wa_message_id, status, error,
+                                              sent_at, whatsapp_number_id)
+                   VALUES (%s,%s,'out',%s,%s,%s,%s,%s,%s,%s, now(), %s)""",
                 (bid, user["id"], "template" if use_template else "text", purpose, template if use_template else None, body, res.message_id,
-                 "sent" if res.ok else "failed", None if res.ok else res.error))
+                 "sent" if res.ok else "failed", None if res.ok else res.error,
+                 num["id"] if num else None))         # which number's free allowance this uses, and who pays (ADR 0026)
         if not res.ok:
             await self._operator_alert(bid, "owner_alert_failed", f"Could not alert the owner: {res.error}", {"purpose": purpose})
             if res.retryable:
