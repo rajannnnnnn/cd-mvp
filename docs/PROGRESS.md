@@ -276,3 +276,6 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
     deals, handoffs, knowledge_gaps, owner_messages, config_proposals, audit_log), so the cross-tenant read test passes
     without proving anything for them, and newer shop tables (support, billing) are not listed at all. Row-level security
     is very likely in place, but INV-5 requires it proven per table.
+  - **Fixed (2026-11-02):** the long-standing "flaky" raw-log tests (`test_gateway_raw_log.py`) were order-dependent test
+    bugs, not product bugs: one scanned every stored webhook and crashed on rows other tests had inserted without a raw
+    body; the other counted every rejected webhook in the session. Each now reads only its own rows.

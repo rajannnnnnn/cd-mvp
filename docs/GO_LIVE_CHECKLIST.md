@@ -35,4 +35,8 @@ can only be made against the real services. Built up as the work goes; each item
 
 ## Business facts (from the founder)
 
+- [ ] **Data retention policy** (DPDP, core obligations from 13 May 2027): how long to keep customers' chats and AI
+      records after they are no longer needed; set `CHAT_RETENTION_DAYS` / `TURN_RETENTION_DAYS` (0 keeps them while
+      the shop is active). Publish the same periods in the privacy policy. (ADR 0030)
+
 - [ ] Legal entity, address, GSTIN; invoice seller fields; the bracketed placeholders in the legal pages.

@@ -53,6 +53,9 @@ GRANT SELECT, INSERT ON support_messages TO app_user;
 GRANT USAGE ON SEQUENCE support_messages_id_seq TO app_user, app_system;
 GRANT SELECT, INSERT, UPDATE ON support_tickets TO app_system;
 GRANT SELECT, INSERT ON support_messages TO app_system;
-GRANT SELECT, INSERT ON support_attachments TO app_user;
-GRANT SELECT, INSERT ON learning_observations TO app_user;      -- append-only: an observation is never edited (ADR 0031)
+GRANT SELECT, INSERT, DELETE ON support_attachments TO app_user;   -- DELETE for per-shop retention of resolved tickets (ADR 0030)
+GRANT SELECT, INSERT, DELETE ON learning_observations TO app_user;   -- never edited; deleted only by retention or with the shop (ADR 0031)
 GRANT SELECT ON support_attachments TO app_system;
+
+-- ---------------------------------------------------------------- platform audit trail (0016, ADR 0030)
+GRANT SELECT, INSERT ON platform_audit_log TO app_system;   -- append-only; the shop role has no access at all (ADR 0030)

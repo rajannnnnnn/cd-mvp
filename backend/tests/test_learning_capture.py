@@ -100,6 +100,7 @@ async def test_one_shop_never_sees_another_shops_records(world):
 
 def test_only_the_allowed_modules_touch_learning_records():
     """Proposed INV-13: per-shop only. Model adapters and anything that could pool shops never read these records."""
-    allowed = {"modules/handoffs/learning.py", "modules/tenants/lifecycle.py"}
+    # retention deletes old records shop by shop through the shop's own role; it never reads them across shops
+    allowed = {"modules/handoffs/learning.py", "modules/tenants/lifecycle.py", "scheduler.py"}
     users = {str(p.relative_to(SRC)) for p in SRC.rglob("*.py") if "learning_observations" in p.read_text()}
     assert users == allowed, users

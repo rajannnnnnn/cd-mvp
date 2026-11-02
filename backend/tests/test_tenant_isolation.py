@@ -163,12 +163,12 @@ async def test_outbox_is_write_only_for_tenant_role(db, two_tenants):
 
 async def test_platform_tables_unreachable_by_tenant_role(db):
     async with db.tenant(uuid.uuid4()) as c:
-        for t in ["jobs", "webhook_events", "auth_sessions", "otp_challenges", "business_keys", "sim_messages", "operator_alerts"]:
+        for t in ["jobs", "webhook_events", "auth_sessions", "otp_challenges", "business_keys", "sim_messages", "operator_alerts", "platform_audit_log"]:
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
                 await c.execute(f"SELECT 1 FROM {t}")  # noqa: S608
             # a failed statement aborts the txn; open a fresh one for the next table
             break
-    for t in ["jobs", "webhook_events", "auth_sessions", "otp_challenges", "business_keys", "sim_messages", "operator_alerts"]:
+    for t in ["jobs", "webhook_events", "auth_sessions", "otp_challenges", "business_keys", "sim_messages", "operator_alerts", "platform_audit_log"]:
         async with db.tenant(uuid.uuid4()) as c:
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
                 await c.execute(f"SELECT 1 FROM {t}")  # noqa: S608
@@ -239,6 +239,7 @@ PLATFORM_ONLY: dict[str, str] = {   # no grant at all to the shop role (test_pla
     "business_keys": "per-shop encryption keys; the shop role must never read its own key material",
     "jobs": "the queue; work is scheduled through the outbox, never by the shop role",
     "operator_alerts": "platform alerts about a shop, for the platform team only",
+    "platform_audit_log": "the platform's own trail of actions on a shop; outlives the shop (ADR 0030)",
 }
 
 

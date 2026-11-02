@@ -72,3 +72,20 @@ client-rendered-site ADR that currently exists only on the founder's machine.
 If a pilot customer or an auditor requires tamper evidence, add the hash chain; the table shape already
 supports it. If the DPDP timeline moves — the ministry has proposed shortening one window already — the
 schedule is configuration and the documents are text.
+
+## Implementation note (2026-11-02)
+
+- **Audit history cannot be rewritten:** proven by test for the shop role and the platform role (UPDATE and DELETE
+  refused on `audit_log` and `platform_audit_log`). Time-based purging of audit history is deliberately not built: the
+  rows are small, they are erased with the shop under DPDP deletion, and a purge path would be a way to remove history.
+- **Platform audit trail** (migration 0016, `platform_audit_log`): export, deletion, impersonation and operator changes
+  to a shop are recorded on a trail with no foreign keys, so it outlives the shop — previously deleting a shop erased
+  the record of its own deletion. `detail` carries ids, counts and field names only. The shop role cannot read it.
+- **Consent changes are audited:** opt-out and personal-contact changes, alongside pricing and settings.
+- **Retention is configuration** (`CHAT_RETENTION_DAYS`, `TURN_RETENTION_DAYS`, `SIM_MESSAGE_RETENTION_DAYS`,
+  `RESOLVED_ALERT_RETENTION_DAYS`, `RESOLVED_TICKET_ATTACHMENT_RETENTION_DAYS`). Chat history and AI records default to
+  "keep while the shop is active" because the period is a policy decision for the founder (go-live checklist). Shop data
+  is deleted shop by shop through the shop's own row-secured role, so the platform role never holds delete rights over
+  chats; tested with data in two shops.
+- Not done here: a WABA-level webhook payload carries no phone-number id, so tenant deletion's raw-webhook cleanup (which
+  matches by phone-number id) can miss it; such rows are still purged by `RAW_WEBHOOK_RETENTION_DAYS`.

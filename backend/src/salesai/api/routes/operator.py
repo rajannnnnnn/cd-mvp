@@ -18,6 +18,7 @@ from salesai.modules.tenants import (
     create_business,
     delete_tenant,
     export_tenant,
+    platform_audit,
 )
 from salesai.phone import normalize_phone
 
@@ -138,11 +139,17 @@ async def patch_business(business_id: uuid.UUID, body: TenantPatch, rt: RT, p: O
             await c.execute(f"UPDATE businesses SET {k}=%s WHERE id=%s", (jsonb(v) if k == "limits" else v, business_id))  # noqa: S608
         await c.execute("INSERT INTO audit_log (business_id, actor_account_id, actor_label, action, entity, detail) VALUES (%s,%s,'operator','operator.updated','business',%s)",
                         (business_id, p.account_id, jsonb({"fields": sorted(d)})))
+    async with rt.db.system_tx() as s:                  # the platform's own trail outlives the shop (ADR 0030)
+        await platform_audit(s, actor_account_id=p.account_id, actor_label="operator", action="operator.updated",
+                             business_id=business_id, detail={"fields": sorted(d), **({"ai_enabled": d["ai_enabled"]} if "ai_enabled" in d else {})})
 
 
 @router.post("/businesses/{business_id}/impersonate", summary="Short-lived owner access for support (audited)")
 async def impersonate(business_id: uuid.UUID, rt: RT, p: Operator) -> dict[str, Any]:
     pair = await rt.auth.impersonate(p, business_id, None)
+    async with rt.db.system_tx() as s:
+        await platform_audit(s, actor_account_id=p.account_id, actor_label="operator", action="operator.impersonation",
+                             business_id=business_id, detail={"expires_in": pair.expires_in})
     return {"access_token": pair.access_token, "refresh_token": pair.refresh_token, "expires_in": pair.expires_in, "business_id": str(business_id), "role": "owner"}
 
 
@@ -157,7 +164,10 @@ async def meta_usage(business_id: uuid.UUID, rt: RT, p: Operator,
 
 @router.get("/businesses/{business_id}/export", summary="Per-tenant data export (no floors, tokens or secrets)")
 async def export(business_id: uuid.UUID, rt: RT, p: Operator) -> dict[str, Any]:
-    return await export_tenant(rt.db, business_id)
+    out = await export_tenant(rt.db, business_id)
+    async with rt.db.system_tx() as s:
+        await platform_audit(s, actor_account_id=p.account_id, actor_label="operator", action="tenant.exported", business_id=business_id)
+    return out
 
 
 @router.delete("/businesses/{business_id}", summary="Hard-delete a tenant and every trace of its data (DPDP)")
@@ -168,7 +178,11 @@ async def delete(business_id: uuid.UUID, rt: RT, p: Operator, confirm_name: Anno
         raise ApiError(404, "not_found", "Business not found.")
     if b["name"] != confirm_name:
         raise ApiError(422, "confirmation_mismatch", "Type the business name exactly to confirm deletion.")
-    return {"deleted": await delete_tenant(rt.db, business_id, rt.queue)}
+    counts = await delete_tenant(rt.db, business_id, rt.queue)
+    async with rt.db.system_tx() as s:                  # recorded after the shop is gone, so it survives the deletion (DPDP)
+        await platform_audit(s, actor_account_id=p.account_id, actor_label="operator", action="tenant.deleted",
+                             business_id=business_id, detail={"rows_deleted": counts})
+    return {"deleted": counts}
 
 
 @router.get("/alerts", response_model=list[AlertOut])

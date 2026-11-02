@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from salesai.api.deps import RT, Tenant, decode_cursor, encode_cursor, tx
 from salesai.api.errors import ApiError
-from salesai.db import required
+from salesai.db import jsonb, required
 from salesai.phone import normalize_phone, wa_id
 
 router = APIRouter(tags=["contacts"])
@@ -86,6 +86,10 @@ async def patch_customer(customer_id: uuid.UUID, body: CustomerPatch, rt: RT, p:
         r = await (await c.execute("SELECT * FROM customers WHERE id=%s", (customer_id,))).fetchone()
         if r is None:
             raise ApiError(404, "not_found", "Customer not found.")
+        for flag, action in (("opted_out", "customer.opt_out_changed"), ("is_personal", "customer.personal_changed")):
+            if flag in d:                # consent changes are audited like pricing and settings (ADR 0030)
+                await c.execute("INSERT INTO audit_log (business_id, actor_account_id, actor_label, action, entity, entity_id, detail)"
+                                " VALUES (%s,%s,%s,%s,'customer',%s,%s)", (p.bid, p.account_id, p.role, action, str(customer_id), jsonb({flag: d[flag]})))
         if d.get("is_personal"):     # a personal contact is never answered, and anything pending for them is dropped
             await c.execute("UPDATE messages SET answered=true WHERE direction='in' AND NOT answered AND conversation_id IN (SELECT id FROM conversations WHERE customer_id=%s)", (customer_id,))
     return _out(r)
@@ -102,4 +106,6 @@ async def add_personal(body: PersonalIn, rt: RT, p: Tenant) -> Any:
             """INSERT INTO customers (business_id, wa_id, name, is_personal) VALUES (%s,%s,%s,true)
                ON CONFLICT (business_id, wa_id) DO UPDATE SET is_personal=true, name=COALESCE(customers.name, EXCLUDED.name) RETURNING *""",
             (p.bid, wa_id(phone), body.name))).fetchone(), "customer")
+        await c.execute("INSERT INTO audit_log (business_id, actor_account_id, actor_label, action, entity, entity_id, detail)"
+                        " VALUES (%s,%s,%s,'customer.marked_personal','customer',%s,'{}')", (p.bid, p.account_id, p.role, str(r["id"])))
     return _out(r)

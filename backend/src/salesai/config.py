@@ -136,6 +136,13 @@ class Settings(BaseSettings):
     # --- channel gateway raw webhook log (ADR 0020)
     raw_webhook_retention_days: int = Field(30, ge=1)          # verified requests
     invalid_webhook_retention_days: int = Field(3, ge=1)       # requests that failed signature verification
+    # ADR 0030. Chat history is kept while the shop is active unless a period is set: how long to keep customers'
+    # conversations is a privacy/legal policy for the founder (go-live checklist). 0 = keep while the shop is active.
+    chat_retention_days: int = Field(0, ge=0)                  # messages, owner alerts, learning records
+    turn_retention_days: int = Field(0, ge=0)                  # AI decision records (cost and audit data)
+    sim_message_retention_days: int = Field(30, ge=1)          # simulator chats: demo data only
+    resolved_alert_retention_days: int = Field(180, ge=1)      # operator alerts after they are resolved
+    resolved_ticket_attachment_retention_days: int = Field(180, ge=1)   # pictures on support tickets resolved this long ago
     invalid_webhook_max_bytes: int = Field(4096, ge=0)         # how much of a failed request's body is kept
 
     @field_validator("master_key")

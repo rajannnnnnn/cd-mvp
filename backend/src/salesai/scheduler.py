@@ -91,7 +91,8 @@ class Scheduler:
         return n
 
     async def tick_retention(self) -> dict[str, int]:
-        """HLD retention: raw webhooks RAW_WEBHOOK_RETENTION_DAYS (rejected ones INVALID_WEBHOOK_RETENTION_DAYS); finished jobs and stale auth artifacts shorter."""
+        """Retention (HLD, ADR 0030): raw webhooks, finished jobs, stale auth artifacts, simulator chats, resolved alerts and
+        pictures on long-resolved tickets on a schedule; chat history and AI records only when a period is configured."""
         out: dict[str, int] = {}
         async with self.rt.db.system_tx() as c:
             cfg = self.rt.settings
@@ -102,7 +103,35 @@ class Scheduler:
             out["outbox"] = (await c.execute("DELETE FROM outbox WHERE published_at < now() - interval '7 days'")).rowcount
             out["otp_challenges"] = (await c.execute("DELETE FROM otp_challenges WHERE created_at < now() - interval '2 days'")).rowcount
             out["auth_sessions"] = (await c.execute("DELETE FROM auth_sessions WHERE (revoked_at IS NOT NULL AND revoked_at < now() - interval '30 days') OR expires_at < now() - interval '30 days'")).rowcount
+            # ADR 0030: clearly temporary data, on the platform role
+            out["sim_messages"] = (await c.execute(
+                "DELETE FROM sim_messages WHERE created_at < now() - make_interval(days => %s)", (cfg.sim_message_retention_days,))).rowcount
+            out["operator_alerts"] = (await c.execute(       # never an unresolved alert, however old
+                "DELETE FROM operator_alerts WHERE resolved_at IS NOT NULL AND resolved_at < now() - make_interval(days => %s)",
+                (cfg.resolved_alert_retention_days,))).rowcount
+            shops = [r["id"] for r in await (await c.execute("SELECT id FROM businesses")).fetchall()]
         out["jobs"] = await self.rt.queue.purge_finished(timedelta(days=7))
+        # Shop data is deleted shop by shop through the shop's OWN row-secured role, so the platform role never holds
+        # delete rights over chats, and row-level security cannot hide the rows meant to go (the session-4 bug class).
+        for k in ("support_attachments", "messages", "owner_messages", "learning_observations", "turns"):
+            out[k] = 0
+        for bid in shops:
+            async with self.rt.db.tenant(bid) as s:
+                out["support_attachments"] += (await s.execute(
+                    """DELETE FROM support_attachments a USING support_tickets k
+                        WHERE k.id = a.ticket_id AND k.status = 'resolved' AND k.updated_at < now() - make_interval(days => %s)""",
+                    (cfg.resolved_ticket_attachment_retention_days,))).rowcount
+                if cfg.chat_retention_days:                  # 0 = keep while the shop is active (founder's policy decision)
+                    days = (cfg.chat_retention_days,)
+                    out["learning_observations"] += (await s.execute(
+                        "DELETE FROM learning_observations WHERE created_at < now() - make_interval(days => %s)", days)).rowcount
+                    out["owner_messages"] += (await s.execute(
+                        "DELETE FROM owner_messages WHERE created_at < now() - make_interval(days => %s)", days)).rowcount
+                    out["messages"] += (await s.execute(
+                        "DELETE FROM messages WHERE created_at < now() - make_interval(days => %s)", days)).rowcount
+                if cfg.turn_retention_days:
+                    out["turns"] += (await s.execute(
+                        "DELETE FROM turns WHERE created_at < now() - make_interval(days => %s)", (cfg.turn_retention_days,))).rowcount
         return out
 
     async def tick_gauges(self) -> None:

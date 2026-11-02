@@ -20,13 +20,20 @@ async def _rows(world, where="true"):
         return await (await c.execute(f"SELECT * FROM webhook_events WHERE {where} ORDER BY id")).fetchall()  # noqa: S608
 
 
+async def _mine(world, raw: bytes):
+    """Only this test's rows. webhook_events is shared by the whole test session, so scanning or counting all of it
+    made these tests depend on what earlier tests had stored (rows without a raw body, other rejected requests)."""
+    async with world.rt.db.system_tx() as c:
+        return await (await c.execute("SELECT * FROM webhook_events WHERE raw_body = %s ORDER BY id", (raw,))).fetchall()
+
+
 async def test_valid_webhook_keeps_exact_bytes_signature_and_time(world):
     shop = await world.make_shop()
     raw = _raw(shop)
     sig = sign(world.s.meta_app_secret, raw)
     code, _ = await accept_webhook(world.rt.db, world.s.meta_app_secret, raw, sig)
     assert code == 200
-    [row] = [r for r in await _rows(world, "signature_valid") if bytes(r["raw_body"]) == raw]
+    [row] = [r for r in await _mine(world, raw) if r["signature_valid"]]
     assert row["signature"] == sig and row["received_at"] is not None
     assert row["payload"]["object"] == "whatsapp_business_account"
 
@@ -37,7 +44,7 @@ async def test_bad_signature_is_kept_flagged_and_never_queued(world):
     for sig in (None, "sha256=deadbeef", sign("wrong-secret", raw)):
         code, _ = await accept_webhook(world.rt.db, world.s.meta_app_secret, raw, sig)
         assert code == 401
-    bad = await _rows(world, "NOT signature_valid")
+    bad = [r for r in await _mine(world, raw) if not r["signature_valid"]]
     assert len(bad) == 3
     assert {r["signature"] for r in bad} == {None, "sha256=deadbeef", sign("wrong-secret", raw)}
     assert all(bytes(r["raw_body"]) == raw and r["payload"] is None for r in bad)

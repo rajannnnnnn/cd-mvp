@@ -1,4 +1,5 @@
 """Tenants module public interface."""
+from salesai.modules.tenants.audit import platform_audit  # noqa: F401,E402
 from salesai.modules.tenants.lifecycle import delete_tenant, export_tenant  # noqa: F401
 from salesai.modules.tenants.service import (  # noqa: F401
     CreatedBusiness,
