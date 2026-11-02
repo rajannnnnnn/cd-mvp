@@ -37,7 +37,9 @@ superseded by a new ADR, never rewritten. Status is `accepted` unless stated.
 | [0029](0029-platform-alerting-to-the-founder.md) | Platform alerts by email to the founder only, with severity, grouping and cooldowns |
 | [0030](0030-audit-retention-and-dpdp.md) | Append-only audit log, declared retention schedule, DPDP processor posture |
 | [0031](0031-per-tenant-learning-loop.md) | Per-tenant learning loop: propose the narrowest scope, never assume; owner-authored sources only |
+| [0032](0032-plan-packaging-by-conversations.md) | Plans sold by conversations included per month, with overage |
+| [0033](0033-two-question-pricing-setup.md) | Pricing setup reduced to two questions; the rest derived, advanced fields kept |
 
 **Numbering note.** Two ADRs share the number **0020** (`0020-support-tickets.md` and
 `0020-channel-gateway.md`). Published files are not renumbered; both are listed above. **0024** is
-reserved as noted. New ADRs continue from **0032**.
+reserved as noted. New ADRs continue from **0034**.

@@ -280,6 +280,14 @@ The frontend is **not** being redesigned. It gets validated and hardened:
 - Keyboard navigation; forms keep the red-asterisk and inline-error behaviour already built.
 - The 36 browser specs stay green and grow with each new surface; the new admin plane gets its own.
 
+**The worst offender is pricing setup, and it is now fixed by decision.** An owner faces up to ten
+decisions per product (five disclosure modes, list price, range bounds, negotiability, concession steps,
+conditions, rounding, plus the floor). A shop with fifty products cannot do that. **ADR 0033** reduces it
+to two questions — what is the price, and can the assistant give a discount — infers the mode from what
+the owner types instead of making them pick one, derives everything else, asks once at onboarding rather
+than per product, and keeps every advanced field behind a collapsed section. The data model, the API and
+the pricing engine do not change, so no invariant moves.
+
 One open product question: the owner app is English-only by founder decision, while the target is
 non-technical Indian SMBs and the i18n seam is already in place. Section 12.
 
@@ -289,10 +297,10 @@ Each has a default already in force, so the plan proceeds either way.
 
 | # | Decision | Default in force |
 |---|---|---|
-| 1 | **Reply parts vs cost.** Multi-part replies read human but each part is now a billed Meta message. Cap parts, or keep natural pacing and pay? | Natural pacing, with a configurable cap added and set generously |
-| 2 | **Plan shape.** Measured variable cost is ~₹2.6 per conversation, so inclusions belong in the low hundreds. Price per conversation, per message (Meta's own unit), or flat with a fair-use cap? | Placeholder ₹999 / ₹2,499 / ₹5,999 + GST with conversation inclusions, unchanged until Phase 2 measurement |
+| 1 | ~~Reply parts vs cost~~ — **decided 2026-11-02.** Measured at ~₹150/month on a busy shop against ~₹1,900 of model cost, so parts are not where the money is. Natural multi-part pacing stays; a per-tenant cap exists only as a safety valve. | settled |
+| 2 | ~~Plan shape~~ — **decided by the founder 2026-11-02:** packages by number of conversations, so a growing shop upgrades; billing by AI usage ruled out. Market check and provisional inclusions in **ADR 0032**; final numbers from Phase 2 measurement. | settled |
 | 3 | **INV-13: no cross-tenant model training.** Meta's clause forbids training on WhatsApp data even aggregated. Make it an invariant with tests, which closes off cross-tenant learned models and bandit tuning? | Treated as binding and designed for; not yet a tested invariant |
-| 4 | **ADR 0006.** The last concession step equals the floor and is quoted as a final price. Confirm, or stop above the floor? | As built |
+| 4 | **ADR 0006.** The last concession step equals the floor and is quoted as a final price. My recommendation changed to **stop just above the floor**: if the final quote always equals the floor, a persistent customer learns the exact number INV-1 exists to protect. | As built |
 | 5 | Owner app in Hindi | English only |
 | 6 | Still open from PROGRESS.md section 6 | unchanged — legal entity, domain, LLM key, Meta account, pilot shops, GSTIN, payment gateway, default negotiation off |
 
@@ -307,7 +315,8 @@ API key respectively and can run in parallel with each other.
 3. Component contract: table ownership, import rules forbidding web↔agent, boundary tests; migrations
    split into their own component; per-component database roles (ADR 0025 steps 1–4).
 4. ADR 0021 step 1 — the four schemas.
-5. Frontend validation and hardening pass (section 11).
+5. Frontend validation and hardening pass (section 11), including the **two-question pricing setup**
+   (ADR 0033) — the highest-value UX change in the plan and the one gating catalog completion.
 6. Append-only audit log and the retention schedule (ADR 0030).
 7. Learning-loop **capture** only — record owner replies after handoff with their full context, scoped
    per tenant, changing no behaviour (ADR 0031).
