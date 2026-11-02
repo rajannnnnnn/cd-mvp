@@ -266,3 +266,8 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
     `TEST_PG_SUPERUSER_URL=postgresql://postgres@127.0.0.1:5432/postgres`. It stops when the session worker restarts.
   - **Languages:** the planner schema lists only `en/hi/hinglish` and scripts `latin/devanagari`; Tamil, Tanglish and
     other Indian languages need those widened plus eval scenarios. Deferred by the founder.
+  - **Known issue (pre-existing, found 2026-11-02):** running `tests/test_conversation_flow.py` *before* `tests/evals` in one
+    pytest process makes two eval scenarios (`bargain-below-floor`, `order-flow`) get no reply at their fourth step. Proven
+    pre-existing: the same two fail identically with the reply-shape change stashed. The normal full-suite order runs
+    `tests/evals` first, so CI does not see it; evals alone pass 32/32. Likely leftover state from the conversation-flow
+    tests starving a later step. Reproduce: `pytest tests/test_conversation_flow.py tests/evals`.

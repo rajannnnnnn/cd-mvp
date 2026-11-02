@@ -15,6 +15,10 @@ CONVERSATION_SETTINGS: dict[str, Any] = {
     "nudge_after_minutes": 240,          # one in-window nudge after the customer goes quiet (FR-SL-8)
     "history_messages": 20,              # messages given to the model before summarising
     "daily_summary_hour": 21,            # local hour at which the owner gets the daily summary (FR-RP-1)
+    # reply shape (ADR 0026): one message unless the answer is long or the customer writes in short bursts
+    "max_reply_parts": 3,                # ceiling on messages per reply; a safety valve, not a target
+    "split_over_chars": 320,             # a reply longer than this may go as several messages
+    "burst_message_chars": 80,           # several customer messages this short in one turn = writing in bursts
 }
 
 TIMING_PARAMS: dict[str, Any] = {

@@ -27,6 +27,7 @@ from salesai.modules.agent import prompts
 from salesai.modules.agent.llm import LLMProvider, LLMRequest, LLMUnavailable
 from salesai.modules.agent.llm.local_nlg import render as render_directive
 from salesai.modules.agent.models import CheckOutput, PlannerOutput, WriterOutput
+from salesai.modules.agent.shape import shape_reply
 from salesai.modules.delivery import is_open, next_open, plan_delivery
 from salesai.modules.handoffs import create_handoff, log_gap
 from salesai.modules.pricing import PricingService
@@ -258,6 +259,11 @@ class AgentService:
         now = datetime.now(UTC)
         timing = ctx.business["timing_params"]
         csettings = ctx.business["conversation_settings"] or {}
+        # one message unless the answer is long or the customer writes in short bursts (ADR 0026); words never change
+        parts = shape_reply(parts, [m["body"] or "" for m in ctx.unanswered if m.get("kind") == "text"],
+                            max_parts=int(csettings.get("max_reply_parts", 3)),
+                            split_over_chars=int(csettings.get("split_over_chars", 320)),
+                            burst_chars=int(csettings.get("burst_message_chars", 80)))
         mult, offset = 1.0, 0
         behavior = csettings.get("business_hours_behavior", "reply_normally")
         if behavior != "reply_normally" and not is_open(ctx.business["profile"] or {}, ctx.business["timezone"], now):
