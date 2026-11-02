@@ -240,3 +240,29 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
   sources and must be re-read against Meta's pages before pilot. The branch was also fast-forwarded from the Oct 12 commit to `b8445a9`.
   **Still only on the founder's machine:** commit `ef05e4f` (client-rendered marketing pages, standalone web stack, `scripts/stack.sh`,
   ADR 0024). ADR number 0024 is reserved for it; do not reuse.
+
+- **Session 5, build (2026-11-02).** Founder: build until the product is complete and only real keys (plus the
+  checks that need them) remain. Done and pushed so far:
+  - **LLM choice is configuration (ADR 0034), founder's default `openai/gpt-oss-20b` on every stage.** New
+    OpenAI-compatible adapter (Groq, Together, Fireworks, OpenRouter or self-hosted vLLM by `OPENAI_COMPAT_BASE_URL`);
+    per-stage vendor/model/effort; fallback with its own model; prices as data (`LLM_PRICES`); startup refuses an
+    unpriced model (it used to record turns as free), a vendor without its key, a non-claude model on anthropic, and
+    the local stand-in anywhere in production.
+  - **Prompt caching (ADR 0027):** stable context rendered first and byte-stable (the planner input used to start with
+    a timestamp, so nothing could ever cache); cache reads/writes priced per model and logged per call.
+  - **Benchmark harness** `backend/scripts/benchmark_models.py`: `cost` (free) and `run --yes` (spends money; ranks by
+    invariant failures, then quality, then latency, then cost). Candidates in `backend/benchmark/candidates.json`.
+  - Fixed two production-config tests broken by the new default model and strengthened them to assert each rule's own
+    reason (one case had been passing for an unrelated reason). Fixed two pre-existing CI failures (an import order,
+    an Optional row in `support.py`).
+  - Verified: the 46 LLM tests pass; ruff, mypy and the boundary check are clean. **A clean full-suite count is still
+    owed** — one run died with Postgres when the worker restarted, and the next run's summary line was lost; its only
+    failures were the two fixed tests and the known order-dependent flake.
+  - **Keys and budget:** founder can allot ₹500–600 for AI during testing. Plan: Groq free tier first, top up only if
+    rate limits break runs; no Claude comparison unless gpt-oss fails the evals. Needed from the founder:
+    `OPENAI_COMPAT_API_KEY` as an environment secret, and `api.groq.com` allowed under Network access (blocked here).
+  - **Local Postgres in this container:** server binaries at `/usr/lib/postgresql/16/bin`, data in
+    `/var/lib/postgresql/cdmvp`, run as user `postgres` on 127.0.0.1:5432 with trust auth;
+    `TEST_PG_SUPERUSER_URL=postgresql://postgres@127.0.0.1:5432/postgres`. It stops when the session worker restarts.
+  - **Languages:** the planner schema lists only `en/hi/hinglish` and scripts `latin/devanagari`; Tamil, Tanglish and
+    other Indian languages need those widened plus eval scenarios. Deferred by the founder.
