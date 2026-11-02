@@ -14,7 +14,6 @@ from salesai.db import Conn, Database, jsonb, required
 from salesai.events.outbox import emit
 from salesai.modules.agent import LLMProvider, LLMRequest, LLMUnavailable, prompts
 from salesai.modules.catalog import PolicyIn, ProductIn, VariantIn, repo
-from salesai.modules.channels import ChannelRegistry
 from salesai.modules.handoffs import answer_gap, resolve_handoff
 from salesai.modules.notifications import messages as M
 from salesai.modules.notifications.models import ConfigChanges
@@ -31,8 +30,8 @@ def short(u: uuid.UUID | str) -> str:
 
 
 class OwnerLoop:
-    def __init__(self, db: Database, channels: ChannelRegistry, llm: LLMProvider, config_model: str):
-        self.db, self.channels, self.llm, self.config_model = db, channels, llm, config_model
+    def __init__(self, db: Database, llm: LLMProvider, config_model: str):
+        self.db, self.llm, self.config_model = db, llm, config_model
 
     # ------------------------------------------------------------------ sending to owners
     async def _targets(self, c: Conn, bid: uuid.UUID, business_user_id: uuid.UUID | None) -> list[dict[str, Any]]:
@@ -42,33 +41,22 @@ class OwnerLoop:
 
     async def send_to_owner(self, bid: uuid.UUID, user: dict[str, Any], purpose: str, body: str, template: str | None = None,
                             params: list[str] | None = None) -> None:
-        """Free-form inside the owner's 24h window, an approved template outside it (INV-8 applies to every recipient)."""
-        async with self.db.tenant(bid) as c:
-            num = await (await c.execute(
-                "SELECT id FROM whatsapp_numbers WHERE status='connected' ORDER BY created_at LIMIT 1")).fetchone()
-        if num is None:        # e.g. the business number is the thing that disconnected: use the platform sender
-            ref, channel = self.channels.platform_sender()
-        else:
-            ref, channel = await self.channels.number(bid, num["id"])
-        to = user["phone"].lstrip("+")
+        """Decide how to reach the owner, and ask the gateway to send it (ADR 0025): the agent never talks to Meta. Free-form
+        text inside the owner's 24h window, an approved template outside it; the gateway checks the window again when it sends
+        (INV-8 applies to every recipient)."""
         in_window = window_open(user["last_inbound_at"])
         use_template = (not in_window) and template is not None
         if not in_window and template is None:
             log.info("owner outside window and no template for %s; message not sent", purpose)
             return
-        res = await (channel.send_template(ref, to, template or "", user["language"], params or []) if use_template else channel.send_text(ref, to, body))
         async with self.db.tenant(bid) as c:
-            await c.execute(
-                """INSERT INTO owner_messages (business_id, business_user_id, direction, kind, purpose, template_name, body, wa_message_id, status, error,
-                                              sent_at, whatsapp_number_id)
-                   VALUES (%s,%s,'out',%s,%s,%s,%s,%s,%s,%s, now(), %s)""",
-                (bid, user["id"], "template" if use_template else "text", purpose, template if use_template else None, body, res.message_id,
-                 "sent" if res.ok else "failed", None if res.ok else res.error,
-                 num["id"] if num else None))         # which number's free allowance this uses, and who pays (ADR 0026)
-        if not res.ok:
-            await self._operator_alert(bid, "owner_alert_failed", f"Could not alert the owner: {res.error}", {"purpose": purpose})
-            if res.retryable:
-                raise RuntimeError(res.error or "owner alert failed")
+            row = required(await (await c.execute(
+                """INSERT INTO owner_messages (business_id, business_user_id, direction, kind, purpose, template_name, body, params, language, status)
+                   VALUES (%s,%s,'out',%s,%s,%s,%s,%s,%s,'queued') RETURNING id""",
+                (bid, user["id"], "template" if use_template else "text", purpose, template if use_template else None, body,
+                 jsonb(params or []), user["language"]))).fetchone(), "owner message")
+            await emit(c, "owner.message_requested", {"owner_message_id": row["id"]}, business_id=bid,
+                       ordering_key=f"owner:{user['id']}")                        # one owner's messages stay in order
 
     async def _operator_alert(self, bid: uuid.UUID | None, kind: str, message: str, detail: dict[str, Any], severity: str = "warning") -> None:
         async with self.db.system_tx() as s:

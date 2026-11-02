@@ -20,6 +20,7 @@ from salesai.modules.billing import BillingService, ManualProvider, MetaUsage, T
 from salesai.modules.channels import ChannelRegistry
 from salesai.modules.channels.connect import NumberConnector
 from salesai.modules.channels.otp import OtpSender
+from salesai.modules.channels.owner_send import OwnerSender
 from salesai.modules.channels.simulator import SimulatorNetwork
 from salesai.modules.conversations import HeuristicEOT, InboundRouter, TurnWorker
 from salesai.modules.delivery.sender import OutboundSender
@@ -65,7 +66,8 @@ class Runtime:
         self.sender = OutboundSender(db, self.channels)
         self.otp = OtpSender(db, self.channels)
         self.connector = NumberConnector(db, self.vault, settings)
-        self.owner = OwnerLoop(db, self.channels, self.llm, settings.llm_model_check)
+        self.owner_sender = OwnerSender(db, self.channels)
+        self.owner = OwnerLoop(db, self.llm, settings.llm_model_check)
         self.auth = AuthService(db, settings, pump=self._pump)
         self.sim = SimulatorNetwork(db, settings.meta_app_secret)
         self.alerts = build_alert_router(db, self.channels, settings)
@@ -103,6 +105,7 @@ class Runtime:
         self.registry.add("outbound.actions", "execute", self.sender.execute)
         self.registry.add("outbound.actions", "send_otp", self.otp.send_otp)            # the gateway sends what the web asked for
         self.registry.add("outbound.actions", "connect_number", self.connector.connect)  # ...and completes number sign-ups for it
+        self.registry.add("outbound.actions", "send_owner_message", self.owner_sender.send)   # ...and sends the agent's owner alerts
         self.registry.add("owner.notifications", "notify", self.owner.notify)
         self.registry.add("owner.notifications", "owner_chat", self.owner.owner_chat)
         self.registry.add("owner.notifications", "daily_summary", self.owner.daily_summary)

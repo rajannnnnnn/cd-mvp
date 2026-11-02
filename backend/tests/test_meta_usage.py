@@ -120,7 +120,10 @@ async def test_another_shops_messages_never_count(world):
 async def test_an_owner_alert_records_which_number_sent_it(world):
     shop = await world.make_shop()
     user = {"id": shop.business_user_id, "phone": shop.owner_phone, "last_inbound_at": datetime.now(UTC), "language": "en"}
+    async with world.rt.db.tenant(shop.business_id) as c:        # the gateway trusts the database for the 24-hour window, not the caller
+        await c.execute("UPDATE business_users SET last_inbound_at=now() WHERE id=%s", (shop.business_user_id,))
     await world.rt.owner.send_to_owner(shop.business_id, user, "handoff_alert", "A customer needs you")
+    await world.drain(["outbound.actions"])                      # the gateway picks the number and records it when it sends
     [row] = await world.q(shop, "SELECT whatsapp_number_id FROM owner_messages WHERE purpose='handoff_alert'")
     assert row["whatsapp_number_id"] == shop.number_id
 

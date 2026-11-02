@@ -91,6 +91,10 @@ class OtpRequested(_P):
     delivery_id: uuid.UUID                 # only the id travels; the code stays in the request row until it is sent
 
 
+class OwnerMessageRequested(_P):
+    owner_message_id: uuid.UUID            # only the id travels; the text (customer names, prices) stays in the row
+
+
 class NumberConnectRequested(_P):
     request_id: uuid.UUID                  # only the id travels; Meta's one-time code stays in the request row
 
@@ -131,7 +135,8 @@ CATALOG: dict[str, EventSpec] = {s.name: s for s in [
     _e("owner.message_received", OwnerMessageReceived, ("owner.notifications", "owner_chat")),
     _e("owner.notification_requested", OwnerNotificationRequested, ("owner.notifications", "notify")),
     _e("platform.otp_requested", OtpRequested, ("outbound.actions", "send_otp")),
-    _e("number.connect_requested", NumberConnectRequested, ("outbound.actions", "connect_number")),   # the web asks, the gateway performs            # the web asks, the gateway sends
+    _e("number.connect_requested", NumberConnectRequested, ("outbound.actions", "connect_number")),
+    _e("owner.message_requested", OwnerMessageRequested, ("outbound.actions", "send_owner_message")),   # the agent decides, the gateway sends   # the web asks, the gateway performs            # the web asks, the gateway sends
     _e("platform.account_update", AccountUpdate, ("platform.events", "account_update")),
     _e("number.status_changed", NumberStatusChanged, ("platform.events", "number_status")),
 ]}
