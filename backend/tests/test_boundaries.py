@@ -15,7 +15,7 @@ SRC = Path(__file__).resolve().parents[1] / "src" / "salesai"
 
 
 def test_real_tree_has_no_violations():
-    assert [str(x) for x in cb.check(SRC)] == []
+    assert [str(x) for x in cb.check(SRC, cb.KNOWN_CROSSINGS)] == []
 
 
 def _tree(tmp_path: Path, files: dict[str, str]) -> Path:
@@ -75,3 +75,56 @@ def test_b7_floor_access_outside_allow_list(tmp_path, token):
 def test_b8_dependencies_point_inward(tmp_path):
     assert "B8" in rules(tmp_path, {"modules/sales/service.py": "from salesai.runtime import Runtime\n"})
     assert "B8" in rules(tmp_path / "b", {"modules/sales/service.py": "from salesai.api import app\n"})
+
+
+# ---------------------------------------------------------------- B9: component separation (ADR 0025)
+
+def test_b9_web_may_not_import_agent_code(tmp_path):
+    assert "B9" in rules(tmp_path, {"api/routes/x.py": "from salesai.modules.conversations import Y\n", "modules/conversations/__init__.py": "Y = 1\n"})
+
+
+def test_b9_agent_may_not_import_web_code(tmp_path):
+    assert "B9" in rules(tmp_path, {"modules/agent/__init__.py": "from salesai.modules.billing import Y\n", "modules/billing/__init__.py": "Y = 1\n"})
+
+
+def test_b9_gateway_may_not_import_agent_code(tmp_path):
+    assert "B9" in rules(tmp_path, {"modules/channels/__init__.py": "from salesai.modules.agent import Y\n", "modules/agent/__init__.py": "Y = 1\n"})
+
+
+def test_b9_the_shared_library_imports_no_component(tmp_path):
+    assert "B9" in rules(tmp_path, {"modules/catalog/__init__.py": "from salesai.modules.channels import Y\n", "modules/channels/__init__.py": "Y = 1\n"})
+
+
+def test_b9_every_component_may_use_the_shared_library(tmp_path):
+    files = {"modules/handoffs/__init__.py": "Y = 1\n", "api/routes/x.py": "from salesai.modules.handoffs import Y\n",
+             "modules/agent/__init__.py": "from salesai.modules.handoffs import Y\n", "modules/channels/__init__.py": "from salesai.modules.handoffs import Y\n"}
+    assert "B9" not in rules(tmp_path, files)
+
+
+def test_b9_a_file_override_moves_one_file_to_another_component(tmp_path):
+    # the public webhook routes live in the API layer but are the gateway's: a web file may not use them, a gateway file may
+    files = {"api/routes/system.py": "Y = 1\n", "modules/channels/__init__.py": "from salesai.api.routes.system import Y\n"}
+    assert "B9" not in rules(tmp_path / "gw", files)
+    assert "B9" in rules(tmp_path / "ag", {"modules/agent/__init__.py": "from salesai.api.routes.system import Y\n", "api/routes/system.py": "Y = 1\n"})
+
+
+def test_b9_a_known_crossing_is_tolerated_but_a_new_one_is_not(tmp_path):
+    files = {"modules/agent/__init__.py": "from salesai.modules.channels import Y\n", "modules/channels/__init__.py": "Y = 1\n"}
+    tree = _tree(tmp_path, files)
+    known = frozenset({"modules/agent/__init__.py -> salesai.modules.channels"})
+    assert [x for x in cb.check(tree, known) if x.rule == "B9"] == []
+    assert [x for x in cb.check(tree, frozenset()) if x.rule == "B9"]
+
+
+def test_b9_a_listed_crossing_that_no_longer_exists_fails_so_the_list_only_shrinks(tmp_path):
+    tree = _tree(tmp_path, {"modules/agent/__init__.py": "X = 1\n"})
+    stale = frozenset({"modules/agent/__init__.py -> salesai.modules.channels"})
+    out = [x for x in cb.check(tree, stale) if x.rule == "B9"]
+    assert out and "no longer exists" in out[0].message
+
+
+def test_b9_the_baseline_holds_only_real_crossings_between_components():
+    for key in cb.KNOWN_CROSSINGS:
+        src, _, tgt = key.partition(" -> ")
+        assert (SRC / src).exists(), key
+        assert tgt.startswith("salesai."), key

@@ -14,6 +14,9 @@ The rules are the code form of docs/TECHNICAL_DESIGN.md ("Boundaries enforced au
   B7  floor secrecy (INV-1): code that touches the floor table or the pricing connection pool is limited to an
       allow-list of files.
   B8  no module imports the frontend, API layer or composition roots (dependencies point inward).
+  B9  component separation (ADR 0025): web, gateway and agent never import each other; they meet in the database and
+      over a few named links. `shared` is the common library and imports none of them. Existing crossings are listed in
+      KNOWN_CROSSINGS: a NEW one fails, and so does a listed one that no longer occurs, so the list only shrinks.
 
 Usage: python scripts/check_boundaries.py [src/salesai]      exit code 1 on any violation."""
 from __future__ import annotations
@@ -54,6 +57,55 @@ PUBLIC_SUBMODULES: dict[str, set[str]] = {
     "alerting": set(),
     "billing": set(),
 }
+
+# B9: which component each unit belongs to. Foundation units (config, db, obs, events, queue...) are shared.
+# Composition roots (runtime, scheduler, __main__, seed) wire components together and belong to none.
+COMPONENT_OF_UNIT: dict[str, str] = {
+    "api": "web", "modules.auth": "web", "modules.billing": "web",
+    "modules.channels": "gateway", "modules.alerting": "gateway",
+    "modules.agent": "agent", "modules.conversations": "agent", "modules.notifications": "agent", "modules.delivery": "agent",
+    "modules.tenants": "shared", "modules.catalog": "shared", "modules.pricing": "shared", "modules.sales": "shared",
+    "modules.handoffs": "shared",
+}
+# File-level overrides: the unit's default is wrong for these files.
+COMPONENT_OF_FILE: dict[str, str] = {
+    "api/routes/system.py": "gateway",            # the public webhook endpoints are the gateway's receive part
+    "modules/delivery/sender.py": "gateway",      # the only way out to Meta is the gateway's send part
+}
+# Crossings that exist today and are being removed (ADR 0025 build order). "<importing file> -> <imported module>".
+KNOWN_CROSSINGS: frozenset[str] = frozenset({
+    "modules/auth/service.py -> salesai.modules.channels",            # sign-in codes: becomes a request the gateway sends
+    "api/routes/business.py -> salesai.modules.channels",             # number connect: becomes a request the gateway performs
+    "modules/notifications/service.py -> salesai.modules.channels",   # owner alerts: the agent asks the gateway to send them
+    "modules/conversations/inbound.py -> salesai.modules.channels",   # the Meta payload parser: moves to the gateway's inbound part
+})
+
+
+def _component(rels: str, unit: str) -> str | None:
+    if rels in COMPONENT_OF_FILE:
+        return COMPONENT_OF_FILE[rels]
+    if unit in COMPOSITION_ROOTS:
+        return None
+    return COMPONENT_OF_UNIT.get(unit, "shared")
+
+
+def _target_component(parts: list[str], root: Path) -> tuple[str | None, str]:
+    """(component, unit) of an imported `salesai.…` module path."""
+    sub = parts[1:]
+    if sub[:1] == ["modules"] and len(sub) > 1:
+        unit = f"modules.{sub[1]}"
+        for n in range(len(sub), 1, -1):                       # most specific file first
+            cand = "/".join(sub[:n]) + ".py"
+            if cand in COMPONENT_OF_FILE:
+                return COMPONENT_OF_FILE[cand], unit
+        return _component("", unit), unit
+    unit = sub[0] if sub else ""
+    for n in range(len(sub), 0, -1):
+        cand = "/".join(sub[:n]) + ".py"
+        if cand in COMPONENT_OF_FILE:
+            return COMPONENT_OF_FILE[cand], unit
+    return _component("", unit), unit
+
 
 # B4: vendor package -> the only files allowed to import it (paths relative to the package root)
 VENDOR_ADAPTERS = {
@@ -103,8 +155,10 @@ def _imports(tree: ast.AST) -> list[tuple[str, int, list[str]]]:
     return out
 
 
-def check(root: Path) -> list[Violation]:
+def check(root: Path, baseline: frozenset[str] | None = None) -> list[Violation]:
+    """`baseline` is the set of known B9 crossings; None means none are tolerated (and no staleness check)."""
     v: list[Violation] = []
+    seen_crossings: set[str] = set()
     for f in sorted(root.rglob("*.py")):
         rel = f.relative_to(root)
         rels = rel.as_posix()
@@ -126,6 +180,17 @@ def check(root: Path) -> list[Violation]:
             if top != "salesai":
                 continue
             parts = name.split(".")
+            me_comp = _component(rels, src)                                                   # B9
+            if me_comp is not None:
+                tgt_comp, tgt_unit = _target_component(parts, root)
+                crosses = tgt_comp is not None and tgt_comp != me_comp and (tgt_comp != "shared" or me_comp == "shared")
+                if me_comp == "shared" and tgt_comp not in (None, "shared"):
+                    crosses = True                                                            # the library imports no component
+                if crosses and tgt_unit != src:
+                    key = f"{rels} -> {name}"
+                    seen_crossings.add(key)
+                    if baseline is None or key not in baseline:
+                        v.append(Violation("B9", rels, line, f"{me_comp} may not import {tgt_comp} code ('{name}'); components meet in the database or over a named link (ADR 0025)"))
             if name in QUEUE_BACKENDS and src not in COMPOSITION_ROOTS:                      # B5
                 v.append(Violation("B5", rels, line, f"only the composition root may name a queue backend ('{name}')"))
             if parts[:2] == ["salesai", "modules"] and len(parts) > 2:
@@ -149,12 +214,15 @@ def check(root: Path) -> list[Violation]:
             inward_only = src.startswith("modules.") or src in {"events", "queue", "db", "config", "obs", "phone", "rules"}
             if inward_only and (parts[:2] == ["salesai", "api"] or (len(parts) > 1 and parts[1] in COMPOSITION_ROOTS)):   # B8
                 v.append(Violation("B8", rels, line, f"'{name}' points outward; dependencies must point inward"))
+    if baseline is not None:
+        for key in sorted(baseline - seen_crossings):                                         # B9: the ratchet only tightens
+            v.append(Violation("B9", key.split(" -> ")[0], 1, f"known crossing no longer exists; remove it from KNOWN_CROSSINGS: {key}"))
     return v
 
 
 def main(argv: list[str]) -> int:
     root = Path(argv[1]) if len(argv) > 1 else Path(__file__).resolve().parents[1] / "src" / "salesai"
-    violations = check(root)
+    violations = check(root, KNOWN_CROSSINGS)
     for x in violations:
         print(x)
     print(f"boundary check: {'FAILED, ' + str(len(violations)) + ' violation(s)' if violations else 'ok'}")
