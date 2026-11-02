@@ -29,13 +29,17 @@ Option 2.
 with no lock-in, which satisfies the swappable-vendor requirement (NFR-12) and keeps the choice of a
 transactional provider reversible. Move to a provider API only if deliverability demands it.
 
-**Severity decides the channel:**
+**Four severities, as the founder specified — Critical, High, Medium, Low.** Severity decides the channel:
 
-| Severity | Examples | Delivery |
-|---|---|---|
-| **P1 — act now** | an invariant violation (a price that did not come from the pricing engine is always P1), inbound message loss, a tenant disconnected from Meta (FR-ON-4), Meta quality drop, payment gateway failure | immediate email, plus the existing webhook and WhatsApp routes |
-| **P2 — today** | dead letters, rising send failures, LLM provider fallback or error rate, queue age past threshold, cost spike per tenant or platform-wide | hourly rollup email |
-| **P3 — know about it** | eval score drift, slow queries, retention job results, trial expiries | one daily digest |
+| Severity | Means | Examples | Delivery |
+|---|---|---|---|
+| **Critical** | money, data or customers are being harmed now | an invariant violation (a price that did not come from the pricing engine is always Critical), inbound messages lost, a tenant-isolation failure, ingress down for every shop | immediate email plus WhatsApp and the webhook; repeats every 30 minutes until resolved |
+| **High** | one shop or one dependency is broken | a tenant disconnected from Meta (FR-ON-4), Meta quality drop, payment gateway failing, every LLM provider failing at once, dead letters accumulating | immediate email; 30-minute cooldown per cause |
+| **Medium** | degrading, not yet broken | rising send failures, LLM fallback or error rate climbing, queue age past threshold, cost spike per tenant or platform-wide | hourly rollup email |
+| **Low** | worth knowing | eval score drift, slow queries, retention job results, trial expiries | one daily digest |
+
+The line between Critical and High is "is harm happening right now to more than one place, or to money". A
+Critical alert that turns out not to meet that bar is a bug in the rule, not a judgement call.
 
 **Alert fatigue is treated as a correctness requirement.** Alerts are grouped by rule, tenant and cause,
 deduplicated with a per-rule cooldown, and carry an occurrence count rather than arriving one per event.
@@ -52,7 +56,7 @@ nothing in the platform alert path may resolve a business owner's address or num
 
 - The founder learns about a broken tenant from an email rather than from the tenant, which is the
   difference between a save and a churn.
-- Grouping means an alert can be a few minutes late. For P1 the cooldown is short; correctness beats
+- Grouping means an alert can be a few minutes late. Critical is never held back by grouping; correctness beats
   instantaneity everywhere else.
 - Email adds a vendor and a deliverability concern. SMTP behind a port keeps that cheap and swappable, and
   the webhook route from ADR 0017 remains as a second path if email fails.
@@ -60,6 +64,6 @@ nothing in the platform alert path may resolve a business owner's address or num
 
 ## How to revisit
 
-If P1 volume ever exceeds a handful a week, the problem is the system, not the alerting — fix the cause
+If Critical volume ever exceeds a handful a week, the problem is the system, not the alerting — fix the cause
 rather than raising the threshold. If the platform team grows past two people, route by ownership and
 revisit whether an external incident tool earns its cost.

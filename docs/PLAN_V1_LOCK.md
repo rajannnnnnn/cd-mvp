@@ -160,9 +160,9 @@ New, founder-facing, separate from the existing per-tenant operator console. ADR
 second auth surface and a second thing to secure for no isolation gain — the data is equally sensitive
 and the audience is one person.
 
-**Email alerts go to the founder only, never to subscribers** (ADR 0029). Severity decides the channel:
-invariant violations, dead letters, tenant disconnections, Meta quality drops, payment failures and
-cost spikes page immediately; everything else lands in one daily digest. Alerts are grouped and
+**Email alerts go to the founder only, never to subscribers** (ADR 0029), in four severities: **Critical**
+(immediate, repeats until resolved — e.g. an unauthorized price), **High** (immediate — e.g. a shop
+disconnected from Meta), **Medium** (hourly rollup — e.g. rising send failures) and **Low** (daily digest). Alerts are grouped and
 deduplicated by cause, with per-rule cooldowns — a solo founder who gets 200 emails stops reading them,
 so alert fatigue is a correctness requirement, not a nicety. Subscriber-facing alerts stay where they
 are, on WhatsApp and in-app.
