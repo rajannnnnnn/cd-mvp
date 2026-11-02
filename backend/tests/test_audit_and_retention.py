@@ -102,7 +102,7 @@ async def test_temporary_data_is_purged_on_schedule(world):
         await c.execute(f"INSERT INTO sim_messages (phone, business_phone, direction, kind, body, created_at) VALUES ('91999','x','to_user','text','new', {NEW})")  # noqa: S608
         for state in ("resolved", "open"):
             await c.execute(f"""INSERT INTO operator_alerts (business_id, severity, kind, message, created_at, resolved_at)
-                                VALUES (%s,'warning','retention-test','{state}', {OLD}, {OLD if state == 'resolved' else 'NULL'})""", (shop.business_id,))  # noqa: S608
+                                VALUES (%s,'medium','retention-test','{state}', {OLD}, {OLD if state == 'resolved' else 'NULL'})""", (shop.business_id,))  # noqa: S608
     await Scheduler(world.rt).tick_retention()
     async with world.rt.db.system_tx() as c:
         sims = {r["body"] for r in await (await c.execute("SELECT body FROM sim_messages WHERE phone='91999'")).fetchall()}
