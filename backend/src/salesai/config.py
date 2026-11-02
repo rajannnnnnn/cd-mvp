@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     queue_backend: Literal["postgres", "redis"] = "postgres"
     redis_url: str = "redis://localhost:6379/0"
     worker_queues: str = ",".join(ALL_QUEUES)
+    scheduler_component: Literal["all", "web", "gateway", "agent"] = "all"   # which component's timers this scheduler runs (ADR 0025)
     worker_concurrency: int = 8
     relay_poll_ms: int = 100
     blob_backend: Literal["fs"] = "fs"

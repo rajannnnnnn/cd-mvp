@@ -110,3 +110,10 @@ time; a new crossing fails the build, and so does a listed one that no longer oc
   number (FR-ON-3) encrypts a pasted token itself. That path retires when Tech Provider approval makes Embedded Signup
   the only route; until then web cannot drop the key. Per-component database roles, and per-component compose files for
   web and the agent, are the next steps of this ADR.
+- **One scheduler per component, not two** (`SCHEDULER_COMPONENT=web|gateway|agent|all`). This revises the "two schedulers"
+  line above: the gateway also has timed work (its raw-request log), and a part that cannot tidy its own data would need a
+  neighbour's timer to run. Each component's scheduler moves the outbox along (safe in parallel: rows are claimed with
+  `SKIP LOCKED`), expires queue leases, publishes its queue gauges, and does only its own duties: web = billing, trials,
+  platform alert delivery, sign-in and sign-up data; agent = daily summaries, follow-ups, conversations and AI records;
+  gateway = the raw-request log. Each holds its own advisory leader lock, so all three are leader of their own work at once.
+  `all` keeps the old behaviour for development and tests.
