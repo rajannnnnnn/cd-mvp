@@ -271,7 +271,7 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
     pre-existing: the same two fail identically with the reply-shape change stashed. The normal full-suite order runs
     `tests/evals` first, so CI does not see it; evals alone pass 32/32. Likely leftover state from the conversation-flow
     tests starving a later step. Reproduce: `pytest tests/test_conversation_flow.py tests/evals`.
-  - **Known gap (found 2026-11-02, scheduled next in the database work):** in `tests/test_tenant_isolation.py`, 11 of the
+  - **RESOLVED same day (see the commit 'Prove shop isolation on every table'):** in `tests/test_tenant_isolation.py`, 11 of the
     tables in `TENANT_TABLES` get no rows from `make_tenant` (style_examples, price_floors, offers, turns, negotiations,
     deals, handoffs, knowledge_gaps, owner_messages, config_proposals, audit_log), so the cross-tenant read test passes
     without proving anything for them, and newer shop tables (support, billing) are not listed at all. Row-level security
