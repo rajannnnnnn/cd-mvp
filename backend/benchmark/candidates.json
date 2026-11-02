@@ -1,0 +1,25 @@
+{
+  "_read_me": [
+    "Each candidate is a set of LLM_* settings (ADR 0034) - exactly what you would put in the environment to switch.",
+    "API keys come from the environment (OPENAI_COMPAT_API_KEY, ANTHROPIC_API_KEY), never from this file.",
+    "Models without a built-in price take one in 'prices' as [input, output, cached_input, cache_write], USD per 1M",
+    "tokens - verify it on the host's own price page first. A candidate with an unpriced model is reported as",
+    "'price needed', never guessed."
+  ],
+  "candidates": [
+    {"name": "gpt-oss-20b everywhere (founder's default)",
+     "env": {"LLM_PROVIDER": "openai_compat", "OPENAI_COMPAT_BASE_URL": "https://api.groq.com/openai/v1",
+             "LLM_MODEL_PLANNER": "openai/gpt-oss-20b", "LLM_MODEL_WRITER": "openai/gpt-oss-20b", "LLM_MODEL_CHECK": "openai/gpt-oss-20b"}},
+    {"name": "gpt-oss-20b, writer on gpt-oss-120b",
+     "env": {"LLM_PROVIDER": "openai_compat", "OPENAI_COMPAT_BASE_URL": "https://api.groq.com/openai/v1",
+             "LLM_MODEL_PLANNER": "openai/gpt-oss-20b", "LLM_MODEL_WRITER": "openai/gpt-oss-120b", "LLM_MODEL_CHECK": "openai/gpt-oss-20b"},
+     "prices": {}},
+    {"name": "Claude Haiku 5.5 everywhere (same-price rival)",
+     "env": {"LLM_PROVIDER": "anthropic",
+             "LLM_MODEL_PLANNER": "claude-haiku-5-5", "LLM_MODEL_WRITER": "claude-haiku-5-5", "LLM_MODEL_CHECK": "claude-haiku-5-5"}},
+    {"name": "gpt-oss-20b, writer on Claude Sonnet 5.5",
+     "env": {"LLM_PROVIDER": "openai_compat", "OPENAI_COMPAT_BASE_URL": "https://api.groq.com/openai/v1",
+             "LLM_PROVIDER_WRITER": "anthropic",
+             "LLM_MODEL_PLANNER": "openai/gpt-oss-20b", "LLM_MODEL_WRITER": "claude-sonnet-5-5", "LLM_MODEL_CHECK": "openai/gpt-oss-20b"}}
+  ]
+}

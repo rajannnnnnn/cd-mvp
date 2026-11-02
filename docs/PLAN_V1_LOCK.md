@@ -63,6 +63,13 @@ codebase shortens it. Start it this week; run pilots on the platform's own Whats
 
 ## 4. Unit economics (the number that sets pricing)
 
+> **Update, same day — the default model is now `openai/gpt-oss-20b` (founder's choice, ADR 0034).** At about
+> $0.075 / $0.30 per MTok on Groq, projected model cost falls to roughly **₹0.2 per conversation**, against the
+> ~₹2.1 Sonnet figure below. That makes **Meta's per-message fee the largest variable cost**, so package caps can
+> be several times more generous than this section assumes, and confirming Meta's service-message pricing matters
+> more. The Sonnet arithmetic below is kept because it is the comparison, and because a stage can move back to a
+> stronger model by configuration if the benchmark shows it must.
+
 Model prices are current (Nov 2026): Haiku 5.5 $0.10/$0.50 per MTok, Sonnet 5.5 $2/$10, Opus 5.5
 $4/$20; cache reads $0.20 on both Sonnet 5.5 and Opus 5.5.
 
@@ -215,6 +222,17 @@ slot to `claude-haiku-5-5`; keep context disciplined (retrieval over large catal
 them); only then consider model slotting. Writer stays on a strong model by default; Haiku 5.5 takes
 classification, end-of-turn and checks **only where evals prove it safe**. Verify `PRICES_USD` and the
 INR rate against published pricing.
+
+**Model choice is configuration (ADR 0034).** Vendor, model and effort are set per stage; switching is an edit and
+a restart. Default `openai/gpt-oss-20b` everywhere at medium effort (low for the check). Safety does not depend on
+the model — prices come from the engine and every reply is checked in code — so the open risk is only writing
+quality in Hinglish and other Indian languages. `scripts/benchmark_models.py` measures it once an API key exists;
+if the writer is weak, only `LLM_MODEL_WRITER` changes.
+
+**Languages are mostly decoupled from the model, with one known exception.** The planner schema lists only
+`en / hi / hinglish` and scripts `latin / devanagari`, and the reply check knows only those two scripts, so a Tamil
+or Tanglish customer today would likely get an English reply. Widening them is a small, contained change plus eval
+scenarios — deferred by the founder, who wants Tamil, Tanglish and other popular Indian languages eventually.
 
 **The training ban (section 3) constrains the learning roadmap.** Signals keep being recorded — that is
 required and harmless — but any learned model built on WhatsApp data must be **exclusive to the one

@@ -181,6 +181,8 @@ async def add_picture(ticket_id: uuid.UUID, message_id: int, file: UploadFile, r
         row = await (await c.execute(
             "INSERT INTO support_attachments (business_id, ticket_id, message_id, content_type, size_bytes, data) VALUES (%s,%s,%s,%s,%s,%s) RETURNING id, content_type, size_bytes",
             (p.bid, ticket_id, message_id, kind, len(data), data))).fetchone()
+    if row is None:                       # INSERT ... RETURNING always returns the row; this only satisfies the type
+        raise ApiError(500, "attachment_not_saved", "The picture could not be saved. Please try again.")
     return AttachmentOut(**row)
 
 

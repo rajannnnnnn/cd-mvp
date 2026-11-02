@@ -2,6 +2,7 @@
 If every provider fails, `LLMUnavailable` is raised and the pipeline sends a holding message + handoff."""
 from __future__ import annotations
 
+import dataclasses
 import logging
 import time
 from typing import TypeVar
@@ -45,19 +46,25 @@ class CircuitBreaker:
 class ResilientLLM:
     name = "chain"
 
-    def __init__(self, primary: LLMProvider, fallback: LLMProvider | None = None, *, threshold: int = 4, cooldown_s: float = 30.0):
+    def __init__(self, primary: LLMProvider, fallback: LLMProvider | None = None, *, fallback_model: str | None = None,
+                 threshold: int = 4, cooldown_s: float = 30.0):
         self.providers = [p for p in (primary, fallback) if p is not None]
-        self.breakers = {p.name: CircuitBreaker(threshold, cooldown_s) for p in self.providers}
+        # A fallback on another vendor cannot run the primary's model name, so it carries its own (ADR 0034).
+        self.fallback_model = fallback_model or None
+        # One breaker per position, not per vendor: a primary and its fallback may be the same vendor (another
+        # model on the same host), and a shared breaker would let the backup's successes keep a dead primary "closed".
+        self.breakers = [CircuitBreaker(threshold, cooldown_s) for _ in self.providers]
 
     async def generate(self, req: LLMRequest, schema: type[T]) -> LLMResult[T]:
         errors: list[str] = []
-        for p in self.providers:
-            br = self.breakers[p.name]
+        for i, p in enumerate(self.providers):
+            br = self.breakers[i]
             if br.open:
                 errors.append(f"{p.name}: circuit open")
                 continue
+            r = dataclasses.replace(req, model=self.fallback_model) if i > 0 and self.fallback_model else req
             try:
-                res = await p.generate(req, schema)
+                res = await p.generate(r, schema)
                 br.record(True)
                 LLM_CALLS.labels(p.name, req.stage, "ok").inc()
                 return res

@@ -17,7 +17,6 @@ from tests.evals.scenarios import SCENARIOS
 from tests.evals.shops import SHOPS, build_shop
 from tests.world import Recorder, install_llm, settle, sim_texts
 
-
 EVAL_TIMEOUT_S = float(os.environ.get("EVAL_TIMEOUT_S", "12"))     # raise it when the model is slow (e.g. through the LLM bridge)
 
 
@@ -73,12 +72,19 @@ async def test_scenario(world, sc):
             failures += [f"step {st.say!r}: {m}" for chk in st.checks if (m := chk(ctx, res))]
         failures += [m for fin in sc.final if (m := fin(ctx))]
         failures += [f"[invariant] {m}" for inv in g.INVARIANTS if (m := inv(ctx))]
-        turns = await world.q(shop, "SELECT cost_micros, latency_ms, decision->'checks' AS checks, decision->>'intent' AS intent FROM turns ORDER BY created_at")
+        turns = await world.q(shop, "SELECT cost_micros, latency_ms, input_tokens, decision->'checks' AS checks, decision->>'intent' AS intent, "
+                                    "decision->'llm' AS llm FROM turns ORDER BY created_at")
+        calls = [c for t in turns for c in ((t["llm"] or {}).get("detail") or [])]
         RESULTS.append({"id": sc.id, "title": sc.title, "shop": sc.shop, "tags": list(sc.tags), "passed": not failures, "failures": failures,
                         "transcript": [{"customer": s.said, "assistant": s.replies} for s in steps],
                         "turns": len(turns), "intents": [t["intent"] for t in turns], "check_failures": [t["checks"] for t in turns if t["checks"] and any(not a["ok"] for a in t["checks"].get("attempts", []))],
                         "cost_inr": sum((t["cost_micros"] or 0) for t in turns) / 1e6,
-                        "latency_ms": int(sum((t["latency_ms"] or 0) for t in turns) / max(1, len(turns)))})
+                        "latency_ms": int(sum((t["latency_ms"] or 0) for t in turns) / max(1, len(turns))),
+                        # for the model benchmark (ADR 0034): failed calls, replies cut off at max_tokens, and cache use
+                        "llm_failed": sum(1 for c in calls if not c.get("ok")),
+                        "truncated": sum(1 for c in calls if not c.get("ok") and "truncated" in str(c.get("error", ""))),
+                        "input_tokens": sum((t["input_tokens"] or 0) for t in turns),
+                        "cache_read_tokens": sum(int(c.get("cache_read") or 0) for c in calls)})
     finally:
         world.rt.agent.llm = old
     assert not failures, f"{sc.id} ({sc.title})\n  " + "\n  ".join(failures) + "\n  transcript: " + json.dumps(

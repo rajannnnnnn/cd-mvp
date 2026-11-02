@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import json
 from functools import lru_cache
 from typing import Literal
 
@@ -79,15 +80,31 @@ class Settings(BaseSettings):
     # has no number yet (e.g. operator onboarding).
     platform_sender_phone_number_id: str = "sim-platform"
 
-    # --- LLM / transcription (provider is configuration; per tenant overrides possible)
-    llm_provider: Literal["local", "anthropic"] = "local"
-    llm_fallback_provider: Literal["local", "anthropic", "none"] = "none"
+    # --- LLM (ADR 0034). Which vendor and model run each pipeline stage is configuration: switching a model, a host or
+    # a vendor is a settings change and a restart, never a code change. Founder's default: openai/gpt-oss-20b on every
+    # stage at medium effort, until the benchmark says a stage needs more. Misconfiguration stops startup.
+    llm_provider: Literal["local", "anthropic", "openai_compat"] = "local"
+    llm_provider_planner: Literal["", "local", "anthropic", "openai_compat"] = ""   # "" = llm_provider
+    llm_provider_writer: Literal["", "local", "anthropic", "openai_compat"] = ""
+    llm_provider_check: Literal["", "local", "anthropic", "openai_compat"] = ""
+    llm_fallback_provider: Literal["local", "anthropic", "openai_compat", "none"] = "none"
+    llm_fallback_model: str = ""                       # model the fallback runs; "" = each stage's own model
     anthropic_api_key: str = ""
     anthropic_base_url: str = "https://api.anthropic.com"
-    llm_model_planner: str = "claude-sonnet-5-5"
-    llm_model_writer: str = "claude-sonnet-5-5"
-    llm_model_check: str = "claude-haiku-4-5"
+    openai_compat_base_url: str = ""                   # e.g. https://api.groq.com/openai/v1, or a self-hosted vLLM
+    openai_compat_api_key: str = ""
+    llm_json_mode: Literal["json_schema", "json_object"] = "json_schema"   # json_object for hosts without schema support
+    llm_model_planner: str = "openai/gpt-oss-20b"
+    llm_model_writer: str = "openai/gpt-oss-20b"
+    llm_model_check: str = "openai/gpt-oss-20b"
+    llm_effort_planner: Literal["low", "medium", "high"] = "medium"
+    llm_effort_writer: Literal["low", "medium", "high"] = "medium"
+    llm_effort_check: Literal["low", "medium", "high"] = "low"
+    llm_prices: str = ""                               # JSON {"model": [input, output, cached_input, cache_write]}, USD/1M tokens
     llm_timeout_s: float = 30.0
+
+    def llm_stage_provider(self, stage: str) -> str:
+        return str(getattr(self, f"llm_provider_{stage}", "") or self.llm_provider)
 
     # --- billing: how money is collected. `test` settles instantly (demo); `manual` = bank transfer/UPI marked paid by the platform team
     payment_provider: Literal["test", "manual"] = "test"
@@ -147,9 +164,37 @@ class Settings(BaseSettings):
         return self
 
     @model_validator(mode="after")
+    def _llm_rules(self) -> Settings:
+        """ADR 0034: a vendor any stage (or the fallback) uses must be reachable, and a model must suit its vendor.
+        Prices are checked by the agent's factory at startup; here only their shape, since config imports no module."""
+        stages = {st: self.llm_stage_provider(st) for st in ("planner", "writer", "check")}
+        used = set(stages.values()) | ({self.llm_fallback_provider} - {"none"})
+        if "anthropic" in used and not self.anthropic_api_key:
+            raise ValueError("an LLM stage uses anthropic, which requires ANTHROPIC_API_KEY")
+        if "openai_compat" in used and not (self.openai_compat_base_url and self.openai_compat_api_key):
+            raise ValueError("an LLM stage uses openai_compat, which requires OPENAI_COMPAT_BASE_URL and OPENAI_COMPAT_API_KEY")
+        for st, prov in stages.items():
+            model = getattr(self, f"llm_model_{st}")
+            if prov == "anthropic" and not model.startswith("claude-"):
+                raise ValueError(f"LLM_MODEL_{st.upper()}={model!r} runs on anthropic, which serves only claude- models")
+        if self.llm_fallback_provider == "anthropic" and self.llm_fallback_model and not self.llm_fallback_model.startswith("claude-"):
+            raise ValueError(f"LLM_FALLBACK_MODEL={self.llm_fallback_model!r} runs on anthropic, which serves only claude- models")
+        if self.llm_prices.strip():
+            try:
+                rows = json.loads(self.llm_prices)
+            except json.JSONDecodeError as e:
+                raise ValueError(f"LLM_PRICES is not valid JSON: {e}") from e
+            if not isinstance(rows, dict) or not all(
+                    isinstance(r, list) and len(r) == 4 and all(isinstance(x, int | float) and x >= 0 for x in r)
+                    for r in rows.values()):
+                raise ValueError("LLM_PRICES must map each model to four non-negative numbers: "
+                                 "[input, output, cached_input, cache_write] in USD per 1M tokens")
+        if self.env == "production" and "local" in used:
+            raise ValueError("the local LLM stand-in is not allowed in production on any stage or as the fallback")
+        return self
+
+    @model_validator(mode="after")
     def _production_rules(self) -> Settings:
-        if self.llm_provider == "anthropic" and not self.anthropic_api_key:
-            raise ValueError("LLM_PROVIDER=anthropic requires ANTHROPIC_API_KEY")
         if self.env == "production":
             if self.otp_accept_any:
                 raise ValueError("OTP_ACCEPT_ANY must be false in production: it would let anyone sign in as any number")
@@ -157,8 +202,6 @@ class Settings(BaseSettings):
                 raise ValueError("SIMULATOR_ENABLED must be false and OTP_CHANNEL=whatsapp_cloud in production")
             if self.payment_provider == "test":
                 raise ValueError("PAYMENT_PROVIDER=test settles invoices without taking money; use PAYMENT_PROVIDER=manual in production")
-            if self.llm_provider == "local":
-                raise ValueError("LLM_PROVIDER=local is not allowed in production")
             weak = ("change-me", "dev-", "test-")
             for name in ("jwt_secret", "otp_secret", "meta_app_secret", "meta_verify_token"):
                 if any(w in getattr(self, name).lower() for w in weak):

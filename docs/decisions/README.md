@@ -39,7 +39,8 @@ superseded by a new ADR, never rewritten. Status is `accepted` unless stated.
 | [0031](0031-per-tenant-learning-loop.md) | Per-tenant learning loop: propose the narrowest scope, never assume; owner-authored sources only |
 | [0032](0032-plan-packaging-by-conversations.md) | Plans sold by conversations included per month, with overage |
 | [0033](0033-two-question-pricing-setup.md) | Pricing setup reduced to two questions; the rest derived, advanced fields kept |
+| [0034](0034-llm-routing-is-configuration.md) | LLM vendor, model and effort per stage are configuration; gpt-oss-20b is the default |
 
 **Numbering note.** Two ADRs share the number **0020** (`0020-support-tickets.md` and
 `0020-channel-gateway.md`). Published files are not renumbered; both are listed above. **0024** is
-reserved as noted. New ADRs continue from **0034**.
+reserved as noted. New ADRs continue from **0035**.

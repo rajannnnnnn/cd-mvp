@@ -102,7 +102,7 @@ async def load(db: Database, business_id: uuid.UUID, conversation_id: uuid.UUID,
             extra = await (await c.execute("SELECT * FROM catalog_public WHERE variant_id=%s", (focus,))).fetchone()
             if extra:
                 candidates.append(extra)
-        style = await (await c.execute("SELECT situation, customer_text, owner_reply FROM style_examples ORDER BY created_at DESC LIMIT 8")).fetchall()
+        style = await (await c.execute("SELECT situation, customer_text, owner_reply FROM style_examples ORDER BY created_at DESC, id DESC LIMIT 8")).fetchall()
         repeat = await (await c.execute(
             """SELECT 1 FROM deals d JOIN conversations cv ON cv.id = d.conversation_id
                WHERE cv.customer_id=%s AND d.status='won' LIMIT 1""", (customer["id"],))).fetchone()

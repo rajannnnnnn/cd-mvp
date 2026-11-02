@@ -42,6 +42,16 @@ class Models:
     planner: str
     writer: str
     check: str
+    planner_effort: str | None = None      # low | medium | high (ADR 0034); None leaves the provider's default
+    writer_effort: str | None = None
+    check_effort: str | None = None
+
+
+# Top-level input keys identical across turns for one shop (ADR 0027). They are rendered first, byte-stable, so a prefix
+# cache can hit; everything per-turn (the trigger, the clock, the conversation, the plan) must stay out of them, or the
+# cache never hits. Guarded by tests/test_llm_caching.py.
+PLANNER_CACHE_KEYS: tuple[str, ...] = ("business",)
+WRITER_CACHE_KEYS: tuple[str, ...] = ("business_name", "honorific", "style_examples")
 
 
 @dataclass
@@ -61,7 +71,9 @@ class Usage:
         if res.model not in self.models:
             self.models.append(res.model)
         self.calls.append({"stage": stage, "ok": True, "model": res.model, "provider": getattr(res, "provider", None),
-                           "in": res.input_tokens, "out": res.output_tokens, "ms": res.latency_ms})
+                           "in": res.input_tokens, "out": res.output_tokens, "ms": res.latency_ms,
+                           # cache hits per call, so whether caching works is visible in every turn record (ADR 0027)
+                           "cache_read": getattr(res, "cache_read_tokens", 0), "cache_write": getattr(res, "cache_write_tokens", 0)})
 
     def failed(self, stage: str, error: Any) -> None:
         self.calls.append({"stage": stage, "ok": False, "error": str(error)[:160]})
@@ -128,7 +140,8 @@ class AgentService:
     async def _plan(self, ctx: ctxmod.TurnContext, usage: Usage, prompt_refs: dict[str, str], trigger: str) -> tuple[pol.Plan, PlannerOutput]:
         pr = prompts.load("planner")
         prompt_refs["planner"] = pr.ref
-        res = await self.llm.generate(LLMRequest("planner", pr.text, ctx.planner_input(trigger), self.models.planner, pr.ref, max_tokens=1200), PlannerOutput)
+        res = await self.llm.generate(LLMRequest("planner", pr.text, ctx.planner_input(trigger), self.models.planner, pr.ref, max_tokens=1200,
+                                                  cache_keys=PLANNER_CACHE_KEYS, effort=self.models.planner_effort), PlannerOutput)
         usage.add(res, "planner")
         out: PlannerOutput = res.output
         plan = await pol.build_plan(ctx, out, self.pricing, trigger=trigger)
@@ -165,7 +178,8 @@ class AgentService:
         for _ in range(2):
             try:
                 res = await self.llm.generate(
-                    LLMRequest("writer", wp.text, {**base_input, **({"feedback": feedback} if feedback else {})}, self.models.writer, wp.ref, max_tokens=900),
+                    LLMRequest("writer", wp.text, {**base_input, **({"feedback": feedback} if feedback else {})}, self.models.writer, wp.ref, max_tokens=900,
+                               cache_keys=WRITER_CACHE_KEYS, effort=self.models.writer_effort),
                     WriterOutput)
             except LLMUnavailable as e:
                 usage.failed("writer", e)
@@ -194,7 +208,8 @@ class AgentService:
                 LLMRequest("check", cp.text, {"parts": parts, "business": ctx.business["name"],
                                               # the same facts the writer was given: engine-issued prices, stock, shop info. Without them every correct quote looks invented.
                                               "allowed_facts": plan.directives,
-                                              "facts": ctxmod.topic_text(ctx.business["profile"] or {}, "hours")}, self.models.check, cp.ref, max_tokens=400), CheckOutput)
+                                              "facts": ctxmod.topic_text(ctx.business["profile"] or {}, "hours")}, self.models.check, cp.ref, max_tokens=400,
+                           effort=self.models.check_effort), CheckOutput)
         except LLMUnavailable as e:
             usage.failed("check", e)
             return result                      # deterministic checks already passed; do not block on the optional model check

@@ -50,11 +50,14 @@ class FakeAnthropic:
         self.headers.clear()
         self.script.clear()
 
-    def reply_json(self, obj: Any, *, input_tokens: int = 120, output_tokens: int = 40, stop_reason: str = "end_turn") -> None:
+    def reply_json(self, obj: Any, *, input_tokens: int = 120, output_tokens: int = 40, stop_reason: str = "end_turn",
+                   cache_read_input_tokens: int = 0, cache_creation_input_tokens: int = 0) -> None:
         self.script.append((200, {
             "id": "msg_fake", "type": "message", "role": "assistant", "model": "claude-fake",
             "content": [{"type": "text", "text": json.dumps(obj)}], "stop_reason": stop_reason, "stop_sequence": None,
-            "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens}}))
+            "usage": {"input_tokens": input_tokens, "output_tokens": output_tokens,
+                      "cache_read_input_tokens": cache_read_input_tokens,
+                      "cache_creation_input_tokens": cache_creation_input_tokens}}))
 
     def reply_text(self, text: str, *, stop_reason: str = "end_turn") -> None:
         self.script.append((200, {

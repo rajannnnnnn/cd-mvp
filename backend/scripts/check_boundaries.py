@@ -58,7 +58,8 @@ PUBLIC_SUBMODULES: dict[str, set[str]] = {
 # B4: vendor package -> the only files allowed to import it (paths relative to the package root)
 VENDOR_ADAPTERS = {
     "anthropic": {"modules/agent/llm/anthropic_provider.py"},
-    "httpx": {"modules/channels/whatsapp.py", "modules/channels/embedded_signup.py", "modules/agent/llm/anthropic_provider.py", "modules/alerting/webhook_sink.py"},
+    "httpx": {"modules/channels/whatsapp.py", "modules/channels/embedded_signup.py", "modules/agent/llm/anthropic_provider.py",
+              "modules/agent/llm/openai_compat_provider.py", "modules/alerting/webhook_sink.py"},
     "redis": {"queue/redis_backend.py"},
 }
 # B5
