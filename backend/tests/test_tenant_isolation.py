@@ -11,7 +11,7 @@ TENANT_TABLES = [
     "business_users", "whatsapp_numbers", "style_examples", "products", "product_variants",
     "pricing_policies", "price_floors", "offers", "customers", "conversations", "turns",
     "messages", "negotiations", "deals", "handoffs", "knowledge_gaps", "owner_messages",
-    "config_proposals", "audit_log",
+    "config_proposals", "audit_log", "learning_observations",
 ]
 
 

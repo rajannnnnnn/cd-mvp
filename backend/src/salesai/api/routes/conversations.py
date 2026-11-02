@@ -11,6 +11,7 @@ from salesai.api.deps import RT, Tenant, decode_cursor, encode_cursor, tx
 from salesai.api.errors import ApiError
 from salesai.db import required
 from salesai.events.outbox import emit
+from salesai.modules.handoffs import capture_owner_answer
 from salesai.rules import window_closes_at, window_open
 
 router = APIRouter(tags=["conversations"])
@@ -238,6 +239,7 @@ async def send_message(conversation_id: uuid.UUID, body: SendIn, rt: RT, p: Tena
             """UPDATE conversations SET version = version + 1, state='idle', ai_paused_until = now() + %s, ai_paused_reason='owner_reply', last_owner_reply_at = now()
                WHERE id=%s RETURNING version""", (pause, conversation_id))).fetchone())["version"]
         await c.execute("UPDATE messages SET status='cancelled', error='superseded' WHERE conversation_id=%s AND direction='out' AND sender='ai' AND status='queued'", (conversation_id,))
+        await capture_owner_answer(c, business_id=p.bid, conversation_id=conversation_id, owner_text=body.text, source="dashboard")  # ADR 0031
         await c.execute("UPDATE messages SET answered=true WHERE conversation_id=%s AND direction='in' AND NOT answered", (conversation_id,))
         await emit(c, "outbound.action_requested", {"conversation_id": conversation_id, "action": "send_text", "message_id": m["id"], "version": v, "human": True, "last_part": True},
                    business_id=p.bid, ordering_key=f"conv:{conversation_id}")

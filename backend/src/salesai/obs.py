@@ -86,3 +86,5 @@ FLOOD_GUARD = Counter("salesai_flood_guard_total", "Turns not answered because a
 SEND_RESULTS = Counter("salesai_send_total", "Outbound sends", ["outcome"])
 # Meta adds webhook fields without notice; anything we do not handle is counted, never silently dropped (INV-12)
 WEBHOOK_UNHANDLED = Counter("salesai_webhook_unhandled_total", "Webhook changes in a field we do not handle", ["field"])
+# ADR 0031: recording an owner's answer must never break the reply; a failure is counted instead (INV-12)
+LEARNING_CAPTURE_FAILED = Counter("salesai_learning_capture_failed_total", "Owner answers that could not be recorded for learning")

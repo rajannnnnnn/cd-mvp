@@ -20,6 +20,7 @@ from salesai.modules.channels import (
     StatusUpdate,
     parse_webhook,
 )
+from salesai.modules.handoffs import capture_owner_answer
 from salesai.obs import bind
 from salesai.queue.base import Job, Queue
 from salesai.rules import is_opt_in, is_opt_out
@@ -235,6 +236,8 @@ class InboundRouter:
                    WHERE id=%s RETURNING version""", (pause, conv_id))).fetchone()
             version = upd["version"]
             await c.execute("UPDATE messages SET status='cancelled', error='superseded' WHERE conversation_id=%s AND direction='out' AND status='queued' AND sender='ai'", (conv_id,))
+            # ADR 0031: an answer to a handed-over conversation is recorded with its context (before "answered" is set)
+            await capture_owner_answer(c, business_id=bid, conversation_id=conv_id, owner_text=ev.text, source="business_app")
             await c.execute("UPDATE messages SET answered=true WHERE conversation_id=%s AND direction='in' AND NOT answered", (conv_id,))
         await self.queue.cancel_superseded(f"conversation:{conv_id}", version)
 

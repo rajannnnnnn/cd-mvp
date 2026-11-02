@@ -1,3 +1,4 @@
+from salesai.modules.handoffs.learning import capture_owner_answer  # noqa: F401
 from salesai.modules.handoffs.service import (  # noqa: F401
     HANDOFF_REASONS,
     PAUSING_REASONS,

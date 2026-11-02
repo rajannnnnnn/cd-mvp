@@ -26,6 +26,7 @@ EXPORT_TABLES = [
     ("deals", "SELECT * FROM deals"),
     ("handoffs", "SELECT * FROM handoffs"),
     ("knowledge_gaps", "SELECT * FROM knowledge_gaps"),
+    ("learning_observations", "SELECT id, conversation_id, customer_id, handoff_id, reason, customer_text, owner_text, source, context, created_at FROM learning_observations"),
     ("support_tickets", "SELECT id, number, subject, category, status, created_at, updated_at FROM support_tickets"),
     ("support_messages", "SELECT id, ticket_id, author, body, created_at FROM support_messages ORDER BY id"),
     ("audit_log", "SELECT * FROM audit_log"),

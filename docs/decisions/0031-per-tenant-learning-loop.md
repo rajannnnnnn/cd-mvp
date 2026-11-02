@@ -98,3 +98,17 @@ daily summary and measure the answer rate before adding any new mechanism. If ow
 scopes come out wrong, tighten the classifier toward "ask only for shop-wide facts"; do not widen the
 default scope. Per-tenant learned timing or end-of-turn models are a later enhancement on this same
 per-tenant rule; they are models rather than facts, so they need their own ADR and their own eval gate.
+
+## Implementation note (2026-11-02): recording step built
+
+`learning_observations` (migration 0015), written by `capture_owner_answer` in the handoffs module — the learning is
+about answers to handoffs, and both the conversation engine and the web API may use that module, which keeps the
+web/agent separation of ADR 0025 intact. Recorded when an owner answers a conversation with an open handoff, from the
+WhatsApp Business app (echo) or the dashboard: the owner's text (the only learning source), the customer's question
+(context only), the handoff reason and the lead stage. Append-only for the tenant role; exported and deleted with the
+shop (DPDP). Recording runs in its own savepoint, so a failure never undoes the owner's reply, and is counted
+(`salesai_learning_capture_failed_total`). Nothing is learned and no behaviour changes yet.
+
+"Never learn across shops" is enforced as a tested rule: row-level security per shop, and a test that fails if any
+module other than `modules/handoffs/learning.py` and tenant export/delete references the table. It is labelled
+**proposed INV-13** because invariants are the founder's to add to `TECHNICAL_DESIGN.md`.
