@@ -39,17 +39,22 @@ def test_logs_redact_tokens_keys_and_phone_numbers():
     assert "EAAGabc123" not in out and "sk-ant-api03" not in out and "9876543210" not in out
 
 
+# A production configuration that passes every rule, on the default model (openai/gpt-oss-20b, ADR 0034).
+PROD = {"ENV": "production", "SIMULATOR_ENABLED": "false", "OTP_CHANNEL": "whatsapp_cloud", "PAYMENT_PROVIDER": "manual",
+        "LLM_PROVIDER": "openai_compat", "OPENAI_COMPAT_BASE_URL": "https://llm.example/v1", "OPENAI_COMPAT_API_KEY": "k"}
+
+
 def test_production_refuses_the_simulator_the_local_llm_and_placeholder_secrets():
-    for over in ({"ENV": "production", "SIMULATOR_ENABLED": "true", "OTP_CHANNEL": "whatsapp_cloud", "LLM_PROVIDER": "anthropic", "ANTHROPIC_API_KEY": "k"},
-                 {"ENV": "production", "SIMULATOR_ENABLED": "false", "OTP_CHANNEL": "whatsapp_cloud", "LLM_PROVIDER": "local"},
-                 {"ENV": "production", "SIMULATOR_ENABLED": "false", "OTP_CHANNEL": "whatsapp_cloud", "LLM_PROVIDER": "anthropic",
-                  "ANTHROPIC_API_KEY": "k", "JWT_SECRET": "dev-" + "x" * 40}):
-        with pytest.raises(ValidationError):
-            settings(**over)
-    ok = dict(ENV="production", SIMULATOR_ENABLED="false", OTP_CHANNEL="whatsapp_cloud", LLM_PROVIDER="anthropic", ANTHROPIC_API_KEY="k", PAYMENT_PROVIDER="manual")
-    settings(**ok)
+    # Each case breaks exactly one rule and must be refused FOR THAT RULE. Asserting only that something is refused
+    # let cases pass for an unrelated reason (a payment-provider or model mismatch) while the rule under test went untested.
+    for over, rule in (({"SIMULATOR_ENABLED": "true"}, "SIMULATOR_ENABLED"),
+                       ({"LLM_PROVIDER": "local"}, "local"),
+                       ({"JWT_SECRET": "dev-" + "x" * 40}, "JWT_SECRET")):
+        with pytest.raises(ValidationError, match=rule):
+            settings(**{**PROD, **over})
+    settings(**PROD)
     with pytest.raises(ValidationError, match="PAYMENT_PROVIDER"):
-        settings(**{**ok, "PAYMENT_PROVIDER": "test"})                 # the test gateway takes no money; never in production
+        settings(**{**PROD, "PAYMENT_PROVIDER": "test"})               # the test gateway takes no money; never in production
 
 
 def test_missing_or_short_secrets_stop_startup():
@@ -79,8 +84,7 @@ def test_no_credentials_are_committed_to_the_repository():
 
 
 def test_accept_any_code_is_refused_in_production_and_allowed_elsewhere():
-    prod = dict(ENV="production", SIMULATOR_ENABLED="false", OTP_CHANNEL="whatsapp_cloud", LLM_PROVIDER="anthropic", ANTHROPIC_API_KEY="k", PAYMENT_PROVIDER="manual")
     with pytest.raises(ValueError, match="OTP_ACCEPT_ANY"):
-        settings(OTP_ACCEPT_ANY="true", **prod)
+        settings(OTP_ACCEPT_ANY="true", **PROD)
     settings(ENV="staging", OTP_ACCEPT_ANY="true")                      # demo environments may use it
-    settings(**prod)                                                    # and production without it is fine
+    settings(**PROD)                                                    # and production without it is fine
