@@ -213,3 +213,16 @@ def test_the_products_defaults_are_the_real_services_not_stand_ins():
     assert s.simulator_enabled is False and s.otp_channel == "whatsapp_cloud"
     assert s.meta_graph_base == "https://graph.facebook.com" and s.meta_sdk_url == "https://connect.facebook.net/en_US/sdk.js"
     assert s.meta_signup_origins == "https://www.facebook.com,https://web.facebook.com"
+
+
+def test_a_value_that_is_only_a_comment_counts_as_empty(monkeypatch):
+    """docker compose can hand a container the text of a trailing comment as the value (`KEY=   # note`). It must read as empty, so the operator gets
+    'this setting is missing' and never a made-up secret or a nonsense address list."""
+    from salesai.config import Settings
+    monkeypatch.setenv("ADMIN_ALLOWED_IPS", "# optional: comma-separated addresses or ranges")
+    monkeypatch.setenv("LLM_FALLBACK_MODEL", "  # the model the fallback runs")
+    base = dict(role="migrate", database_url="x", system_database_url="x", migration_database_url="x")
+    s = Settings(_env_file=None, **base)      # type: ignore[arg-type]
+    assert s.admin_allowed_ips == "" and s.llm_fallback_model == ""
+    monkeypatch.setenv("ADMIN_ALLOWED_IPS", "203.0.113.5")
+    assert Settings(_env_file=None, **base).admin_allowed_ips == "203.0.113.5"      # type: ignore[arg-type]

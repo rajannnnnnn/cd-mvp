@@ -212,3 +212,11 @@ def test_the_stand_in_wiring_script_only_writes_settings_each_part_documents_and
         compose = (DEPLOY / part / "docker-compose.yml").read_text()
         assert keys <= documented, f"{part}: the script writes keys the .env.example does not document: {sorted(keys - documented)}"
         assert all("${" + k in compose for k in keys), f"{part}: written but never passed to a container: {sorted(k for k in keys if '${' + k not in compose)}"
+
+
+@pytest.mark.parametrize("template", sorted([*DEPLOY.glob("*/.env.example"), DEPLOY.parent / ".env.example"]), ids=lambda p: str(p.relative_to(DEPLOY.parent)))
+def test_no_template_line_has_an_empty_value_followed_by_a_comment(template):
+    """`KEY=   # note` is read by docker compose as the value "# note", so an untouched optional setting becomes garbage (an address list, an API key).
+    A note goes on the line above; an empty setting is just `KEY=`."""
+    bad = [ln for ln in template.read_text().splitlines() if re.match(r"^[A-Z0-9_]+=\s+#", ln)]
+    assert not bad, f"{template.name}: put these notes on their own line: {[b.split('=')[0] for b in bad]}"

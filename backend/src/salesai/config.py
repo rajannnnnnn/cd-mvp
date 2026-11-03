@@ -270,6 +270,15 @@ class Settings(BaseSettings):
         """Whether this process can call a model: the agent's workers, or everything-in-one. The web and gateway parts never do."""
         return self.role == "all" or (self.role == "worker" and bool(set(self.queues) & MODEL_QUEUES))
 
+    @model_validator(mode="before")
+    @classmethod
+    def _a_comment_is_not_a_value(cls, data: Any) -> Any:
+        """`KEY=   # note` in an env file reaches the process as the text of the note on some readers (docker compose does). It is an empty setting, so
+        the operator is told it is missing instead of the product starting on a made-up secret or address list."""
+        if isinstance(data, dict):
+            return {k: ("" if isinstance(v, str) and v.lstrip().startswith("#") else v) for k, v in data.items()}
+        return data
+
     @model_validator(mode="after")
     def _llm_rules(self) -> Settings:
         """ADR 0034: a vendor any stage (or the fallback) uses must be reachable, and a model must suit its vendor.
