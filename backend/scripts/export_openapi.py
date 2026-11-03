@@ -4,7 +4,7 @@ import json
 import os
 import pathlib
 
-for k, v in {"DATABASE_URL": "postgresql://x", "PRICING_DATABASE_URL": "postgresql://x", "SYSTEM_DATABASE_URL": "postgresql://x", "MIGRATION_DATABASE_URL": "postgresql://x",
+for k, v in {"DATABASE_URL": "postgresql://x", "PRICING_DATABASE_URL": "postgresql://x", "SYSTEM_DATABASE_URL": "postgresql://x", "CONSOLE_DATABASE_URL": "postgresql://x", "MIGRATION_DATABASE_URL": "postgresql://x",
              "MASTER_KEY": base64.b64encode(b"k" * 32).decode(), "JWT_SECRET": "x" * 32, "OTP_SECRET": "x" * 32, "META_APP_SECRET": "xxxxxxxx", "META_VERIFY_TOKEN": "xxxxxxxx"}.items():
     os.environ.setdefault(k, v)
 

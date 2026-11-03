@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
@@ -16,8 +17,10 @@ from salesai.modules.auth import Principal
 from salesai.modules.catalog import repo
 from salesai.modules.tenants import (
     add_simulated_number,
-    delete_tenant,
+    cancel_deletion,
+    deletion_date,
     export_tenant,
+    request_deletion,
     upsert_account,
     valid_slug,
 )
@@ -120,6 +123,7 @@ class BusinessOut(BaseModel):
     timing_params: dict[str, Any]
     limits: dict[str, Any]
     numbers: list[NumberOut]
+    deletion_scheduled_for: datetime | None = None      # set while the owner's deletion request is waiting out its grace period
 
 
 class TeamMemberOut(BaseModel):
@@ -145,7 +149,7 @@ async def _load(rt: Runtime, p: Principal) -> BusinessOut:
     async with tx(rt, p) as c:
         b = await (await c.execute("SELECT * FROM businesses WHERE id=%s", (p.bid,))).fetchone()
         ns = await (await c.execute("SELECT * FROM whatsapp_numbers ORDER BY created_at")).fetchall()
-    return BusinessOut(**{k: b[k] for k in ("id", "name", "slug", "timezone", "status", "ai_enabled", "plan", "profile", "sales_settings", "conversation_settings", "timing_params", "limits")},
+    return BusinessOut(deletion_scheduled_for=await deletion_date(rt.db, p.bid), **{k: b[k] for k in ("id", "name", "slug", "timezone", "status", "ai_enabled", "plan", "profile", "sales_settings", "conversation_settings", "timing_params", "limits")},
                        numbers=[NumberOut(**{k: n[k] for k in ("id", "channel", "display_phone", "verified_name", "status", "quality_rating", "status_reason", "coexistence")}) for n in ns])
 
 
@@ -329,7 +333,7 @@ async def export_my_data(rt: RT, p: Owner) -> Response:
                     headers={"Content-Disposition": 'attachment; filename="my-shop-data.json"'})
 
 
-@router.delete("/business", summary="Permanently delete your shop and every trace of its data")
+@router.delete("/business", summary="Delete your shop and every trace of its data after a grace period (60 days by default); you can cancel until then")
 async def delete_my_business(rt: RT, p: Owner, confirm_name: Annotated[str, Query(min_length=1)]) -> dict[str, Any]:
     if p.impersonated_by is not None:
         raise ApiError(403, "forbidden", "Support sessions cannot delete a business; the owner must do it.")
@@ -337,7 +341,17 @@ async def delete_my_business(rt: RT, p: Owner, confirm_name: Annotated[str, Quer
         row = required(await (await c.execute("SELECT name FROM businesses WHERE id=%s", (p.bid,))).fetchone(), "business")
     if row["name"] != confirm_name:
         raise ApiError(422, "confirmation_mismatch", "Type the shop name exactly to confirm deletion.")
-    return {"deleted": await delete_tenant(rt.db, p.bid, rt.queue)}
+    when = await request_deletion(rt.db, p.bid, p.account_id, rt.settings.deletion_grace_days)
+    return {"scheduled_for": when, "grace_days": rt.settings.deletion_grace_days}
+
+
+@router.post("/business/deletion/cancel", summary="Cancel a scheduled deletion; the assistant and renewals go back as they were")
+async def cancel_my_deletion(rt: RT, p: Owner) -> dict[str, bool]:
+    if p.impersonated_by is not None:
+        raise ApiError(403, "forbidden", "Support sessions cannot change a deletion; the owner must do it.")
+    if not await cancel_deletion(rt.db, p.bid, p.account_id):
+        raise ApiError(404, "not_found", "No deletion is scheduled for this shop.")
+    return {"cancelled": True}
 
 
 class PlatformAccessOut(BaseModel):

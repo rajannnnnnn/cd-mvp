@@ -406,12 +406,29 @@ export interface paths {
         get: operations["get_business_api_v1_business_get"];
         put?: never;
         post?: never;
-        /** Permanently delete your shop and every trace of its data */
+        /** Delete your shop and every trace of its data after a grace period (60 days by default); you can cancel until then */
         delete: operations["delete_my_business_api_v1_business_delete"];
         options?: never;
         head?: never;
         /** Patch Business */
         patch: operations["patch_business_api_v1_business_patch"];
+        trace?: never;
+    };
+    "/api/v1/business/deletion/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel a scheduled deletion; the assistant and renewals go back as they were */
+        post: operations["cancel_my_deletion_api_v1_business_deletion_cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/business/export": {
@@ -2169,6 +2186,8 @@ export interface components {
             conversation_settings: {
                 [key: string]: unknown;
             };
+            /** Deletion Scheduled For */
+            deletion_scheduled_for?: string | null;
             /**
              * Id
              * Format: uuid
@@ -5134,6 +5153,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BusinessOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_my_deletion_api_v1_business_deletion_cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: boolean;
+                    };
                 };
             };
             /** @description Validation Error */

@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import smtplib
-import ssl
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -18,9 +16,11 @@ import psycopg
 from pydantic import BaseModel
 
 from salesai.config import Settings
+from salesai.db import check_logins, check_separation
 from salesai.migrate import migrations_dir
 from salesai.modules.agent.llm import factory
 from salesai.modules.agent.llm.base import LLMRequest
+from salesai.modules.alerting.email_sink import smtp_check
 
 Status = Literal["ok", "fail", "skip"]
 
@@ -42,19 +42,8 @@ async def _connect(url: str) -> psycopg.AsyncConnection[Any]:
 
 
 async def _database(s: Settings) -> Check:
-    urls = [("DATABASE_URL", s.database_url), ("SYSTEM_DATABASE_URL", s.system_database_url), ("MIGRATION_DATABASE_URL", s.migration_database_url),
-            ("PRICING_DATABASE_URL", s.pricing_database_url), ("CONSOLE_DATABASE_URL", s.console_database_url)]
-    seen = []
-    for var, url in urls:
-        if not url:
-            continue
-        try:
-            async with await _connect(url) as c:
-                await c.execute("SELECT 1")
-            seen.append(var.removesuffix("_DATABASE_URL").lower() if var != "DATABASE_URL" else "shop")
-        except Exception as e:  # noqa: BLE001
-            return Check("database", "fail", f"{var} did not connect: {type(e).__name__}", f"Check {var}: host, port, database name, and the login's password.")
-    return Check("database", "ok", f"connected as {', '.join(seen)}")
+    ok, detail, hint = await check_logins(s)
+    return Check("database", "ok" if ok else "fail", detail, hint)
 
 
 async def _migrations(s: Settings) -> Check:
@@ -70,24 +59,8 @@ async def _migrations(s: Settings) -> Check:
     return Check("migrations", "ok", f"{len(want)} applied")
 
 
-async def _refused(url: str, sql: str) -> bool:
-    try:
-        async with await _connect(url) as c:
-            await c.execute(sql)
-    except psycopg.errors.InsufficientPrivilege:
-        return True
-    except psycopg.Error:
-        return False
-    return False
-
-
 async def _separation(s: Settings) -> Check:
-    """The logins really are separate: the shop's own login cannot read a floor, and the shared platform login cannot read the console's secrets."""
-    problems = []
-    if not await _refused(s.database_url, "SELECT 1 FROM price_floors LIMIT 1"):
-        problems.append("DATABASE_URL's login can read price floors (INV-1)")
-    if not await _refused(s.system_database_url, "SELECT 1 FROM admin_credentials LIMIT 1"):
-        problems.append("SYSTEM_DATABASE_URL's login can read the console's sign-in secrets")
+    problems = await check_separation(s)
     if problems:
         return Check("separation", "fail", "; ".join(problems), "Re-run db/bootstrap_roles.sql and the migrations as the owner: the grants are applied every time.")
     return Check("separation", "ok", "floors and console secrets are out of reach of the shop and platform logins")
@@ -114,27 +87,11 @@ async def _model(s: Settings) -> Check:
     return Check("model", "ok", "; ".join(done))
 
 
-def _smtp_login(s: Settings, send: bool) -> None:
-    ctx = ssl.create_default_context()
-    smtp = smtplib.SMTP_SSL(s.smtp_host, s.smtp_port, timeout=15, context=ctx) if s.smtp_security == "ssl" else smtplib.SMTP(s.smtp_host, s.smtp_port, timeout=15)
-    with smtp:
-        if s.smtp_security == "starttls":
-            smtp.starttls(context=ctx)
-        if s.smtp_username:
-            smtp.login(s.smtp_username, s.smtp_password)
-        if send:
-            from email.message import EmailMessage
-            m = EmailMessage()
-            m["Subject"], m["From"], m["To"] = "ChatDeal test alert", s.alert_email_from, ", ".join(s.alert_emails)
-            m.set_content("This is the test message from `python -m salesai doctor --send-test-mail`. Alerts will arrive at this address.")
-            smtp.send_message(m)
-
-
 async def _email(s: Settings, send: bool) -> Check:
     if not (s.alert_emails and s.smtp_host and s.alert_email_from):
         return Check("email", "skip", "alert email is not set up", "Fill in ALERT_EMAIL_TO, ALERT_EMAIL_FROM, SMTP_HOST (and SMTP_USERNAME / SMTP_PASSWORD) in deploy/web/.env.")
     try:
-        await asyncio.to_thread(_smtp_login, s, send)
+        await asyncio.to_thread(smtp_check, s.smtp_host, s.smtp_port, s.smtp_security, s.smtp_username, s.smtp_password, s.alert_email_from, s.alert_emails, send=send)
     except Exception as e:  # noqa: BLE001
         return Check("email", "fail", f"{type(e).__name__}: {str(e)[:120]}", "Check SMTP_HOST, SMTP_PORT, SMTP_SECURITY (starttls/ssl), the username and password, and that ALERT_EMAIL_FROM is an address the provider allows.")
     return Check("email", "ok", ("test message sent to " if send else "logged in; add --send-test-mail to send one to ") + ", ".join(s.alert_emails))

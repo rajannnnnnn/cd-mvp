@@ -48,3 +48,19 @@ class EmailSink:
             if self.username:
                 smtp.login(self.username, self.password)
             smtp.send_message(msg, from_addr=self.sender, to_addrs=self.to)
+
+
+def smtp_check(host: str, port: int, security: str, username: str, password: str, sender: str, to: list[str], *, send: bool, timeout_s: float = 15.0) -> None:
+    """For `python -m salesai doctor`: log in to the mail server, and with `send` deliver one test message. Raises on any failure."""
+    ctx = ssl.create_default_context()
+    smtp = smtplib.SMTP_SSL(host, port, timeout=timeout_s, context=ctx) if security == "ssl" else smtplib.SMTP(host, port, timeout=timeout_s)
+    with smtp:
+        if security == "starttls":
+            smtp.starttls(context=ctx)
+        if username:
+            smtp.login(username, password)
+        if send:
+            msg = EmailMessage()
+            msg["Subject"], msg["From"], msg["To"] = "ChatDeal test alert", sender, ", ".join(to)
+            msg.set_content("This is the test message from `python -m salesai doctor --send-test-mail`. Alerts will arrive at this address.")
+            smtp.send_message(msg, from_addr=sender, to_addrs=to)

@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from salesai.db import Database
+from salesai.modules.tenants.audit import platform_audit
 from salesai.queue.base import Queue
 
 EXPORT_TABLES = [
@@ -64,3 +65,56 @@ async def delete_tenant(db: Database, business_id: uuid.UUID, queue: Queue | Non
                 """DELETE FROM accounts a WHERE a.id = ANY(%s) AND a.platform_role IS NULL
                    AND NOT EXISTS (SELECT 1 FROM business_users bu WHERE bu.account_id = a.id)""", (ids,))).rowcount
     return counts
+
+
+# ------------------------------------------------------------------ scheduled deletion (60-day grace)
+async def request_deletion(db: Database, business_id: uuid.UUID, account_id: uuid.UUID | None, grace_days: int, now: datetime | None = None) -> datetime:
+    """Record that the owner wants the shop erased `grace_days` from now, pause the assistant and stop renewals. Asking again keeps the first date."""
+    now = now or datetime.now(UTC)
+    async with db.system_tx() as c:
+        biz = await (await c.execute("SELECT ai_enabled FROM businesses WHERE id=%s FOR UPDATE", (business_id,))).fetchone()
+        if biz is None:
+            raise LookupError("business")
+        sub = await (await c.execute("SELECT cancel_at_period_end FROM subscriptions WHERE business_id=%s", (business_id,))).fetchone()
+        row = await (await c.execute(
+            """INSERT INTO deletion_requests (business_id, requested_by, requested_at, purge_after, ai_was_enabled, renews_was)
+               VALUES (%s,%s,%s,%s,%s,%s) ON CONFLICT (business_id) DO NOTHING RETURNING purge_after""",
+            (business_id, account_id, now, now + timedelta(days=grace_days), biz["ai_enabled"], bool(sub and sub["cancel_at_period_end"])))).fetchone()
+        if row is None:                                                  # already scheduled: the first date stands
+            return (await (await c.execute("SELECT purge_after FROM deletion_requests WHERE business_id=%s", (business_id,))).fetchone())["purge_after"]
+        await c.execute("UPDATE businesses SET ai_enabled=false WHERE id=%s", (business_id,))
+        await c.execute("UPDATE subscriptions SET cancel_at_period_end=true WHERE business_id=%s", (business_id,))
+        await platform_audit(c, actor_account_id=account_id, actor_label="owner", action="tenant.deletion_requested", business_id=business_id,
+                             detail={"grace_days": grace_days})
+        return row["purge_after"]
+
+
+async def cancel_deletion(db: Database, business_id: uuid.UUID, account_id: uuid.UUID | None) -> bool:
+    """Withdraw the request and put the assistant and the renewals back as they were. False when nothing was scheduled."""
+    async with db.system_tx() as c:
+        req = await (await c.execute("DELETE FROM deletion_requests WHERE business_id=%s RETURNING ai_was_enabled, renews_was", (business_id,))).fetchone()
+        if req is None:
+            return False
+        await c.execute("UPDATE businesses SET ai_enabled=%s WHERE id=%s", (req["ai_was_enabled"], business_id))
+        await c.execute("UPDATE subscriptions SET cancel_at_period_end=%s WHERE business_id=%s", (req["renews_was"], business_id))
+        await platform_audit(c, actor_account_id=account_id, actor_label="owner", action="tenant.deletion_cancelled", business_id=business_id, detail={})
+        return True
+
+
+async def deletion_date(db: Database, business_id: uuid.UUID) -> datetime | None:
+    async with db.system_tx() as c:
+        row = await (await c.execute("SELECT purge_after FROM deletion_requests WHERE business_id=%s", (business_id,))).fetchone()
+    return row["purge_after"] if row else None
+
+
+async def purge_due(db: Database, queue: Queue | None, now: datetime | None = None) -> int:
+    """Erase every shop whose grace has passed (the scheduler calls this). Each erasure leaves a platform-audit record of ids and counts only."""
+    now = now or datetime.now(UTC)
+    async with db.system_tx() as c:
+        due = [r["business_id"] for r in await (await c.execute(
+            "SELECT business_id FROM deletion_requests WHERE purge_after <= %s ORDER BY purge_after LIMIT 50", (now,))).fetchall()]
+    for bid in due:
+        counts = await delete_tenant(db, bid, queue)
+        async with db.system_tx() as c:
+            await platform_audit(c, actor_account_id=None, actor_label="scheduler", action="tenant.purged", business_id=bid, detail={"rows": counts})
+    return len(due)

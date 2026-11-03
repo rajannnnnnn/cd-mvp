@@ -368,4 +368,7 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
   - **`python -m salesai doctor`, 2026-11-03.** For filling in the settings yourself and running: checks each database login, that the migrations are applied, that the floor and console secrets are out of reach of the shop and platform logins,
     one tiny call to the model on each step (the local stand-in is reported as "not a real model"), the mail login (`--send-test-mail` sends one message), and the platform's WhatsApp token; each line names the setting to change; exit 1 on a failure.
     Tested with fakes and the test database (`test_doctor.py`); the real model, mail and Meta checks have not run against real services.
+  - **Deletion has a 60-day grace period (ADR 0044), 2026-11-03.** `DELETE /business` schedules; the assistant pauses and renewals stop; the owner can cancel from Settings; the web scheduler erases shops whose date has passed and records it
+    in the platform audit trail. The console's own erase stays immediate for legal requests. `DELETION_GRACE_DAYS` (default 60). Migration 0031. Also fixed: `doctor` is a composition root (it had broken the boundary rules; the floor
+    and SMTP specifics now live in `db.py` and `email_sink.py`), and `scripts/export_openapi.py` knows the console URL. **Founder to do:** say "erased within 60 days of your request" in the privacy policy.
 

@@ -14,6 +14,7 @@ import psycopg
 
 from salesai.alerts import raise_alert
 from salesai.config import ALL_QUEUES
+from salesai.modules.tenants import purge_due
 from salesai.obs import QUEUE_DEAD, QUEUE_DEPTH, QUEUE_OLDEST_AGE
 from salesai.runtime import Runtime
 
@@ -24,7 +25,7 @@ LEADER_LOCKS = {"all": LEADER_LOCK, "web": LEADER_LOCK + 1, "gateway": LEADER_LO
 
 # What each component's scheduler does. Moving events along (the relay) and expiring queue leases are shared plumbing that
 # every scheduler does; the rest belongs to one component. `all` is the development combination and does everything.
-_WEB = frozenset({"gauges", "alerts", "billing", "retention"})            # billing, trials, platform alerts, sign-in data
+_WEB = frozenset({"gauges", "alerts", "billing", "deletions", "retention"})   # billing, trials, platform alerts, scheduled shop deletions, sign-in data
 _AGENT = frozenset({"gauges", "timers", "recovery", "retention"})  # the agent's clock (follow-back, take-over), the recovery sweep, conversation data
 _GATEWAY = frozenset({"gauges", "retention"})                             # its raw-request log
 DUTIES: dict[str, frozenset[str]] = {"web": _WEB, "agent": _AGENT, "gateway": _GATEWAY, "all": _WEB | _AGENT | _GATEWAY}
@@ -136,6 +137,10 @@ class Scheduler:
                         "DELETE FROM turns WHERE created_at < now() - make_interval(days => %s)", (cfg.turn_retention_days,))).rowcount
         return out
 
+    async def tick_deletions(self) -> int:
+        """Erase the shops whose owner asked for deletion and whose grace period (DELETION_GRACE_DAYS) has passed."""
+        return await purge_due(self.rt.db, self.rt.queue)
+
     async def tick_gauges(self) -> None:
         for s in await self.rt.queue.stats(list(ALL_QUEUES)):
             QUEUE_DEPTH.labels(s.queue).set(s.pending)
@@ -163,6 +168,8 @@ class Scheduler:
             await self.rt.alerts.dispatch()
         if "billing" in d:
             await self.rt.billing.run_cycle()
+        if "deletions" in d:
+            await self.tick_deletions()
         if tidy and "retention" in d:
             await self.tick_retention()
 

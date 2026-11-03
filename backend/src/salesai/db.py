@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
+import psycopg
 from psycopg import AsyncConnection
 from psycopg.rows import DictRow, dict_row
 from psycopg.types.json import Jsonb
@@ -91,3 +92,42 @@ def required(row: dict[str, Any] | None, what: str = "row") -> dict[str, Any]:
     if row is None:
         raise LookupError(f"{what} not found")
     return row
+
+
+# ------------------------------------------------------------------ checks for `python -m salesai doctor` (kept here: they name the floor and console logins, INV-1)
+async def check_logins(s: Any) -> tuple[bool, str, str]:
+    """Connect with every configured login. Returns (ok, detail, hint)."""
+    urls = [("DATABASE_URL", s.database_url), ("SYSTEM_DATABASE_URL", s.system_database_url), ("MIGRATION_DATABASE_URL", s.migration_database_url),
+            ("PRICING_DATABASE_URL", s.pricing_database_url), ("CONSOLE_DATABASE_URL", s.console_database_url)]
+    seen = []
+    for var, url in urls:
+        if not url:
+            continue
+        try:
+            async with await psycopg.AsyncConnection.connect(url, connect_timeout=5, autocommit=True) as c:
+                await c.execute("SELECT 1")
+        except Exception as e:  # noqa: BLE001
+            return False, f"{var} did not connect: {type(e).__name__}", f"Check {var}: host, port, database name, and the login's password."
+        seen.append("shop" if var == "DATABASE_URL" else var.removesuffix("_DATABASE_URL").lower())
+    return True, f"connected as {', '.join(seen)}", ""
+
+
+async def _refused(url: str, sql: str) -> bool:
+    try:
+        async with await psycopg.AsyncConnection.connect(url, connect_timeout=5, autocommit=True) as c:
+            await c.execute(sql)
+    except psycopg.errors.InsufficientPrivilege:
+        return True
+    except psycopg.Error:
+        return False
+    return False
+
+
+async def check_separation(s: Any) -> list[str]:
+    """What is wrong with the separation of logins: the shop's login must not read a floor, the shared platform login must not read the console's secrets."""
+    problems = []
+    if not await _refused(s.database_url, "SELECT 1 FROM price_floors LIMIT 1"):
+        problems.append("DATABASE_URL's login can read price floors (INV-1)")
+    if not await _refused(s.system_database_url, "SELECT 1 FROM admin_credentials LIMIT 1"):
+        problems.append("SYSTEM_DATABASE_URL's login can read the console's sign-in secrets")
+    return problems

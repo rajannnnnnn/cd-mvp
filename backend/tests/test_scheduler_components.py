@@ -19,7 +19,7 @@ OLD = datetime.now(UTC) - timedelta(days=400)
 
 def test_each_component_has_only_its_own_duties():
     assert set(DUTIES) == {"all", "web", "gateway", "agent"}
-    assert {"billing", "alerts"} <= DUTIES["web"] and not ({"timers", "recovery"} & DUTIES["web"])
+    assert {"billing", "alerts", "deletions"} <= DUTIES["web"] and not ({"timers", "recovery"} & DUTIES["web"])
     assert {"timers", "recovery"} <= DUTIES["agent"] and not ({"billing", "alerts"} & DUTIES["agent"])
     assert not ({"billing", "alerts", "timers", "recovery"} & DUTIES["gateway"])
     assert DUTIES["all"] == DUTIES["web"] | DUTIES["agent"] | DUTIES["gateway"]              # the development combination loses nothing
@@ -39,7 +39,7 @@ async def test_a_scheduler_runs_exactly_its_components_duties(rt, monkeypatch, c
 
     sch = Scheduler(rt, component)
     for tick, name in (("tick_timers", "timers"), ("tick_gauges", "gauges"),
-                       ("tick_retention", "retention")):
+                       ("tick_retention", "retention"), ("tick_deletions", "deletions")):
         monkeypatch.setattr(sch, tick, spy(name))
     monkeypatch.setattr(rt.billing, "run_cycle", spy("billing"))                              # these would act on every shop in the database
     monkeypatch.setattr(rt.alerts, "dispatch", spy("alerts"))

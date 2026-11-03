@@ -427,6 +427,8 @@ function DataSection() {
   const biz = useBusiness()
   const [open, setOpen] = useState(false); const [typed, setTyped] = useState('')
   const name = biz.data?.name ?? ''
+  const qc = useQueryClient()
+  const scheduled = biz.data?.deletion_scheduled_for ? new Date(biz.data.deletion_scheduled_for).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : null
   const exportIt = useMutation({
     mutationFn: async () => {
       const data = await ok(api.GET('/api/v1/business/export'))
@@ -437,19 +439,24 @@ function DataSection() {
   })
   const erase = useMutation({
     mutationFn: () => ok(api.DELETE('/api/v1/business', { params: { query: { confirm_name: typed } } })),
-    onSuccess: async () => { await logout() }, onError: (e) => toast((e as Error).message, 'error'),
+    onSuccess: async () => { setOpen(false); await qc.invalidateQueries({ queryKey: ['business'] }) }, onError: (e) => toast((e as Error).message, 'error'),
+  })
+  const keep = useMutation({
+    mutationFn: () => ok(api.POST('/api/v1/business/deletion/cancel')),
+    onSuccess: async () => { await qc.invalidateQueries({ queryKey: ['business'] }); toast(tr('Deletion cancelled. Your assistant is back on.')) }, onError: (e) => toast((e as Error).message, 'error'),
   })
   if (role !== 'owner') return null
   return (
     <Section title={tr('Your data')} sub={tr('It is yours. Download everything we hold about your shop, or erase it for good.')}>
       <div className="flex flex-wrap items-center gap-3">
         <button className="btn btn-outline" disabled={exportIt.isPending} onClick={() => exportIt.mutate()}>{exportIt.isPending ? <Spinner /> : null} {tr('Download my data')}</button>
-        <button className="btn btn-outline text-danger" onClick={() => { setTyped(''); setOpen(true) }}><Trash2 className="h-4 w-4" /> {tr('Delete my shop and all its data')}</button>
+        {!scheduled && <button className="btn btn-outline text-danger" onClick={() => { setTyped(''); setOpen(true) }}><Trash2 className="h-4 w-4" /> {tr('Delete my shop and all its data')}</button>}
       </div>
+      {scheduled && <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm"><span className="min-w-0 flex-1 font-medium text-danger">{tr('Your shop will be erased on {date}. Your assistant is paused until then.', { date: scheduled })}</span><button className="btn btn-outline" disabled={keep.isPending} onClick={() => keep.mutate()}>{keep.isPending ? <Spinner /> : null} {tr('Cancel deletion')}</button></div>}
       <p className="mt-3 text-[13px] text-muted">{tr('The download never includes your lowest prices, access tokens or secrets.')}</p>
-      <Modal open={open} onClose={() => setOpen(false)} title={tr('Delete this shop permanently?')}
-        footer={<><button className="btn btn-outline" onClick={() => setOpen(false)}>{tr('Cancel')}</button><button className="btn btn-danger" disabled={typed !== name || erase.isPending} onClick={() => erase.mutate()}>{erase.isPending ? <Spinner /> : null} {tr('Delete everything')}</button></>}>
-        <p className="text-sm text-muted">{tr('This erases your products, prices, customers, conversations and team, with no way back. Download your data first if you may need it.')}</p>
+      <Modal open={open} onClose={() => setOpen(false)} title={tr('Delete this shop?')}
+        footer={<><button className="btn btn-outline" onClick={() => setOpen(false)}>{tr('Cancel')}</button><button className="btn btn-danger" disabled={typed !== name || erase.isPending} onClick={() => erase.mutate()}>{erase.isPending ? <Spinner /> : null} {tr('Schedule deletion')}</button></>}>
+        <p className="text-sm text-muted">{tr('Your products, prices, customers, conversations and team will be erased in 60 days, with no way back after that. Until then your assistant is paused and you can cancel any time from this page. Download your data first if you may need it.')}</p>
         <Field label={tr('Type “{name}” to confirm', { name })} className="mt-4"><input maxLength={120} className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus /></Field>
       </Modal>
     </Section>

@@ -165,6 +165,7 @@ class Settings(BaseSettings):
 
     # --- alert routing (ADR 0029): where platform alerts go. Empty = the operator console only. They go to the platform team
     # (the founder) and never to a shop owner: the recipients below are the only addresses the alert path knows.
+    deletion_grace_days: int = Field(60, ge=0, le=365, description="days between an owner asking to delete their shop and the erasure; the owner can cancel until then")
     alert_email_to: str = ""                # comma-separated addresses, e.g. you@yourcompany.example
     alert_email_from: str = ""              # the sender address the mail provider allows, e.g. alerts@yourcompany.example
     smtp_host: str = ""

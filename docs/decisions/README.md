@@ -48,8 +48,9 @@ superseded by a new ADR, never rewritten. Status is `accepted` unless stated.
 | [0040](0040-daily-summary-removed.md) | Daily summaries removed (founder decision; supersedes FR-RP-1) |
 | [0041](0041-chat-native-adaptation.md) | The AI talks the way the customer talks: style by rules, told to the writer, enforced by a voice check |
 | [0042](0042-floor-login-only-for-the-turn-worker.md) | The database login that can read price floors goes to the agent's turn worker only |
+| [0044](0044-deletion-has-a-grace-period.md) | Deleting a shop is scheduled: 60 days of grace, then the scheduler erases it |
 | [0043](0043-console-database-login.md) | The founder console gets its own database login; admin sign-in secrets and sessions leave the shared platform role |
 
 **Numbering note.** Two ADRs share the number **0020** (`0020-support-tickets.md` and
 `0020-channel-gateway.md`). Published files are not renumbered; both are listed above. **0024** is
-reserved as noted. New ADRs continue from **0044**.
+reserved as noted. New ADRs continue from **0045**.

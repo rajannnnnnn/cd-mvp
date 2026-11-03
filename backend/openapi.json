@@ -535,6 +535,18 @@
             "title": "Conversation Settings",
             "type": "object"
           },
+          "deletion_scheduled_for": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deletion Scheduled For"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -7695,7 +7707,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Permanently delete your shop and every trace of its data",
+        "summary": "Delete your shop and every trace of its data after a grace period (60 days by default); you can cancel until then",
         "tags": [
           "business"
         ]
@@ -7800,6 +7812,59 @@
           }
         },
         "summary": "Patch Business",
+        "tags": [
+          "business"
+        ]
+      }
+    },
+    "/api/v1/business/deletion/cancel": {
+      "post": {
+        "operationId": "cancel_my_deletion_api_v1_business_deletion_cancel_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "title": "Response Cancel My Deletion Api V1 Business Deletion Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel a scheduled deletion; the assistant and renewals go back as they were",
         "tags": [
           "business"
         ]

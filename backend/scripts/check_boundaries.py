@@ -26,7 +26,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-COMPOSITION_ROOTS = {"runtime", "seed", "scheduler", "__main__"}
+COMPOSITION_ROOTS = {"runtime", "seed", "scheduler", "__main__", "doctor"}     # doctor: the operator's configuration check looks across every part by design
 FOUNDATION = {"config", "db", "obs", "phone", "rules", "templates", "crypto", "ratelimit", "migrate", "events", "queue"}
 
 # B1: module -> modules it may import (besides FOUNDATION). Keep this table equal to the architecture diagram.

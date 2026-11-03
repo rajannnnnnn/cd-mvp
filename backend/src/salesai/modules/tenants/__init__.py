@@ -9,7 +9,14 @@ from salesai.modules.tenants.access import (  # noqa: F401,E402
     shop_audit,
 )
 from salesai.modules.tenants.audit import platform_audit  # noqa: F401,E402
-from salesai.modules.tenants.lifecycle import delete_tenant, export_tenant  # noqa: F401
+from salesai.modules.tenants.lifecycle import (  # noqa: F401
+    cancel_deletion,
+    delete_tenant,
+    deletion_date,
+    export_tenant,
+    purge_due,
+    request_deletion,
+)
 from salesai.modules.tenants.service import (  # noqa: F401
     CreatedBusiness,
     add_cloud_number,

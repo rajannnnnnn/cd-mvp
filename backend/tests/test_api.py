@@ -433,7 +433,11 @@ async def test_owner_can_export_and_delete_their_own_data(world, client, pg_urls
     r = await client.delete(f"{V1}/business", headers=hdr(tok), params={"confirm_name": "wrong name"})
     assert r.status_code == 422
     r = await client.delete(f"{V1}/business", headers=hdr(tok), params={"confirm_name": "Self Service Shop"})
-    assert r.status_code == 200 and r.json()["deleted"]["businesses"] == 1
+    assert r.status_code == 200 and r.json()["grace_days"] == 60                    # scheduled, not erased: the grace period runs first
+    from datetime import datetime, timedelta
+
+    from salesai.modules.tenants import purge_due
+    assert await purge_due(world.rt.db, world.rt.queue, now=datetime.fromisoformat(r.json()["scheduled_for"]) + timedelta(minutes=1)) >= 1
     async with await psycopg.AsyncConnection.connect(pg_urls["super"], autocommit=True, row_factory=psycopg.rows.dict_row) as c:
         for t in ("conversations", "messages", "customers", "products"):
             n = (await (await c.execute(f"SELECT count(*) AS n FROM {t} WHERE business_id=%s", (shop.business_id,))).fetchone())["n"]  # noqa: S608
