@@ -363,4 +363,6 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
   - **Browser specs rewritten for the current screens, 2026-11-03.** Catalogue and offers: hide/show, pause/resume, edit and delete now go through the card menu (with their confirmations); the grid column is "Status"; the playground and
     floor-privacy specs pass against a local stack. `operator.spec.ts` was **removed**: it drove the console inside the owner app, which no longer exists (ADR 0028). The console has no browser test; it is covered by the backend tests
     (sign-in, boards, break-glass, the database login), 7 front-end tests and the separation checks. **Not covered anywhere:** the owner's "assistant paused" banner in a browser, and the mobile project (not run here).
+  - **Browser suite result, 2026-11-03:** on a local stack (desktop project) 43 of 43 specs pass after the last repair (the support spec now covers the owner's half only: opening a ticket; support's reply is written in the console and is covered by `test_support.py`).
+    The console itself has no browser spec. Mobile project not run.
 
