@@ -32,6 +32,8 @@ powershell -ExecutionPolicy Bypass -File scripts\setup-db.ps1 -PgContainer chatd
 
 The manual steps below are what it does, and what to do on Linux.
 
+**If Docker on Windows says "error getting credentials ... logon session does not exist"**, run any command through the helper `scripts\nocreds.ps1`, which hides Docker's saved-login helper for that one run: `.\scripts\nocreds.ps1 .\scripts\stack.ps1 db`. The lasting fix is to sign out of Windows and back in.
+
 ```bash
 # 1. database (Postgres 16, outside Docker) and its roles
 psql -f db/bootstrap_roles.sql -v owner_pw=... -v user_pw=... -v pricing_pw=... -v system_pw=... -v console_pw=... <your db>
