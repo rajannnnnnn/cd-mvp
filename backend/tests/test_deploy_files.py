@@ -199,3 +199,16 @@ def test_the_one_machine_stack_also_gives_the_floor_login_only_to_the_services_t
 def test_only_the_console_is_given_the_login_that_reads_admin_sign_in_secrets(sid, svc, part):
     """ADR 0043: admin credentials and sessions are readable by app_console alone, so a breach of the web, gateway or agent part cannot read them."""
     assert ("CONSOLE_DATABASE_URL" in (svc.get("environment") or {})) == (sid == "admin/api"), sid
+
+
+def test_the_stand_in_wiring_script_only_writes_settings_each_part_documents_and_passes_on():
+    """scripts/connect-meta-sim.ps1 edits the Meta lines of two parts' .env files. A key it writes that the part neither documents nor hands to a
+    container would be silently ignored, which is how a stand-in that 'is connected' ends up talking to nothing."""
+    script = (DEPLOY.parent / "scripts" / "connect-meta-sim.ps1").read_text()
+    for var, part in (("gw", "gateway"), ("web", "web")):
+        keys = set(re.findall(rf"Set-EnvValue \${var} '([A-Z0-9_]+)'", script))
+        assert keys, f"no keys found for {part}"
+        documented = set(re.findall(r"^#? ?([A-Z0-9_]+)=", (DEPLOY / part / ".env.example").read_text(), re.M))
+        compose = (DEPLOY / part / "docker-compose.yml").read_text()
+        assert keys <= documented, f"{part}: the script writes keys the .env.example does not document: {sorted(keys - documented)}"
+        assert all("${" + k in compose for k in keys), f"{part}: written but never passed to a container: {sorted(k for k in keys if '${' + k not in compose)}"

@@ -5,7 +5,7 @@ services:
     build: .
     image: meta-sim:local
     restart: unless-stopped
-    ports: ["${SIM_PORT:-9100}:9100"]
+    ports: ["${SIM_BIND:-127.0.0.1}:${SIM_PORT:-9100}:9100"]      # this machine only: the stand-in has no sign-in. SIM_BIND=<private address> to open the phones to your LAN
     extra_hosts: ["host.docker.internal:host-gateway"]
     environment:
       SIM_WEBHOOK_URL: ${SIM_WEBHOOK_URL:-http://host.docker.internal:8001/webhooks/whatsapp}
