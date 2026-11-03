@@ -142,6 +142,15 @@ def test_the_only_services_that_publish_a_port_are_the_ones_meant_to():
     assert published == {"web/site", "gateway/receive", "admin/site"}             # the website, Meta's webhook and the founder's console, nothing else
 
 
+def test_every_published_port_is_this_machine_only_unless_the_operator_opens_it():
+    """A port is published to this computer only by default. The site and the founder's console are opened to a network by naming an address
+    (WEB_BIND, ADMIN_BIND) or by putting the TLS proxy on the same machine; nobody on the local network reaches them by accident."""
+    for sid, svc, _ in _services():
+        for port in svc.get("ports", []):
+            text = str(port)
+            assert text.startswith(("127.0.0.1:", "${WEB_BIND:-127.0.0.1}:", "${ADMIN_BIND:-127.0.0.1}:")), f"{sid} publishes {text} on every interface"
+
+
 def test_the_old_combined_deploy_files_are_gone():
     assert not (DEPLOY / "standalone").exists()
 

@@ -98,4 +98,4 @@ services:
       INGRESS_UPSTREAM: ${WEBHOOK_UPSTREAM:-host.docker.internal:8001}   # the gateway's `receive`, so one public address serves both
       ALLOW_IPS: ${ALLOW_IPS:-0.0.0.0/0 ::/0}
     extra_hosts: ["host.docker.internal:host-gateway"]
-    ports: ["${WEB_PORT:-8080}:80"]
+    ports: ["${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8080}:80"]      # this machine only; WEB_BIND=<private address> opens it to that network
