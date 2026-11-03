@@ -1,4 +1,4 @@
-"""Scheduler role: outbox relay, lease reaper, queue gauges, nudges, billing cycle, alert delivery and
+"""Scheduler role: outbox relay, lease reaper, queue gauges, the agent's timers, billing cycle, alert delivery and
 retention. One scheduler per COMPONENT (ADR 0025): `SCHEDULER_COMPONENT` picks the duties, so the web, gateway and agent
 parts each keep their own timer and can be deployed, restarted and scaled on their own. Within a component exactly one
 instance is active (a Postgres advisory lock per component); others stand by and take over if it dies (HLD: leader-elected).
@@ -14,7 +14,6 @@ import psycopg
 
 from salesai.alerts import raise_alert
 from salesai.config import ALL_QUEUES
-from salesai.events.outbox import emit
 from salesai.obs import QUEUE_DEAD, QUEUE_DEPTH, QUEUE_OLDEST_AGE
 from salesai.runtime import Runtime
 
@@ -26,7 +25,7 @@ LEADER_LOCKS = {"all": LEADER_LOCK, "web": LEADER_LOCK + 1, "gateway": LEADER_LO
 # What each component's scheduler does. Moving events along (the relay) and expiring queue leases are shared plumbing that
 # every scheduler does; the rest belongs to one component. `all` is the development combination and does everything.
 _WEB = frozenset({"gauges", "alerts", "billing", "retention"})            # billing, trials, platform alerts, sign-in data
-_AGENT = frozenset({"gauges", "nudges", "recovery", "retention"})  # follow-ups, the recovery sweep, conversation data
+_AGENT = frozenset({"gauges", "timers", "recovery", "retention"})  # the agent's clock (follow-back, take-over), the recovery sweep, conversation data
 _GATEWAY = frozenset({"gauges", "retention"})                             # its raw-request log
 DUTIES: dict[str, frozenset[str]] = {"web": _WEB, "agent": _AGENT, "gateway": _GATEWAY, "all": _WEB | _AGENT | _GATEWAY}
 
@@ -68,27 +67,9 @@ class Scheduler:
         self.leader = LeaderLock(rt.settings.system_database_url, self.lock_id)
 
     # ------------------------------------------------------------------ ticks (each returns how many things it did)
-    async def tick_nudges(self) -> int:
-        """FR-SL-8: at most one in-window nudge after a customer who showed interest goes quiet."""
-        async with self.rt.db.system_tx() as c:
-            rows = await (await c.execute(
-                """SELECT cv.id, cv.business_id, cv.version FROM conversations cv JOIN businesses b ON b.id = cv.business_id
-                   WHERE b.ai_enabled AND cv.lead_stage IN ('interested','negotiating','ready_to_buy') AND NOT cv.selling_stopped
-                     AND cv.nudge_sent_at IS NULL AND cv.last_outbound_at IS NOT NULL AND cv.last_inbound_at IS NOT NULL
-                     AND cv.last_inbound_at < cv.last_outbound_at
-                     AND cv.last_outbound_at < now() - make_interval(mins => COALESCE((b.conversation_settings->>'nudge_after_minutes')::int, 240))
-                     AND cv.last_inbound_at > now() - interval '22 hours'
-                     AND (cv.ai_paused_until IS NULL OR cv.ai_paused_until < now())
-                   LIMIT 100""")).fetchall()
-        n = 0
-        for r in rows:
-            async with self.rt.db.tenant(r["business_id"]) as c:
-                upd = await c.execute("UPDATE conversations SET nudge_sent_at = now() WHERE id=%s AND nudge_sent_at IS NULL AND version=%s", (r["id"], r["version"]))
-                if upd.rowcount:
-                    await emit(c, "conversation.nudge_due", {"conversation_id": r["id"], "version": r["version"]}, business_id=r["business_id"],
-                               ordering_key=f"conv:{r['id']}", entity_key=f"conversation:{r['id']}", entity_version=r["version"])
-                    n += 1
-        return n
+    async def tick_timers(self) -> int:
+        """Wake the conversation timers that are due: follow-backs and take-over checks (ADR 0038). Cheap, so it runs every pass."""
+        return await self.rt.timers.fire_due()
 
     async def tick_retention(self, component: str | None = None) -> dict[str, int]:
         """Retention (HLD, ADR 0030). Each component tidies only the data it owns, so none needs rights over another's tables
@@ -172,10 +153,10 @@ class Scheduler:
     async def tick_slow(self, *, tidy: bool) -> None:
         """The work done every half minute (and the hourly tidy-up when `tidy`), limited to this component's duties."""
         d = self.duties
-        if "nudges" in d:
-            await self.tick_nudges()
         if "gauges" in d:
             await self.tick_gauges()
+        if "timers" in d:
+            await self.tick_timers()
         if "recovery" in d:
             await self.rt.reconciler.sweep()
         if "alerts" in d:
@@ -202,6 +183,8 @@ class Scheduler:
                     relay_task = asyncio.create_task(self.rt.relay.run(stop, self.rt.settings.relay_poll_ms))
                 try:
                     await self.rt.queue.reap_expired()
+                    if "timers" in self.duties:
+                        await self.tick_timers()                      # every pass: a follow-back should not wait for the half-minute tick
                     if loop.time() >= slow_at:
                         await self.tick_slow(tidy=int(loop.time()) % 3600 < 60)
                         slow_at = loop.time() + 30

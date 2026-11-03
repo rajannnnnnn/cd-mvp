@@ -75,3 +75,6 @@ GRANT SELECT (id, business_id, business_user_id, direction, purpose, status, cre
 -- the agent audit (ADR 0037): the agent writes its own shop's runs; the platform reads them as aggregates and never edits them
 GRANT SELECT, INSERT, UPDATE ON agent_runs TO app_user;
 GRANT SELECT ON agent_runs TO app_system;
+-- the agent's clock (ADR 0038): the agent writes its own shop's timers; the platform's scan for due ones reads them, never edits
+GRANT SELECT, INSERT, UPDATE, DELETE ON agent_timers TO app_user;
+GRANT SELECT ON agent_timers TO app_system;

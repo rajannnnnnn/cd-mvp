@@ -27,6 +27,7 @@ from salesai.modules.channels.router import WebhookRouter
 from salesai.modules.channels.simulator import SimulatorNetwork
 from salesai.modules.conversations import ConversationIntake, HeuristicEOT, TurnWorker
 from salesai.modules.conversations.recovery import Reconciler
+from salesai.modules.conversations.timers import TimerService
 from salesai.modules.delivery.sender import OutboundSender
 from salesai.modules.notifications import OwnerLoop
 from salesai.modules.pricing import PricingService
@@ -84,7 +85,8 @@ class Runtime:
         self.alerts = build_alert_router(db, self.channels, settings)
         self.billing = BillingService(db, ManualProvider(settings.payment_instructions) if settings.payment_provider == "manual" else TestGateway(), seller={"name": settings.invoice_seller_name, "address": settings.invoice_seller_address, "gstin": settings.invoice_seller_gstin})
         self.meta_usage = MetaUsage(db, rates_inr=settings.meta_rates, free_service_per_number=settings.meta_free_service_per_number)
-        self.reconciler = Reconciler(db, stuck_after_s=settings.recovery_stuck_after_s, retry_after_s=settings.recovery_retry_after_s,
+        self.timers = TimerService(db)                           # the agent's own clock: follow-back and take-over (ADR 0038)
+        self.reconciler = Reconciler(db, timers=self.timers, stuck_after_s=settings.recovery_stuck_after_s, retry_after_s=settings.recovery_retry_after_s,
                                      max_attempts=settings.recovery_max_attempts, queued_message_s=settings.recovery_queued_reply_s,
                                      mailbox_s=settings.recovery_mailbox_s)      # the agent's safety net under the queue (ADR 0035)
         self.agent_audit = AgentAudit(db)                       # the founder's view of every AI run (ADR 0037)
@@ -117,6 +119,7 @@ class Runtime:
     def _wire(self) -> None:
         self.registry.add("inbound.events", "route_webhook", self.router.route_webhook)                      # gateway: read Meta
         self.registry.add("conversation.events", "channel_event", self.intake.handle)                       # agent: act on it
+        self.registry.add("conversation.events", "plan_timers", self.timers.handle)
         self.registry.add("conversation.turns", "eot_check", self.turns.eot_check)
         self.registry.add("conversation.turns", "nudge", self.turns.nudge)
         self.registry.add("outbound.actions", "execute", self.sender.execute)

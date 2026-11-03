@@ -11,7 +11,7 @@ from typing import Any
 from salesai import ratelimit
 from salesai.alerts import raise_alert
 from salesai.db import Database, required
-from salesai.events.outbox import emit
+from salesai.events.outbox import announce_change, emit
 from salesai.modules.channels import ChannelRegistry, SendResult
 from salesai.modules.handoffs import create_handoff
 from salesai.obs import SEND_RESULTS, bind
@@ -96,6 +96,8 @@ class OutboundSender:
                 await c.execute(
                     "UPDATE conversations SET last_outbound_at=now(), state = CASE WHEN %s AND version=%s THEN 'idle' ELSE state END WHERE id=%s",
                     (last, version, cid))
+                if last:
+                    await announce_change(c, bid, cid)                            # the reply is out: the clock plans the follow-back from the real send time
             return
         if res.retryable:
             SEND_RESULTS.labels("retry").inc()

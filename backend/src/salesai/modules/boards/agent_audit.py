@@ -10,7 +10,7 @@ from typing import Any
 from salesai.db import Database
 
 OUTCOMES = ("replied", "reaction_only", "no_reply", "blocked", "superseded", "failed")
-TRIGGERS = ("turn_detection", "scheduler_nudge")
+TRIGGERS = ("turn_detection", "follow_back", "takeover")
 PREMATURE_WINDOW_S = 20          # the customer wrote again within this long of the AI starting: it did not wait for them to finish
 
 _TIMING = """
@@ -41,7 +41,7 @@ class AgentAudit:
         async with self.db.system_tx() as c:
             counts = await (await c.execute(
                 f"""SELECT count(*) AS runs, count(*) FILTER (WHERE r.status = 'running') AS running, count(*) FILTER (WHERE r.status = 'interrupted') AS interrupted,
-                           count(*) FILTER (WHERE r.trigger = 'turn_detection') AS turn_detection, count(*) FILTER (WHERE r.trigger = 'scheduler_nudge') AS scheduler_nudge,
+                           count(*) FILTER (WHERE r.trigger = 'turn_detection') AS turn_detection, count(*) FILTER (WHERE r.trigger = 'follow_back') AS follow_back, count(*) FILTER (WHERE r.trigger = 'takeover') AS takeover,
                            COALESCE(sum((r.llm->>'cost_micros')::bigint), 0) AS cost,
                            COALESCE(sum((r.llm->>'cost_micros')::bigint) FILTER (WHERE r.outcome IN ('superseded', 'failed', 'no_reply')), 0) AS wasted,
                            COALESCE(sum((r.llm->>'calls')::int), 0) AS calls, COALESCE(sum((r.llm->>'failed')::int), 0) AS failed_calls,
@@ -67,7 +67,7 @@ class AgentAudit:
         return {
             "days": days, "runs": runs, "running_now": int(k.get("running", 0)), "interrupted": int(k.get("interrupted", 0)),
             "by_outcome": {o: by_outcome.get(o, 0) for o in OUTCOMES},
-            "by_trigger": {"turn_detection": int(k.get("turn_detection", 0)), "scheduler_nudge": int(k.get("scheduler_nudge", 0))},
+            "by_trigger": {"turn_detection": int(k.get("turn_detection", 0)), "follow_back": int(k.get("follow_back", 0)), "takeover": int(k.get("takeover", 0))},
             "cost": {"total_micros": cost, "total_inr": round(cost / 1e6, 4), "per_run_inr": round(cost / 1e6 / runs, 6) if runs else None,
                      "per_reply_inr": round(cost / 1e6 / replied, 6) if replied else None,
                      "wasted_micros": int(k.get("wasted", 0)), "wasted_pct": _pct(int(k.get("wasted", 0)), cost),

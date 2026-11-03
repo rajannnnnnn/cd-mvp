@@ -312,4 +312,9 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
     attempt, a recovery sweep from the database's own state on the agent scheduler (migration 0025), and a sender that refuses to send a
     message that is no longer queued. Shared queue suite passes on Postgres and Redis. **Not built yet:** a gateway-side sweep for
     webhook rows received but not processed (the raw log keeps them; replay exists in the console).
+  - **Agent audit, typing, timers, daily summaries (2026-11-03).** `agent_runs` (ADR 0037), the typing effect (read ticks at once, typing while the
+    answer is written, model time counts as typing time), the stale-turn guard before the writer, daily summaries removed (ADR 0040), and the agent's
+    clock (ADR 0038): follow-back and owner take-over timers, rules in `timer_rules.py`, re-planned from the database on every change, fired by the agent
+    scheduler every pass, repaired by the recovery sweep. **Open:** rules-before-models tiering (ADR 0039), turn-detection accuracy work and its benchmark
+    (ADR 0036), customer-style adaptation, the separate admin console front end, and a full-suite run on all of the above.
 

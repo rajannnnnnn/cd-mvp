@@ -19,7 +19,7 @@ async def summary(rt: RT, p: Operator, days: Days = 7) -> dict[str, Any]:
 
 @router.get("/runs", summary="Agent runs, newest first, filterable")
 async def runs(rt: RT, p: Operator, days: Days = 7, outcome: Annotated[str | None, Query(pattern="^(replied|reaction_only|no_reply|blocked|superseded|failed)$")] = None,
-               trigger: Annotated[str | None, Query(pattern="^(turn_detection|scheduler_nudge)$")] = None, business_id: uuid.UUID | None = None,
+               trigger: Annotated[str | None, Query(pattern="^(turn_detection|follow_back|takeover)$")] = None, business_id: uuid.UUID | None = None,
                limit: Annotated[int, Query(ge=1, le=200)] = 50) -> list[dict[str, Any]]:
     return await rt.agent_audit.runs(days, outcome=outcome, trigger=trigger, business_id=business_id, limit=limit)
 

@@ -98,9 +98,12 @@ async def test_a_nudge_from_the_scheduler_is_recorded_as_such(world, monkeypatch
     await settle(world, shop, phone)
     async with world.rt.db.tenant(shop.business_id) as c:
         await c.execute("UPDATE conversations SET last_outbound_at = now() - interval '5 hours', last_inbound_at = now() - interval '5 hours 10 minutes'")
-    assert await Scheduler(world.rt).tick_nudges() == 1
+    await world.drain()
+    async with world.rt.db.tenant(shop.business_id) as c:
+        await c.execute("UPDATE agent_timers SET due_at = now() - interval '1 minute' WHERE kind='follow_back' AND status='pending'")
+    assert await Scheduler(world.rt, "agent").tick_timers() == 1
     await settle(world, shop, phone, want=2)
-    nudge = [r for r in await runs(world, shop) if r["trigger"] == "scheduler_nudge"]
+    nudge = [r for r in await runs(world, shop) if r["trigger"] == "follow_back"]
     assert len(nudge) == 1 and nudge[0]["outcome"] == "replied" and nudge[0]["trigger_detail"]["nudge"] is True
     assert nudge[0]["first_inbound_at"] is None                          # nothing from the customer woke it
 
@@ -215,15 +218,15 @@ async def test_a_run_started_while_the_customer_was_still_typing_counts_as_prema
 async def test_the_list_filters_by_outcome_trigger_and_shop(world, client):
     op = await operator_token(world, client)
     a, b = await world.make_shop("Audit A"), await world.make_shop("Audit B")
-    for shop, outcome, trig in ((a, "blocked", "turn_detection"), (a, "replied", "scheduler_nudge"), (b, "blocked", "turn_detection")):
+    for shop, outcome, trig in ((a, "blocked", "turn_detection"), (a, "replied", "follow_back"), (b, "blocked", "turn_detection")):
         async with world.rt.db.tenant(shop.business_id) as c:
             cust = (await (await c.execute("INSERT INTO customers (business_id, wa_id) VALUES (%s,%s) RETURNING id", (shop.business_id, f"9198{uuid.uuid4().int % 10**8:08d}"))).fetchone())["id"]
             conv = (await (await c.execute("INSERT INTO conversations (business_id, customer_id, whatsapp_number_id) VALUES (%s,%s,%s) RETURNING id", (shop.business_id, cust, shop.number_id))).fetchone())["id"]
             await c.execute("INSERT INTO agent_runs (business_id, conversation_id, trigger, status, outcome, reason) VALUES (%s,%s,%s,'finished',%s,'x')", (shop.business_id, conv, trig, outcome))
     got = (await client.get(f"{AU}/runs", headers=hdr(op), params={"business_id": str(a.business_id), "outcome": "blocked"})).json()
     assert len(got) == 1 and got[0]["outcome"] == "blocked" and got[0]["business_name"] == "Audit A"
-    got = (await client.get(f"{AU}/runs", headers=hdr(op), params={"business_id": str(a.business_id), "trigger": "scheduler_nudge"})).json()
-    assert len(got) == 1 and got[0]["trigger"] == "scheduler_nudge"
+    got = (await client.get(f"{AU}/runs", headers=hdr(op), params={"business_id": str(a.business_id), "trigger": "follow_back"})).json()
+    assert len(got) == 1 and got[0]["trigger"] == "follow_back"
     assert (await client.get(f"{AU}/runs", headers=hdr(op), params={"outcome": "nonsense"})).status_code == 422
 
 

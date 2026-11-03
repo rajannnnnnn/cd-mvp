@@ -35,3 +35,20 @@ it is due when it is (a short explanation, no customer content), shown in the au
 
 If follow-ups annoy customers, widen the rhythm multiplier or cap them per customer; if owners want a different take-back delay, it is the
 existing owner-pause setting. A second follow-back (not just one) would be a new timer kind with its own rule, not a flag.
+
+## Implementation notes (2026-11-03)
+
+- **Level-triggered, not event-patched.** Everything that changes a chat (a customer message, an owner reply from the app or the dashboard, a
+  pause or resume, a hand-off created or resolved, a reply sent, a turn committed) announces `conversation.state_changed` in the same transaction.
+  The agent's clock answers by recomputing, from the database, which timers the chat needs now (`timer_rules.desired`, pure rules, no model) and
+  setting, moving or cancelling to match. A due timer is recomputed once more before it fires, so a timer set under old facts never fires under new ones.
+  Web, gateway and agent therefore never call each other: they only announce.
+- **Rules**, tested without a database (`tests/test_timer_rules.py`): follow-back at the shop's own gap, sooner for customers who usually answer fast (four times
+  their usual wait, never inside 30 minutes), scaled by stage (interested 1×, negotiating ¾, ready to buy ½), moved to when the shop opens if the owner chose
+  that, dropped if it would land outside the free window, once per customer message. Take-over at the end of any pause (owner reply, hand-off, manual),
+  and at once when the pause is over and the customer's message has had no answer from anyone.
+- **The take-over gap is closed:** messages set aside during a pause are re-opened and go through turn detection like any message; the audit shows the run as `takeover`.
+- **Replaces** the nudge scan and its `nudge_sent_at` flag. The setting keeps its name (`nudge_after_minutes`, shown as "Follow up silent customers after").
+- The recovery sweep re-plans every active or paused chat, so a lost timer is re-armed and a healthy one is untouched.
+- Migration 0028 (`agent_timers`; the audit's trigger names become turn_detection, follow_back, takeover).
+

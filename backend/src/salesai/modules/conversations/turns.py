@@ -34,13 +34,13 @@ class TurnWorker:
         assert bid is not None
         rechecks = int(p.get("rechecks", 0))
         try:
-            await self._eot(bid, cid, version, rechecks)
+            await self._eot(bid, cid, version, rechecks, p.get("cause"))
         except Exception:
             if job.attempts >= job.spec.max_attempts:       # INV-12: last attempt failed -> handoff, not silence
                 await self._give_up(bid, cid, version)
             raise
 
-    async def _eot(self, bid: uuid.UUID, cid: uuid.UUID, version: int, rechecks: int) -> None:
+    async def _eot(self, bid: uuid.UUID, cid: uuid.UUID, version: int, rechecks: int, cause: str | None = None) -> None:
         now = datetime.now(UTC)
         with bind(business_id=bid, conversation_id=cid):
             async with self.db.tenant(bid) as c:
@@ -73,7 +73,7 @@ class TurnWorker:
             if not decision.ready:
                 async with self.db.tenant(bid) as c:
                     await emit(c, "conversation.eot_recheck",
-                               {"conversation_id": cid, "message_id": msgs[-1]["id"], "version": version, "rechecks": rechecks + 1},
+                               {"conversation_id": cid, "message_id": msgs[-1]["id"], "version": version, "rechecks": rechecks + 1, "cause": cause},
                                business_id=bid, ordering_key=f"conv:{cid}", entity_key=f"conversation:{cid}", entity_version=version,
                                run_at=now + timedelta(milliseconds=decision.wait_ms))
                 return
@@ -87,7 +87,8 @@ class TurnWorker:
                                "waited_ms": int((now - msgs[0]["created_at"]).total_seconds() * 1000), "messages": len(msgs)}}
             signals["read_sent"] = await self._read_now(bid, cid, version, biz, msgs, signals["eot"]["waited_ms"])
             detail = {"eot_reason": decision.reason, **signals["eot"]}
-            run = await start_run(self.db, bid, cid, "turn_detection", detail, msgs[0]["created_at"])
+            trigger = "takeover" if cause == "takeover" else "turn_detection"          # the clock woke it, or the customer did
+            run = await start_run(self.db, bid, cid, trigger, detail, msgs[0]["created_at"])
             try:
                 outcome = await self.agent.run_turn(bid, cid, version, signals=signals)
             except Exception as e:
@@ -118,7 +119,7 @@ class TurnWorker:
             conv = await (await c.execute("SELECT * FROM conversations WHERE id=%s", (cid,))).fetchone()
             if conv is None or conv["version"] != version or conv["selling_stopped"] or conv["lead_stage"] in ("won", "lost", "new"):
                 return          # the scheduler already marked nudge_sent_at when it requested this (at most one nudge)
-        run = await start_run(self.db, bid, cid, "scheduler_nudge", {"nudge": True})
+        run = await start_run(self.db, bid, cid, "follow_back", {"nudge": True})
         try:
             outcome = await self.agent.run_turn(bid, cid, version, trigger="nudge", signals={"nudge": True})
         except Exception as e:

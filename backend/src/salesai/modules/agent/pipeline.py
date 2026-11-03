@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from salesai.db import Database, jsonb, required
-from salesai.events.outbox import emit
+from salesai.events.outbox import announce_change, emit
 from salesai.modules.agent import checks as chk
 from salesai.modules.agent import context as ctxmod
 from salesai.modules.agent import policy as pol
@@ -415,6 +415,7 @@ class AgentService:
                            entity_key=f"conversation:{cid}", entity_version=version, run_at=run_at)
             await emit(c, "turn.decided", {"turn_id": tid, "conversation_id": cid, "action": "reply" if parts else "silent", "intent": plan.intent},
                        business_id=bid)
+            await announce_change(c, bid, cid)                                   # lead stage and a reply in flight changed: re-plan the clock
         TURN_SECONDS.observe(time.perf_counter() - t0)
         return TurnOutcome("committed" if acts else "silent", turn_id=tid, parts=parts, intent=plan.intent, route=route, llm=llm_usage,
                            reaction_only=bool(acts) and not parts)

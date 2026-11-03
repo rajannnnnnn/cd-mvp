@@ -16,6 +16,11 @@ def _plain(d: dict[str, Any]) -> dict[str, Any]:
     return json.loads(json.dumps(d, default=str))
 
 
+async def announce_change(conn: Conn, business_id: uuid.UUID | str, conversation_id: uuid.UUID | str) -> None:
+    """Tell the agent's clock that a chat changed, in the same transaction as the change. It re-plans that chat's timers from the database."""
+    await emit(conn, "conversation.state_changed", {"conversation_id": conversation_id}, business_id=business_id, ordering_key=f"timers:{conversation_id}")
+
+
 async def emit(
     conn: Conn, event: str, payload: BaseModel | dict[str, Any], *,
     business_id: uuid.UUID | str | None, ordering_key: str | None = None,

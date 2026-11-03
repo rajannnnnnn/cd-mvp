@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from salesai.api.deps import RT, Tenant, decode_cursor, encode_cursor, tx
 from salesai.api.errors import ApiError
 from salesai.db import required
-from salesai.events.outbox import emit
+from salesai.events.outbox import announce_change, emit
 from salesai.modules.handoffs import capture_owner_answer
 from salesai.rules import window_closes_at, window_open
 
@@ -243,6 +243,7 @@ async def send_message(conversation_id: uuid.UUID, body: SendIn, rt: RT, p: Tena
         await c.execute("UPDATE messages SET answered=true WHERE conversation_id=%s AND direction='in' AND NOT answered", (conversation_id,))
         await emit(c, "outbound.action_requested", {"conversation_id": conversation_id, "action": "send_text", "message_id": m["id"], "version": v, "human": True, "last_part": True},
                    business_id=p.bid, ordering_key=f"conv:{conversation_id}")
+        await announce_change(c, p.bid, conversation_id)
     await rt.queue.cancel_superseded(f"conversation:{conversation_id}", v)
     return _msg(m)
 
@@ -253,6 +254,7 @@ async def pause(conversation_id: uuid.UUID, body: PauseIn, rt: RT, p: Tenant) ->
         r = await c.execute("UPDATE conversations SET ai_paused_until = now() + %s, ai_paused_reason='manual' WHERE id=%s", (timedelta(minutes=body.minutes), conversation_id))
         if r.rowcount == 0:
             raise ApiError(404, "not_found", "Conversation not found.")
+        await announce_change(c, p.bid, conversation_id)
         row = required(await (await c.execute(f"{_SELECT} WHERE cv.id=%s", (conversation_id,))).fetchone(), "conversation")  # noqa: S608
     return _summary(row)
 
@@ -264,6 +266,7 @@ async def resume(conversation_id: uuid.UUID, rt: RT, p: Tenant) -> Any:
         if r.rowcount == 0:
             raise ApiError(404, "not_found", "Conversation not found.")
         await c.execute("UPDATE handoffs SET status='resolved', resolved_at=now(), resolved_by=%s WHERE conversation_id=%s AND status='open'", (p.account_id, conversation_id))
+        await announce_change(c, p.bid, conversation_id)
         row = required(await (await c.execute(f"{_SELECT} WHERE cv.id=%s", (conversation_id,))).fetchone(), "conversation")  # noqa: S608
     return _summary(row)
 

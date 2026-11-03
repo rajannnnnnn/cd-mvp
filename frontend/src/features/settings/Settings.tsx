@@ -292,13 +292,13 @@ function AssistantTab({ b, canEdit, goTo }: { b: Schemas['BusinessOut']; canEdit
         {!editStep ? (
           <dl className="-my-2 divide-y divide-line/60">
             <Row label={tr('Outside opening hours')}>{tr(HOURS_NAME[hb] ?? hb)}</Row>
-            <Row label={tr('Pause after I reply')} tip={tr('So the assistant and you never talk over each other.')}>{minutesText(pause)}</Row>
+            <Row label={tr('Pause after I reply')} tip={tr('So the assistant and you never talk over each other. When it ends, if the customer is still waiting, the assistant answers.')}>{minutesText(pause)}</Row>
             <Row label={tr('Follow up silent customers after')}>{minutesText(nudge)}</Row>
           </dl>
         ) : (<>
           <Field label={tr('Outside opening hours')}><select className="select sm:max-w-sm" value={hb} onChange={(e) => setHb(e.target.value)}><option value="reply_normally">{tr('Reply normally')}</option><option value="slower">{tr('Reply a little slower')}</option><option value="wait_for_open">{tr('Wait until we open')}</option></select></Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={tr('Pause the AI after I reply (minutes)')} hint={tr('So the assistant and you never talk over each other.')} error={pauseErr}><input className="input" inputMode="numeric" value={pause} onChange={(e) => setPause(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 4))} /></Field>
+            <Field label={tr('Pause the AI after I reply (minutes)')} hint={tr('So the assistant and you never talk over each other. When it ends, if the customer is still waiting, the assistant answers.')} error={pauseErr}><input className="input" inputMode="numeric" value={pause} onChange={(e) => setPause(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 4))} /></Field>
             <Field label={tr('Follow up silent customers after (minutes)')} hint={tr('30 minutes to 23 hours')} error={nudgeErr}><input className="input" inputMode="numeric" value={nudge} onChange={(e) => setNudge(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 5))} /></Field>
           </div>
         </>)}

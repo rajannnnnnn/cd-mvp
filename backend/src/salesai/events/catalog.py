@@ -26,6 +26,12 @@ class MessageReceived(_P):
     message_id: uuid.UUID
     version: int
     rechecks: int = 0                      # end-of-turn re-checks so far for this version
+    cause: str | None = None               # "takeover": the agent's clock re-opened a message the AI had stood back from (ADR 0038)
+
+
+class ConversationStateChanged(_P):
+    """Something about a chat changed (a message, a pause, a hand-off): the agent's clock re-plans that chat's timers from the database."""
+    conversation_id: uuid.UUID
 
 
 class NudgeDue(_P):
@@ -132,6 +138,7 @@ CATALOG: dict[str, EventSpec] = {s.name: s for s in [
     _e("message.received", MessageReceived, ("conversation.turns", "eot_check")),
     _e("conversation.eot_recheck", MessageReceived, ("conversation.turns", "eot_check")),
     _e("conversation.nudge_due", NudgeDue, ("conversation.turns", "nudge")),
+    _e("conversation.state_changed", ConversationStateChanged, ("conversation.events", "plan_timers")),
     _e("outbound.action_requested", OutboundActionRequested, ("outbound.actions", "execute")),
     _e("turn.decided", TurnDecided),                        # seam: learning / reporting subscribe here
     _e("handoff.created", HandoffCreated, ("owner.notifications", "notify")),

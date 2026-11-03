@@ -1,11 +1,7 @@
-"""Scheduler: leader election, nudges (at most one), retention."""
+"""Scheduler: leader election and retention. (The agent's timers: tests/test_agent_timers.py.)"""
 from __future__ import annotations
 
-import re
-
 from salesai.scheduler import LeaderLock, Scheduler
-from tests.test_conversation_flow import shop_with_catalog
-from tests.world import settle, sim_texts
 
 
 async def test_only_one_scheduler_is_leader_at_a_time(rt):
@@ -15,38 +11,6 @@ async def test_only_one_scheduler_is_leader_at_a_time(rt):
     await a.release()
     assert await b.try_acquire() is True             # failover
     await b.release()
-
-
-async def test_a_quiet_interested_customer_gets_exactly_one_in_window_nudge(world):
-    shop, _ = await shop_with_catalog(world)
-    phone = "+919500000002"
-    await world.customer_says(shop, phone, "silk saree price?")
-    await settle(world, shop, phone)
-    base = len(await sim_texts(world, shop, phone))
-    async with world.rt.db.tenant(shop.business_id) as c:      # the customer went quiet five hours ago
-        await c.execute("UPDATE conversations SET last_outbound_at = now() - interval '5 hours', last_inbound_at = now() - interval '5 hours 10 minutes'")
-    sch = Scheduler(world.rt)
-    assert await sch.tick_nudges() == 1
-    await settle(world, shop, phone, want=base + 1)
-    texts = await sim_texts(world, shop, phone)
-    assert len(texts) == base + 1 and not re.search(r"\d{3,}|₹", texts[-1])        # a gentle check-in, never a price
-    assert await sch.tick_nudges() == 0                                              # at most one
-    await world.drain_for(0.5)
-    assert len(await sim_texts(world, shop, phone)) == base + 1
-
-
-async def test_nudges_respect_stopped_selling_pauses_and_the_window(world):
-    shop, _ = await shop_with_catalog(world)
-    for i, (cond, desc) in enumerate([("selling_stopped = true", "stopped"), ("ai_paused_until = now() + interval '1 hour'", "paused"),
-                                      ("last_inbound_at = now() - interval '23 hours'", "window")]):
-        phone = f"+91950000{i + 10:04d}"
-        await world.customer_says(shop, phone, "silk saree price?")
-        await settle(world, shop, phone)
-        async with world.rt.db.tenant(shop.business_id) as c:
-            await c.execute(f"UPDATE conversations SET last_outbound_at = now() - interval '5 hours', {cond} WHERE customer_id=(SELECT id FROM customers WHERE wa_id=%s)", (phone.lstrip("+"),))  # noqa: S608
-            if desc != "window":
-                await c.execute("UPDATE conversations SET last_inbound_at = now() - interval '5 hours 10 minutes' WHERE customer_id=(SELECT id FROM customers WHERE wa_id=%s)", (phone.lstrip("+"),))
-    assert await Scheduler(world.rt).tick_nudges() == 0
 
 
 async def test_retention_purges_old_data_only(world):

@@ -6,7 +6,7 @@ import uuid
 from datetime import timedelta
 
 from salesai.db import Conn, jsonb
-from salesai.events.outbox import emit
+from salesai.events.outbox import announce_change, emit
 
 # Handoffs that need a PERSON in the conversation pause the AI there (INV-10: owner control). A knowledge gap or an
 # on-request price only alerts the owner; the AI keeps helping with everything else.
@@ -34,6 +34,7 @@ async def create_handoff(c: Conn, business_id: uuid.UUID, conversation_id: uuid.
             (timedelta(minutes=pause_minutes), conversation_id))
     await emit(c, "handoff.created", {"handoff_id": row["id"], "conversation_id": conversation_id, "reason": reason},
                business_id=business_id, ordering_key=f"biz:{business_id}")
+    await announce_change(c, business_id, conversation_id)                       # the AI stepped back: the clock plans the take-over check
     return row["id"]
 
 
@@ -49,6 +50,7 @@ async def resolve_handoff(c: Conn, business_id: uuid.UUID, handoff_id: uuid.UUID
         await c.execute(
             "UPDATE conversations SET ai_paused_until=NULL, ai_paused_reason=NULL WHERE id=%s AND ai_paused_reason='handoff'",
             (h["conversation_id"],))
+    await announce_change(c, business_id, h["conversation_id"])
     return True
 
 

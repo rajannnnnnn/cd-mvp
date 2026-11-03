@@ -26,16 +26,17 @@ log = logging.getLogger("salesai.recovery")
 class Reconciler:
     def __init__(self, db: Database, *, stuck_after_s: float = 90, retry_after_s: float = 180, max_attempts: int = 3,
                  queued_message_s: float = 120, mailbox_s: float = 60, state_stuck_s: float = 600, run_stale_s: float = 900,
-                 business_id: uuid.UUID | None = None):
+                 timers: Any = None, business_id: uuid.UUID | None = None):
         self.db = db
         self.only = business_id                                 # None = every shop; a value limits the sweep to one (operator tools, tests)
         self.stuck_after_s, self.retry_after_s, self.max_attempts = stuck_after_s, retry_after_s, max_attempts
         self.queued_message_s, self.mailbox_s, self.state_stuck_s = queued_message_s, mailbox_s, state_stuck_s
         self.run_stale_s = run_stale_s
+        self.timers = timers                                    # the agent's clock, re-planned for active chats (ADR 0038)
 
     async def sweep(self) -> dict[str, int]:
-        out = {"retriggered": 0, "gave_up": 0, "resent": 0, "mailbox_redriven": 0, "owner_messages_redriven": 0, "state_reset": 0, "runs_interrupted": 0}
-        for step in (self._customer_messages, self._queued_replies, self._agent_mailbox, self._owner_messages, self._stuck_state, self._stale_runs):
+        out = {"retriggered": 0, "gave_up": 0, "resent": 0, "mailbox_redriven": 0, "owner_messages_redriven": 0, "state_reset": 0, "runs_interrupted": 0, "timers_planned": 0}
+        for step in (self._customer_messages, self._queued_replies, self._agent_mailbox, self._owner_messages, self._stuck_state, self._stale_runs, self._timers):
             try:
                 for k, v in (await step()).items():
                     out[k] += v
@@ -171,3 +172,11 @@ class Reconciler:
                 await c.execute("UPDATE agent_runs SET status='interrupted', reason='the worker stopped before this run finished', finished_at=now() WHERE id=%s AND status='running'",
                                 (r["id"],))
         return {"runs_interrupted": len(rows)}
+
+    # ------------------------------------------------------------------ the clock must not depend on every event having been seen
+    async def _timers(self) -> dict[str, int]:
+        """Re-plan the timers of every chat that is active or paused. Planning is a pure function of the chat's state, so this repairs
+        a missing timer and changes nothing for a healthy one."""
+        if self.timers is None:
+            return {"timers_planned": 0}
+        return {"timers_planned": await self.timers.plan_active(self.only)}

@@ -12,7 +12,7 @@ from psycopg.types.json import Jsonb
 
 from salesai.alerts import raise_alert
 from salesai.db import Conn, Database, jsonb
-from salesai.events.outbox import emit
+from salesai.events.outbox import announce_change, emit
 from salesai.modules.channels.base import (
     AccountEvent,
     EchoMessage,
@@ -136,6 +136,7 @@ class ConversationIntake:
                 await emit(c, "message.received", {"conversation_id": conv_id, "message_id": ins["id"], "version": version},
                            business_id=bid, ordering_key=f"conv:{conv_id}", entity_key=f"conversation:{conv_id}",
                            entity_version=version)
+                await announce_change(c, bid, conv_id)
             else:
                 await c.execute("UPDATE conversations SET last_inbound_at = GREATEST(COALESCE(last_inbound_at, %s), %s) WHERE id=%s",
                                 (ts, ts, conv_id))
@@ -189,6 +190,7 @@ class ConversationIntake:
             # ADR 0031: an answer to a handed-over conversation is recorded with its context (before "answered" is set)
             await capture_owner_answer(c, business_id=bid, conversation_id=conv_id, owner_text=ev.text, source="business_app")
             await c.execute("UPDATE messages SET answered=true WHERE conversation_id=%s AND direction='in' AND NOT answered", (conv_id,))
+            await announce_change(c, bid, conv_id)                               # the owner stepped in: the clock plans the take-over check
         await self.queue.cancel_superseded(f"conversation:{conv_id}", version)
 
     # ---------------------------------------------------------------- delivery / read receipts
