@@ -128,6 +128,7 @@ services:
     command: ["--conversations", "--spread-days", "6"]
     environment:                         # plays demo conversations through the real pipeline, so it decides turns too
       <<: *backend-env
+      ROLE: worker                       # the settings it needs are the agent worker's, not the everything-in-one role's (which also wants the console login)
       PRICING_DATABASE_URL: postgresql://app_pricing:${APP_PRICING_PASSWORD}@postgres:5432/salesai
 
   redis:
