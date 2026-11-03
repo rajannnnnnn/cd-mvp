@@ -7,6 +7,7 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 agent -Service agent -Scale 3     run 3 copies of one service
 #   powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 admin                     the founder's console (its own address and sign-in)
 #   powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 all                       db, then web, admin, gateway and agent: everything on one machine
+#   powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 gateway -Only receive,inbound   start only some of a part's services (also with -Action logs | down)
 #   ... -Action logs | ps | down           -Build to rebuild the image first
 # Each part reads only its own deploy\<part>\.env (copy .env.example), so it is handed only its own secrets.
 # The parts share the database and nothing else, so you can run any subset, on any machines.   Frontend alone: scripts\dev-frontend.ps1
@@ -14,6 +15,7 @@ param(
   [Parameter(Mandatory)][ValidateSet('db', 'web', 'gateway', 'agent', 'admin', 'all')][string]$Stack,
   [ValidateSet('up', 'down', 'logs', 'ps')][string]$Action = 'up',
   [string]$Service,
+  [string[]]$Only,                          # start / stop / follow only these services of the part, e.g. -Only receive,inbound
   [int]$Scale = 1,
   [switch]$Build
 )
@@ -59,10 +61,10 @@ function Invoke-Part([string]$part) {
   switch ($Action) {
     'up' {
       if ($part -eq 'db') { if ($Build) { docker @base build }; docker @base run --rm migrate }
-      else { $a = @('up', '-d'); if ($Build) { $a += '--build' }; if ($Service) { $a += @('--scale', "$Service=$Scale") }; docker @base @a }
+      else { $a = @('up', '-d'); if ($Build) { $a += '--build' }; if ($Service) { $a += @('--scale', "$Service=$Scale") }; if ($Only) { $a += $Only }; docker @base @a }
     }
-    'down' { if ($part -ne 'db') { docker @base down } }
-    'logs' { if ($part -ne 'db') { docker @base logs -f --tail 50 } }
+    'down' { if ($part -ne 'db') { if ($Only) { docker @base stop @Only } else { docker @base down } } }
+    'logs' { if ($part -ne 'db') { $l = @('logs', '-f', '--tail', '50'); if ($Only) { $l += $Only }; docker @base @l } }
     'ps'   { if ($part -ne 'db') { docker @base ps } }
   }
 }

@@ -65,6 +65,8 @@ For each machine:
 3. Replace `host.docker.internal` in the database URLs with the database machine's private address. Let that address through the database firewall from the part machines only, allow their logins in `pg_hba.conf`, and add `?sslmode=require` to the URLs if the traffic leaves a trusted network.
 4. `scripts/stack.sh <part>`.
 
+**Only some services of a part:** `.\scripts\stack.ps1 gateway -Only receive,inbound` starts just those (also `-Action logs` and `-Action down`). Services: web `api, scheduler, site`; gateway `receive, inbound, send, scheduler`; agent `agent, scheduler`; admin `api, site`.
+
 **Copies (scaling):**
 - **agent:** `scripts/stack.sh agent --scale agent=3` on one machine, and/or start the part on more machines. Each copy runs `AGENT_CONCURRENCY` jobs at once. The queue hands a conversation to one worker at a time, so copies never double-reply.
 - **gateway:** scale `send` and `inbound` the same way (`--scale send=2`); run several `receive` behind a load balancer (the webhook is stateless).
