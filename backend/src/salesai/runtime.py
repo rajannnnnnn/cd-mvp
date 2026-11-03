@@ -18,7 +18,7 @@ from salesai.modules.alerting.router import WhatsAppSink
 from salesai.modules.alerting.webhook_sink import WebhookSink
 from salesai.modules.auth import AdminAuth, AuthService
 from salesai.modules.billing import BillingService, ManualProvider, MetaUsage, TestGateway
-from salesai.modules.boards import Boards
+from salesai.modules.boards import AgentAudit, Boards
 from salesai.modules.channels import ChannelRegistry
 from salesai.modules.channels.connect import NumberConnector
 from salesai.modules.channels.otp import OtpSender
@@ -87,6 +87,7 @@ class Runtime:
         self.reconciler = Reconciler(db, stuck_after_s=settings.recovery_stuck_after_s, retry_after_s=settings.recovery_retry_after_s,
                                      max_attempts=settings.recovery_max_attempts, queued_message_s=settings.recovery_queued_reply_s,
                                      mailbox_s=settings.recovery_mailbox_s)      # the agent's safety net under the queue (ADR 0035)
+        self.agent_audit = AgentAudit(db)                       # the founder's view of every AI run (ADR 0037)
         self.boards = Boards(db, queue, self.meta_usage)       # the founder's four boards (ADR 0028)
         self.pump: Callable[[], Awaitable[None]] = self._wait_a_moment
         self.hub: Any = None

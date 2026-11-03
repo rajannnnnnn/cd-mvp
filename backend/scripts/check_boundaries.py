@@ -41,7 +41,7 @@ ALLOWED_DEPS: dict[str, set[str]] = {
     "boards": {"billing"},                  # the founder's boards read plan prices and the Meta usage estimate
     "delivery": {"channels", "handoffs"},
     "agent": {"catalog", "delivery", "handoffs", "pricing", "sales"},
-    "conversations": {"agent", "channels", "handoffs"},
+    "conversations": {"agent", "channels", "delivery", "handoffs"},
     "notifications": {"agent", "catalog", "channels", "handoffs", "sales"},
     "alerting": {"channels"},
     "billing": set(),

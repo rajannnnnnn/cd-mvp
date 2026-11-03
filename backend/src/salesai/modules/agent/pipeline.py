@@ -72,12 +72,33 @@ class Usage:
         if res.model not in self.models:
             self.models.append(res.model)
         self.calls.append({"stage": stage, "ok": True, "model": res.model, "provider": getattr(res, "provider", None),
-                           "in": res.input_tokens, "out": res.output_tokens, "ms": res.latency_ms,
+                           "in": res.input_tokens, "out": res.output_tokens, "ms": res.latency_ms, "cost_micros": res.cost_micros,
                            # cache hits per call, so whether caching works is visible in every turn record (ADR 0027)
                            "cache_read": getattr(res, "cache_read_tokens", 0), "cache_write": getattr(res, "cache_write_tokens", 0)})
 
     def failed(self, stage: str, error: Any) -> None:
         self.calls.append({"stage": stage, "ok": False, "error": str(error)[:160]})
+
+    def consolidated(self) -> dict[str, Any]:
+        """Every model call of one run added up and split by step (the agent audit, ADR 0037). Counts, tokens, milliseconds, money and
+        which tier answered (rules or a language model): nothing of what was said."""
+        by_stage: dict[str, dict[str, Any]] = {}
+        for c in self.calls:
+            st = by_stage.setdefault(c["stage"], {"calls": 0, "failed": 0, "in": 0, "out": 0, "ms": 0, "cost_micros": 0, "tier": "rules"})
+            st["calls"] += 1
+            if not c["ok"]:
+                st["failed"] += 1
+                continue
+            st["in"] += c["in"]
+            st["out"] += c["out"]
+            st["ms"] += c["ms"]
+            st["cost_micros"] += c.get("cost_micros", 0)
+            if c.get("provider") not in (None, "local", "scripted", "recorder"):
+                st["tier"] = "llm"
+        return {"calls": len(self.calls), "failed": sum(1 for c in self.calls if not c["ok"]), "models": list(self.models), "by_stage": by_stage,
+                "input_tokens": self.input_tokens, "output_tokens": self.output_tokens, "llm_ms": self.latency_ms, "cost_micros": self.cost_micros,
+                "cache_read_tokens": sum(c.get("cache_read", 0) for c in self.calls), "cache_write_tokens": sum(c.get("cache_write", 0) for c in self.calls),
+                "detail": list(self.calls)}
 
     def summary(self) -> dict[str, Any]:
         """What the audit shows: how many model calls this turn made, split by step, and which of them failed."""
@@ -94,6 +115,22 @@ class TurnOutcome:
     reason: str | None = None
     parts: list[str] = field(default_factory=list)
     intent: str | None = None
+    route: dict[str, Any] = field(default_factory=dict)      # how the run routed and decided: no customer words, no prices (the audit, ADR 0037)
+    llm: dict[str, Any] = field(default_factory=dict)        # every model call of the run, consolidated: kept even when the run is discarded
+    reaction_only: bool = False
+
+
+def route_of(plan: pol.Plan, usage: Usage, *, checks: dict[str, Any] | None = None, fallback: str | None = None) -> dict[str, Any]:
+    """The routing and decisions of one run, for the audit: names and counts, never words or amounts."""
+    failed = sorted({f.split(":", 1)[0] for a in (checks or {}).get("attempts", []) for f in a.get("failures", [])})
+    stages = usage.consolidated()["by_stage"]
+    return {"intent": plan.intent, "directives": [d["type"] for d in plan.directives], "handoffs": [r for r, _ in plan.handoffs],
+            "lead_stage": plan.lead_stage, "language": plan.language, "script": plan.script, "silent": plan.silent, "reaction": bool(plan.reaction_emoji),
+            "deals": [d.kind for d in plan.deals], "gaps": len(plan.gaps), "selling_stopped": plan.selling_stopped,
+            "pricing": [{"kind": e.decision.kind, "final_offer": not e.decision.can_concede_more, "handoff": e.decision.handoff_reason is not None} for e in plan.evaluations],
+            "checks": {"attempts": len((checks or {}).get("attempts", [])), "failed": failed},
+            "fallback": fallback,                                    # llm_unavailable | checks_failed | daily_limit: a safe holding reply was used
+            "tiers": {"turn_detection": "rules", **{st: v["tier"] for st, v in stages.items()}}}
 
 
 class AgentService:
@@ -118,7 +155,7 @@ class AgentService:
                 return TurnOutcome("blocked", reason=block)
             if await self._over_limits(ctx):
                 plan = self._holding_plan(ctx, "daily limit reached", "other")
-                return await self._finish(ctx, plan, ["_limit"], Usage(), {"limit": True}, signals or {}, version, t0, trigger)
+                return await self._finish(ctx, plan, ["_limit"], Usage(), {"limit": True}, signals or {}, version, t0, trigger, fallback="daily_limit")
 
             usage = Usage()
             prompt_refs: dict[str, str] = {}
@@ -128,14 +165,44 @@ class AgentService:
                 usage.failed("planner", e)
                 log.error("LLM unavailable at planning: %s", e)
                 plan = self._holding_plan(ctx, f"LLM unavailable: {e}", "system_failure")
-                return await self._finish(ctx, plan, [self._holding_text(plan)], usage, {"llm_unavailable": True}, signals or {}, version, t0, trigger, prompt_refs)
+                return await self._finish(ctx, plan, [self._holding_text(plan)], usage, {"llm_unavailable": True}, signals or {}, version, t0, trigger, prompt_refs,
+                                          fallback="llm_unavailable")
 
+            if await self._conversation_moved(business_id, conversation_id, version):
+                # Cost control and UX: the customer wrote again while the planner was thinking, so this answer is already stale (INV-7).
+                # Stop before the writer, the expensive and slower step, instead of paying for a reply nobody will see.
+                return TurnOutcome("superseded", reason="the customer wrote again while the AI was planning; stopped before writing",
+                                   route=route_of(plan, usage), llm=usage.consolidated())
+
+            typing_started = await self._start_typing(ctx, plan, version, trigger)     # "typing..." while the words are being written, not after
             parts, reaction, checks_log = await self._write_and_check(ctx, plan, usage, prompt_refs)
+            fallback = None
             if parts is None:      # checks failed twice or provider down: safe holding message + handoff
+                fallback = "llm_unavailable" if "llm_unavailable" in checks_log.get("failed", []) else "checks_failed"
                 plan = self._holding_plan(ctx, "reply failed automated checks: " + ",".join(checks_log.get("failed", [])), "system_failure", keep=plan)
                 parts, reaction = [self._holding_text(plan)], None
             return await self._finish(ctx, plan, parts, usage, {"planner": out.model_dump(mode="json"), "checks": checks_log},
-                                      signals or {}, version, t0, trigger, prompt_refs, reaction=reaction)
+                                      signals or {}, version, t0, trigger, prompt_refs, reaction=reaction, fallback=fallback, typing_started=typing_started)
+
+    async def _start_typing(self, ctx: ctxmod.TurnContext, plan: pol.Plan, version: int, trigger: str) -> float | None:
+        """Show "typing..." as soon as the AI knows it will reply, so the customer's wait while the model writes looks like someone
+        typing rather than silence. Not for a nudge (no message to answer), and never when it will say nothing."""
+        if trigger == "nudge" or not plan.directives:
+            return None
+        last_wa = next((m["wa_message_id"] for m in reversed(ctx.unanswered) if m["wa_message_id"]), None)
+        if not last_wa:
+            return None
+        bid, cid = ctx.business["id"], ctx.conv["id"]
+        async with self.db.tenant(bid) as c:
+            await emit(c, "outbound.action_requested", {"conversation_id": cid, "action": "typing", "version": version, "inbound_wa_id": last_wa,
+                                                        "allow_while_paused": bool(plan.handoffs)},
+                       business_id=bid, ordering_key=f"conv:{cid}", entity_key=f"conversation:{cid}", entity_version=version)
+        return time.perf_counter()
+
+    async def _conversation_moved(self, business_id: uuid.UUID, conversation_id: uuid.UUID, version: int) -> bool:
+        async with self.db.tenant(business_id) as c:
+            row = await (await c.execute("SELECT version FROM conversations WHERE id=%s", (conversation_id,))).fetchone()
+        return row is None or row["version"] != version
 
     # ------------------------------------------------------------------ steps
     async def _plan(self, ctx: ctxmod.TurnContext, usage: Usage, prompt_refs: dict[str, str], trigger: str) -> tuple[pol.Plan, PlannerOutput]:
@@ -253,8 +320,9 @@ class AgentService:
     # ------------------------------------------------------------------ commit
     async def _finish(self, ctx: ctxmod.TurnContext, plan: pol.Plan, parts: list[str], usage: Usage, decision: dict[str, Any],
                       signals: dict[str, Any], version: int, t0: float, trigger: str, prompt_refs: dict[str, str] | None = None,
-                      *, reaction: str | None = None) -> TurnOutcome:
+                      *, reaction: str | None = None, fallback: str | None = None, typing_started: float | None = None) -> TurnOutcome:
         bid, cid = ctx.business["id"], ctx.conv["id"]
+        route, llm_usage = route_of(plan, usage, checks=decision.get("checks"), fallback=fallback), usage.consolidated()
         parts = [p for p in parts if p != "_limit"] or ([self._holding_text(plan)] if plan.handoffs else [])
         now = datetime.now(UTC)
         timing = ctx.business["timing_params"]
@@ -274,16 +342,20 @@ class AgentService:
                 close = window_closes_at(ctx.conv["last_inbound_at"])
                 if nxt and close and nxt + timedelta(minutes=5) < close - timedelta(minutes=10):
                     offset = int((nxt - now).total_seconds() * 1000)
-        acts = plan_delivery(parts, reaction, timing, rng=self.rng, multiplier=mult, offset_ms=offset) if (parts or reaction) else []
+        # the read receipt already went out when the customer stopped writing, and typing has been showing since the AI decided to reply:
+        # that time counts towards the typing time, so the model's own latency is not added on top of a human-looking pause
+        typing_for = None if typing_started is None else int((time.perf_counter() - typing_started) * 1000)
+        acts = plan_delivery(parts, reaction, timing, rng=self.rng, multiplier=mult, offset_ms=offset,
+                             include_read=not signals.get("read_sent"), elapsed_ms=typing_for) if (parts or reaction) else []
         inbound_ids = [m["id"] for m in ctx.unanswered]
         last_inbound_wa = next((m["wa_message_id"] for m in reversed(ctx.unanswered) if m["wa_message_id"]), None)
 
         async with self.db.tenant(bid) as c:
             conv = required(await (await c.execute("SELECT * FROM conversations WHERE id=%s FOR UPDATE", (cid,))).fetchone(), "conv")
             if conv["version"] != version:
-                return TurnOutcome("superseded", reason="conversation moved on before commit (INV-7)")
+                return TurnOutcome("superseded", reason="conversation moved on before commit (INV-7)", route=route, llm=llm_usage)
             if ai_block_reason(business=ctx.business, conv=conv, customer=ctx.customer, number=ctx.number, now=now) and not plan.handoffs:
-                return TurnOutcome("blocked", reason="blocked at commit")
+                return TurnOutcome("blocked", reason="blocked at commit", route=route, llm=llm_usage)
             turn = await (await c.execute(
                 """INSERT INTO turns (business_id, conversation_id, conversation_version, inbound_message_ids, status, decision, signals,
                                       model, prompt_versions, input_tokens, output_tokens, cost_micros, latency_ms, completed_at)
@@ -344,7 +416,8 @@ class AgentService:
             await emit(c, "turn.decided", {"turn_id": tid, "conversation_id": cid, "action": "reply" if parts else "silent", "intent": plan.intent},
                        business_id=bid)
         TURN_SECONDS.observe(time.perf_counter() - t0)
-        return TurnOutcome("committed" if acts else "silent", turn_id=tid, parts=parts, intent=plan.intent)
+        return TurnOutcome("committed" if acts else "silent", turn_id=tid, parts=parts, intent=plan.intent, route=route, llm=llm_usage,
+                           reaction_only=bool(acts) and not parts)
 
 
 def _summary(plan: pol.Plan, ctx: ctxmod.TurnContext) -> str:

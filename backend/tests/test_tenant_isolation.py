@@ -12,7 +12,7 @@ TENANT_TABLES = [
     "pricing_policies", "price_floors", "offers", "customers", "conversations", "turns",
     "messages", "negotiations", "deals", "handoffs", "knowledge_gaps", "owner_messages",
     "config_proposals", "audit_log", "learning_observations", "number_connect_requests", "channel_events",
-    "support_tickets", "support_messages", "support_attachments",          # shops read and write their own tickets
+    "support_tickets", "support_messages", "support_attachments", "agent_runs",          # shops read and write their own tickets
     "subscriptions", "invoices", "payments",                               # written by us, readable by the shop
 ]
 
@@ -54,6 +54,7 @@ async def make_tenant(db, name: str) -> dict:
         await c.execute("INSERT INTO turns (business_id, conversation_id, conversation_version) VALUES (%s,%s,1)", (bid, conv["id"]))
         await c.execute("INSERT INTO negotiations (business_id, conversation_id, variant_id) VALUES (%s,%s,%s)", (bid, conv["id"], var["id"]))
         await c.execute("INSERT INTO deals (business_id, conversation_id, kind) VALUES (%s,%s,'order')", (bid, conv["id"]))
+        await c.execute("INSERT INTO agent_runs (business_id, conversation_id, trigger) VALUES (%s,%s,'turn_detection')", (bid, conv["id"]))
         h = await (await c.execute(
             "INSERT INTO handoffs (business_id, conversation_id, reason) VALUES (%s,%s,'unknown_answer') RETURNING id", (bid, conv["id"]))).fetchone()
         await c.execute("INSERT INTO knowledge_gaps (business_id, question) VALUES (%s,'Do you deliver?')", (bid,))

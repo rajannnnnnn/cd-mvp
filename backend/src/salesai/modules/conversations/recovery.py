@@ -25,16 +25,17 @@ log = logging.getLogger("salesai.recovery")
 
 class Reconciler:
     def __init__(self, db: Database, *, stuck_after_s: float = 90, retry_after_s: float = 180, max_attempts: int = 3,
-                 queued_message_s: float = 120, mailbox_s: float = 60, state_stuck_s: float = 600,
+                 queued_message_s: float = 120, mailbox_s: float = 60, state_stuck_s: float = 600, run_stale_s: float = 900,
                  business_id: uuid.UUID | None = None):
         self.db = db
         self.only = business_id                                 # None = every shop; a value limits the sweep to one (operator tools, tests)
         self.stuck_after_s, self.retry_after_s, self.max_attempts = stuck_after_s, retry_after_s, max_attempts
         self.queued_message_s, self.mailbox_s, self.state_stuck_s = queued_message_s, mailbox_s, state_stuck_s
+        self.run_stale_s = run_stale_s
 
     async def sweep(self) -> dict[str, int]:
-        out = {"retriggered": 0, "gave_up": 0, "resent": 0, "mailbox_redriven": 0, "owner_messages_redriven": 0, "state_reset": 0}
-        for step in (self._customer_messages, self._queued_replies, self._agent_mailbox, self._owner_messages, self._stuck_state):
+        out = {"retriggered": 0, "gave_up": 0, "resent": 0, "mailbox_redriven": 0, "owner_messages_redriven": 0, "state_reset": 0, "runs_interrupted": 0}
+        for step in (self._customer_messages, self._queued_replies, self._agent_mailbox, self._owner_messages, self._stuck_state, self._stale_runs):
             try:
                 for k, v in (await step()).items():
                     out[k] += v
@@ -156,3 +157,17 @@ class Reconciler:
             async with self.db.tenant(r["business_id"]) as c:
                 await c.execute("UPDATE conversations SET state='idle' WHERE id=%s AND state <> 'idle'", (r["id"],))
         return {"state_reset": len(rows)}
+
+    # ------------------------------------------------------------------ the audit must not show a run as running for ever
+    async def _stale_runs(self) -> dict[str, int]:
+        """A run still open long after it started belongs to a worker that stopped. The work itself is re-driven by the queue's lease
+        or the steps above; this only makes the audit say what happened (ADR 0037)."""
+        async with self.db.system_tx() as c:
+            rows = await (await c.execute(
+                """SELECT id, business_id FROM agent_runs WHERE status = 'running' AND started_at < now() - make_interval(secs => %s)
+                      AND (%s::uuid IS NULL OR business_id = %s) LIMIT 200""", (self.run_stale_s, self.only, self.only))).fetchall()
+        for r in rows:
+            async with self.db.tenant(r["business_id"]) as c:
+                await c.execute("UPDATE agent_runs SET status='interrupted', reason='the worker stopped before this run finished', finished_at=now() WHERE id=%s AND status='running'",
+                                (r["id"],))
+        return {"runs_interrupted": len(rows)}

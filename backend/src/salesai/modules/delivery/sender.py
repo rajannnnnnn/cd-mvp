@@ -72,11 +72,12 @@ class OutboundSender:
             ref, channel = await self.channels.number(bid, num["id"])
             if action in ("mark_read", "typing"):
                 if p.get("inbound_wa_id"):
-                    res = await channel.mark_read(ref, p["inbound_wa_id"], typing=True)
+                    res = await channel.mark_read(ref, p["inbound_wa_id"], typing=action == "typing")      # reading alone shows ticks; only 'typing' shows the indicator
                     if not res.ok and res.permanent == "token_invalid":
                         await self._number_problem(bid, num["id"], "disconnected", res)
-                async with self.db.tenant(bid) as c:
-                    await c.execute("UPDATE conversations SET state='typing' WHERE id=%s AND version=%s", (cid, p["version"]))
+                if action == "typing":
+                    async with self.db.tenant(bid) as c:
+                        await c.execute("UPDATE conversations SET state='typing' WHERE id=%s AND version=%s", (cid, p["version"]))
                 return
             if action == "send_reaction":
                 res = await channel.send_reaction(ref, cust["wa_id"], p["inbound_wa_id"], p["emoji"])

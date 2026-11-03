@@ -72,3 +72,6 @@ GRANT SELECT, INSERT, UPDATE ON break_glass_grants TO app_system;
 GRANT SELECT (id, business_id, conversation_id, kind, value, status, created_at, closed_at) ON deals TO app_system;
 -- the recovery sweep looks for work nobody is doing; it reads ids, states and ages, never message text
 GRANT SELECT (id, business_id, business_user_id, direction, purpose, status, created_at) ON owner_messages TO app_system;
+-- the agent audit (ADR 0037): the agent writes its own shop's runs; the platform reads them as aggregates and never edits them
+GRANT SELECT, INSERT, UPDATE ON agent_runs TO app_user;
+GRANT SELECT ON agent_runs TO app_system;

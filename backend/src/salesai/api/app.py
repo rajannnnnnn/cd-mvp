@@ -19,6 +19,7 @@ from salesai.api.hub import ChangeHub
 from salesai.api.routes import (
     admin_auth,
     analytics,
+    audit,
     auth,
     billing,
     boards,
@@ -105,4 +106,5 @@ def create_app(rt: Runtime | None = None, role: str = "web", *, owns_runtime: bo
         app.include_router(admin_auth.router, dependencies=[Depends(admin_gate)])
         app.include_router(operator.router, prefix="/api/v1", dependencies=[Depends(admin_gate)])
         app.include_router(boards.router, prefix="/api/v1", dependencies=[Depends(admin_gate)])
+        app.include_router(audit.router, prefix="/api/v1", dependencies=[Depends(admin_gate)])
     return app

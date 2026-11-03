@@ -3,14 +3,18 @@ conversation by the queue's ordering key. Every wait is a DELAYED JOB, never a s
 from __future__ import annotations
 
 import logging
+import random
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from salesai.alerts import raise_alert
 from salesai.db import Database, required
 from salesai.events.outbox import emit
 from salesai.modules.agent import AgentService
 from salesai.modules.conversations.eot import EndOfTurnPredictor, EotInput
+from salesai.modules.conversations.runs import finish_run, finish_with, record_instant, start_run
+from salesai.modules.delivery import sample
 from salesai.modules.handoffs import create_handoff
 from salesai.obs import FLOOD_GUARD, bind
 from salesai.queue.base import Job
@@ -44,7 +48,7 @@ class TurnWorker:
                 if conv is None or conv["version"] != version:
                     return                                    # INV-7: planned for an older state
                 msgs = await (await c.execute(
-                    """SELECT id, kind, body, wa_timestamp, created_at FROM messages
+                    """SELECT id, kind, body, wa_message_id, wa_timestamp, created_at FROM messages
                        WHERE conversation_id=%s AND direction='in' AND NOT answered ORDER BY created_at, id""", (cid,))).fetchall()
                 if not msgs:
                     await c.execute("UPDATE conversations SET state='idle' WHERE id=%s AND state='listening'", (cid,))
@@ -60,6 +64,7 @@ class TurnWorker:
             if block:                                         # INV-10: recorded, never answered
                 await self._release(bid, cid, version)
                 log.info("AI blocked (%s): messages recorded, not answered", block)
+                await record_instant(self.db, bid, cid, "turn_detection", {"messages": len(msgs)}, "blocked", block, msgs[0]["created_at"])
                 return
             settings = biz["conversation_settings"] or {}
             decision = await self.eot.decide(EotInput(
@@ -76,11 +81,33 @@ class TurnWorker:
                 FLOOD_GUARD.inc()
                 await self._release(bid, cid, version)
                 log.warning("conversation exceeded its AI turn budget; messages recorded, not answered")
+                await record_instant(self.db, bid, cid, "turn_detection", {"messages": len(msgs)}, "blocked", "flood_guard", msgs[0]["created_at"])
                 return
-            signals = {"eot": {"reason": decision.reason, "rechecks": rechecks,
+            signals: dict[str, Any] = {"eot": {"reason": decision.reason, "rechecks": rechecks,
                                "waited_ms": int((now - msgs[0]["created_at"]).total_seconds() * 1000), "messages": len(msgs)}}
-            outcome = await self.agent.run_turn(bid, cid, version, signals=signals)
+            signals["read_sent"] = await self._read_now(bid, cid, version, biz, msgs, signals["eot"]["waited_ms"])
+            detail = {"eot_reason": decision.reason, **signals["eot"]}
+            run = await start_run(self.db, bid, cid, "turn_detection", detail, msgs[0]["created_at"])
+            try:
+                outcome = await self.agent.run_turn(bid, cid, version, signals=signals)
+            except Exception as e:
+                await finish_run(self.db, bid, run, outcome="failed", reason=f"{type(e).__name__}: {e}")
+                raise
+            await finish_with(self.db, bid, run, outcome)
             log.info("turn %s (%s)", outcome.status, outcome.intent or outcome.reason)
+
+    async def _read_now(self, bid: uuid.UUID, cid: uuid.UUID, version: int, biz: dict[str, Any], msgs: list[dict[str, Any]], waited_ms: int) -> bool:
+        """The customer has stopped writing and the AI will look at it: show the read ticks now, after the rest of a believable reading
+        time, not after the model has finished. The wait for the end of the turn counts as reading time."""
+        wa = next((m["wa_message_id"] for m in reversed(msgs) if m["wa_message_id"]), None)
+        if not wa:
+            return False
+        delay = max(0, int(sample(biz["timing_params"]["read_delay"], random.Random()) - waited_ms))      # noqa: S311
+        async with self.db.tenant(bid) as c:
+            await emit(c, "outbound.action_requested", {"conversation_id": cid, "action": "mark_read", "version": version, "inbound_wa_id": wa},
+                       business_id=bid, ordering_key=f"conv:{cid}", entity_key=f"conversation:{cid}", entity_version=version,
+                       run_at=datetime.now(UTC) + timedelta(milliseconds=delay))
+        return True
 
     async def nudge(self, job: Job) -> None:
         """FR-SL-8: at most one in-window nudge after the customer goes quiet; never when selling has stopped."""
@@ -91,7 +118,13 @@ class TurnWorker:
             conv = await (await c.execute("SELECT * FROM conversations WHERE id=%s", (cid,))).fetchone()
             if conv is None or conv["version"] != version or conv["selling_stopped"] or conv["lead_stage"] in ("won", "lost", "new"):
                 return          # the scheduler already marked nudge_sent_at when it requested this (at most one nudge)
-        await self.agent.run_turn(bid, cid, version, trigger="nudge", signals={"nudge": True})
+        run = await start_run(self.db, bid, cid, "scheduler_nudge", {"nudge": True})
+        try:
+            outcome = await self.agent.run_turn(bid, cid, version, trigger="nudge", signals={"nudge": True})
+        except Exception as e:
+            await finish_run(self.db, bid, run, outcome="failed", reason=f"{type(e).__name__}: {e}")
+            raise
+        await finish_with(self.db, bid, run, outcome)
 
     async def _flooded(self, bid: uuid.UUID, cid: uuid.UUID) -> bool:
         async with self.db.tenant(bid) as c:
