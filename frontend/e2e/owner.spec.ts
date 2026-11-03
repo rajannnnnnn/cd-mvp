@@ -60,12 +60,12 @@ test.describe('owner app', () => {
     await page.goto(`${SHOP}/offers`)
     await page.getByRole('button', { name: 'New offer' }).click()
     await page.getByPlaceholder('Offer name').fill('E2E test offer')
-    await page.getByPlaceholder('Percent', { exact: true }).fill('5')
+    await page.getByLabel('Percent off').fill('5')
     await page.getByRole('button', { name: 'Save offer' }).click()
     await expect(page.getByText('E2E test offer')).toBeVisible()
-    const row = page.locator('div.card', { hasText: 'E2E test offer' })
-    await row.getByRole('button', { name: 'Delete' }).click()
-    await page.getByRole('button', { name: 'Delete' }).last().click()
+    await page.getByRole('button', { name: 'More actions for E2E test offer' }).click()
+    await page.getByRole('menuitem', { name: 'Delete' }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click()
     await expect(page.getByText('E2E test offer')).toHaveCount(0)
   })
 
@@ -109,26 +109,27 @@ test.describe('owner app', () => {
 
   test('catalog: cards and grid views, a confirmed on/off switch, and a bulk change with a final confirmation', async ({ page }) => {
     await page.goto(`${SHOP}/products`)
-    await expect(page.getByRole('switch', { name: /is for sale/ }).first()).toBeVisible()
+    await expect(page.getByRole('button', { name: 'More actions for Banarasi Silk Saree' }).first()).toBeVisible()
     await page.getByRole('tab', { name: 'Grid' }).click()
-    await expect(page.getByRole('columnheader', { name: 'For sale' })).toBeVisible()
+    await expect(page.getByRole('columnheader', { name: 'Status' })).toBeVisible()
     await page.reload()
-    await expect(page.getByRole('columnheader', { name: 'For sale' })).toBeVisible()                // the view is remembered
+    await expect(page.getByRole('columnheader', { name: 'Status' })).toBeVisible()                // the view is remembered
     await page.getByRole('tab', { name: 'Cards' }).click()
 
-    // one product: the switch only asks, the dialog decides
-    const first = page.getByRole('switch', { name: /is for sale/ }).first()
-    await expect(first).toHaveAttribute('aria-checked', 'true')
-    await first.click()
+    // one product: hiding lives in the card's menu; the menu only asks, the dialog decides
+    const menu = page.getByRole('button', { name: 'More actions for Banarasi Silk Saree' }).first()
+    await menu.click()
+    await page.getByRole('menuitem', { name: 'Hide' }).click()
     await expect(page.getByRole('heading', { name: /Hide/ })).toBeVisible()
     await page.getByRole('button', { name: 'Cancel' }).click()
-    await expect(first).toHaveAttribute('aria-checked', 'true')                                     // cancelled: nothing changed
-    await first.click()
+    await menu.click()
+    await expect(page.getByRole('menuitem', { name: 'Hide' })).toBeVisible()                        // cancelled: nothing changed
+    await page.getByRole('menuitem', { name: 'Hide' }).click()
     await page.getByRole('button', { name: 'Hide', exact: true }).click()
-    await expect(first).toHaveAttribute('aria-checked', 'false')
-    await first.click()                                                                              // put it back
+    await menu.click()
+    await expect(page.getByRole('menuitem', { name: 'Show' })).toBeVisible()                        // now hidden: the menu offers Show
+    await page.getByRole('menuitem', { name: 'Show' }).click()
     await page.getByRole('button', { name: 'Show', exact: true }).click()
-    await expect(first).toHaveAttribute('aria-checked', 'true')
 
     // several products: tick, choose, and confirm once more
     const ticks = page.getByRole('checkbox', { name: /^Select (?!all)/ })
@@ -158,7 +159,7 @@ test.describe('owner app', () => {
     const panel = page.getByRole('complementary', { name: 'Add a product' })
     await expect(panel).toBeVisible()
     await expect(page.getByRole('dialog')).toHaveCount(0)
-    await expect(page.getByRole('switch', { name: /is for sale/ }).first()).toBeVisible()
+    await expect(panel.getByRole('switch', { name: 'For sale' })).toBeVisible()
     await panel.getByLabel('Product name').fill(`E2E Kurta ${stamp}`)
     await panel.getByRole('combobox', { name: 'Category' }).fill(cat)
     await panel.getByPlaceholder('e.g. 450').fill('500')                                              // one typed price: the two-question setup
@@ -183,10 +184,11 @@ test.describe('owner app', () => {
     await second.getByRole('button', { name: 'Add product' }).click()
     await expect(page.getByText('Product added').first()).toBeVisible()
 
-    // every card has Edit, Delete and the on/off switch
+    // every card has Edit and Delete
     const kurta = page.getByText(`E2E Kurta ${stamp}`)
     await expect(kurta).toBeVisible()
-    await page.getByRole('button', { name: `Edit E2E Kurta ${stamp}` }).click()
+    await page.getByRole('button', { name: `More actions for E2E Kurta ${stamp}` }).click()                 // Edit, Hide and Delete live in the card's menu
+    await page.getByRole('menuitem', { name: 'Edit' }).click()
     const edit = page.getByRole('complementary', { name: 'Edit product' })
     await expect(edit.getByLabel('Product name')).toHaveValue(`E2E Kurta ${stamp}`)
     await expect(page.getByRole('dialog')).toHaveCount(0)
@@ -194,11 +196,13 @@ test.describe('owner app', () => {
     await expect(edit).toHaveCount(0)
 
     // delete one, with a confirmation
-    await page.getByRole('button', { name: `Delete E2E Kurta ${stamp}` }).click()
+    await page.getByRole('button', { name: `More actions for E2E Kurta ${stamp}` }).click()
+    await page.getByRole('menuitem', { name: 'Delete' }).click()
     await expect(page.getByRole('heading', { name: `Delete “E2E Kurta ${stamp}”?` })).toBeVisible()
     await page.getByRole('button', { name: 'Cancel' }).click()
     await expect(kurta).toBeVisible()                                                                  // cancelled: still there
-    await page.getByRole('button', { name: `Delete E2E Kurta ${stamp}` }).click()
+    await page.getByRole('button', { name: `More actions for E2E Kurta ${stamp}` }).click()
+    await page.getByRole('menuitem', { name: 'Delete' }).click()
     await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click()
     await expect(kurta).toHaveCount(0)
 
@@ -279,16 +283,18 @@ test.describe('owner app', () => {
     await second.getByRole('button', { name: 'Save offer' }).click()
     await expect(page.getByText(b)).toBeVisible()
 
-    const sw = page.getByRole('switch', { name: `${a} is on` })                                       // switch, with a confirmation
-    await sw.click()
+    const menu = page.getByRole('button', { name: `More actions for ${a}` })                          // Edit, Pause and Delete live in the card's menu
+    await menu.click()
+    await page.getByRole('menuitem', { name: 'Pause' }).click()                                       // asks first
     await expect(page.getByRole('heading', { name: `Pause “${a}”?` })).toBeVisible()
     await page.getByRole('button', { name: 'Cancel' }).click()
-    await expect(sw).toHaveAttribute('aria-checked', 'true')
-    await sw.click()
+    await menu.click()
+    await expect(page.getByRole('menuitem', { name: 'Pause' })).toBeVisible()                         // cancelled: still running
+    await page.getByRole('menuitem', { name: 'Pause' }).click()
     await page.getByRole('button', { name: 'Pause', exact: true }).click()
-    await expect(sw).toHaveAttribute('aria-checked', 'false')
-
-    await page.getByRole('button', { name: `Edit ${a}` }).click()                                      // edit opens beside the list
+    await menu.click()
+    await expect(page.getByRole('menuitem', { name: 'Resume' })).toBeVisible()                        // now paused
+    await page.getByRole('menuitem', { name: 'Edit' }).click()                                        // edit opens beside the list
     await expect(page.getByRole('complementary', { name: 'Edit offer' }).getByRole('textbox', { name: 'Offer name' })).toHaveValue(a)
     await page.getByRole('complementary', { name: 'Edit offer' }).getByRole('button', { name: 'Cancel' }).click()
 

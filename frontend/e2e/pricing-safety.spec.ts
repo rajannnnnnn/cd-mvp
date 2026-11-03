@@ -9,7 +9,8 @@ test.describe('floor prices stay private', () => {
     const bodies: string[] = []
     page.on('response', async (r) => { if (r.url().includes('/api/v1/') && r.headers()['content-type']?.includes('json')) bodies.push(await r.text().catch(() => '')) })
     await page.goto(`${SHOP}/products`)
-    await page.getByText('Banarasi Silk Saree').first().click()
+    await page.getByRole('button', { name: 'More actions for Banarasi Silk Saree' }).first().click()      // a card click only looks; Edit opens the editor
+    await page.getByRole('menuitem', { name: 'Edit' }).click()
     await expect(page.getByText('Saved privately').first()).toBeVisible()
     await expect(page.getByText('Edit product')).toBeVisible()
     const dialog = page.getByRole('complementary', { name: 'Edit product' })

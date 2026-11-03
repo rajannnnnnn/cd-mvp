@@ -360,4 +360,7 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
   - **The console's own database login (ADR 0043), 2026-11-03.** `app_console` is the only login that can read the authenticator secrets, console sessions and break-glass grants; they were taken away from the shared `app_system`.
     `CONSOLE_DATABASE_URL` goes to the console only (deploy/admin, `.env.example`, `scripts/dev_env.sh`); to enable it on an existing database run `ALTER ROLE app_console LOGIN PASSWORD '...'` after the migrations (the role is
     created by `db/bootstrap_roles.sql`; re-run it, it is idempotent). Tests at the database, in the config rules and on the deploy files. **Still open (hardening, not a launch blocker):** splitting web, gateway, agent and scheduler apart.
+  - **Browser specs rewritten for the current screens, 2026-11-03.** Catalogue and offers: hide/show, pause/resume, edit and delete now go through the card menu (with their confirmations); the grid column is "Status"; the playground and
+    floor-privacy specs pass against a local stack. `operator.spec.ts` was **removed**: it drove the console inside the owner app, which no longer exists (ADR 0028). The console has no browser test; it is covered by the backend tests
+    (sign-in, boards, break-glass, the database login), 7 front-end tests and the separation checks. **Not covered anywhere:** the owner's "assistant paused" banner in a browser, and the mobile project (not run here).
 
