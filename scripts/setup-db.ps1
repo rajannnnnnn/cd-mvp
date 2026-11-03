@@ -31,7 +31,10 @@ function Get-EnvValue([string]$part, [string]$key) {
   $f = Join-Path $deploy "$part\.env"
   if (-not (Test-Path $f)) { return '' }
   $m = Select-String -Path $f -Pattern "^$key=(.+)$" | Select-Object -First 1
-  if ($m) { return $m.Matches[0].Groups[1].Value.Trim() } else { return '' }
+  if (-not $m) { return '' }
+  $v = $m.Matches[0].Groups[1].Value.Trim()
+  if ($v.StartsWith('#')) { return '' }          # an untouched template line ("KEY=   # comment") holds no value
+  return $v
 }
 function Keep-Or-New([string]$key, [scriptblock]$make) {
   foreach ($p in $parts) { $v = Get-EnvValue $p $key; if ($v) { return $v } }
