@@ -27,7 +27,8 @@ BUILDERS: dict[str, Callable[[Settings], LLMProvider]] = {
     "local": lambda s: LocalRulesProvider(),
     "anthropic": lambda s: AnthropicProvider(s.anthropic_api_key, base_url=s.anthropic_base_url, timeout_s=s.llm_timeout_s),
     "openai_compat": lambda s: OpenAICompatProvider(s.openai_compat_api_key, s.openai_compat_base_url,
-                                                    timeout_s=s.llm_timeout_s, json_mode=s.llm_json_mode),
+                                                    timeout_s=s.llm_timeout_s, json_mode=s.llm_json_mode,
+                                                    thinking_tokens=s.openai_compat_thinking_tokens),
 }
 
 

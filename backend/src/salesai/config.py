@@ -136,6 +136,7 @@ class Settings(BaseSettings):
     anthropic_base_url: str = "https://api.anthropic.com"
     openai_compat_base_url: str = ""                   # e.g. https://api.groq.com/openai/v1, or a self-hosted vLLM
     openai_compat_api_key: str = ""
+    openai_compat_thinking_tokens: int = Field(0, ge=0, le=32000)   # extra tokens per reply for a thinking model (Gemini 2.5, gpt-oss); billed only as used
     llm_json_mode: Literal["json_schema", "json_object"] = "json_schema"   # json_object for hosts without schema support
     llm_model_planner: str = "openai/gpt-oss-20b"
     llm_model_writer: str = "openai/gpt-oss-20b"

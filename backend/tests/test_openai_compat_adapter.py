@@ -139,3 +139,20 @@ async def test_a_truncated_reply_says_so(api):
     with pytest.raises(LLMError) as e:
         await provider(api).generate(req(), PlannerOutput)
     assert not e.value.retryable and "truncated" in str(e.value)
+
+
+async def test_thinking_room_is_added_to_every_reply_budget_and_only_when_asked_for(api):
+    """A thinking model (Gemini 2.5, gpt-oss) spends part of max_tokens on its reasoning before the answer, so a small budget truncates the reply.
+    OPENAI_COMPAT_THINKING_TOKENS adds room on top of each stage's own budget; it is billed only as used, and 0 changes nothing."""
+    api.reply_json(VALID_PLAN)
+    await provider(api).generate(req(max_tokens=400), PlannerOutput)
+    api.reply_json(VALID_PLAN)
+    await provider(api, thinking_tokens=2000).generate(req(max_tokens=400), PlannerOutput)
+    assert [b["max_tokens"] for b in api.requests] == [400, 2400]
+
+
+async def test_a_truncated_reply_tells_the_operator_which_setting_to_raise(api):
+    api.reply_text('{"intent": "product_inq', finish_reason="length")
+    with pytest.raises(LLMError) as e:
+        await provider(api).generate(req(max_tokens=60), PlannerOutput)
+    assert "OPENAI_COMPAT_THINKING_TOKENS" in str(e.value) and not e.value.retryable

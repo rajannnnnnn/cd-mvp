@@ -50,10 +50,11 @@ class OpenAICompatProvider:
     name = "openai_compat"
 
     def __init__(self, api_key: str, base_url: str, *, timeout_s: float = 30.0, max_retries: int = 1,
-                 json_mode: JsonMode = "json_schema", retry_base_s: float = 0.25):
+                 json_mode: JsonMode = "json_schema", retry_base_s: float = 0.25, thinking_tokens: int = 0):
         self.client = httpx.AsyncClient(base_url=base_url.rstrip("/") + "/", timeout=timeout_s,
                                         headers={"Authorization": f"Bearer {api_key}"})
         self.max_retries, self.json_mode, self.retry_base_s = max_retries, json_mode, retry_base_s
+        self.thinking_tokens = max(0, thinking_tokens)      # room for a thinking model's reasoning, added to every stage's own budget
 
     def _body(self, req: LLMRequest, schema: type[T]) -> dict[str, Any]:
         if req.cache_keys:
@@ -64,7 +65,7 @@ class OpenAICompatProvider:
         body: dict[str, Any] = {
             "model": req.model,
             "messages": [{"role": "system", "content": req.system}, *req.messages, {"role": "user", "content": user}],
-            "max_tokens": req.max_tokens,
+            "max_tokens": req.max_tokens + self.thinking_tokens,
         }
         if self.json_mode == "json_schema":
             body["response_format"] = {"type": "json_schema",
@@ -108,7 +109,7 @@ class OpenAICompatProvider:
         except ValueError as e:
             if choice.get("finish_reason") == "length":
                 raise LLMError(f"reply truncated at max_tokens={req.max_tokens} for stage {req.stage}; "
-                               "a reasoning model needs headroom for its thinking", retryable=False) from e
+                               "a reasoning model needs headroom for its thinking: raise OPENAI_COMPAT_THINKING_TOKENS (for example 2000)", retryable=False) from e
             raise LLMError("reply contained no JSON object", retryable=False) from e
         try:
             out = schema.model_validate(obj)
