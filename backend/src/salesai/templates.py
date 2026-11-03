@@ -21,6 +21,10 @@ TEMPLATES: dict[str, dict[str, str]] = {
         "en": "Sales AI platform alert: {{1}}",
         "hi": "Sales AI प्लेटफ़ॉर्म अलर्ट: {{1}}",
     },
+    "usage_warning": {           # ADR 0032: a plan is a cap with no charge per conversation; this tells the owner how close they are
+        "en": "📊 {{1}}: {{2}} of the {{3}} conversations in your plan are used this month. {{4}}",
+        "hi": "📊 {{1}}: इस महीने आपके प्लान की {{3}} बातचीत में से {{2}} इस्तेमाल हो चुकी हैं। {{4}}",
+    },
     "disconnect_alert": {
         "en": "⚠️ {{1}}: your WhatsApp number {{2}} is disconnected. The AI assistant has been paused. Reason: {{3}}",
         "hi": "⚠️ {{1}}: आपका WhatsApp नंबर {{2}} डिस्कनेक्ट हो गया है। AI असिस्टेंट रोक दिया गया है। कारण: {{3}}",

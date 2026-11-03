@@ -334,4 +334,9 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
     conversations on a 500 plan and checks the invoice); `overage_paise` is gone from the plan catalogue, `plans.json`, the usage API (`extra_conversations`, `overage_estimate_paise`) and the generated client;
     the pricing page shows "conversations each month" with no extra-conversation price; the billing screen says there is no extra charge and shows a plain note from 80% of the count
     (at the count: the assistant keeps answering, upgrade for room). **Still to build (ADR 0032):** the early WhatsApp warning to the owner and the short grace period at the cap.
+  - **Usage warnings (ADR 0032), 2026-11-03.** The owner is told once at 80% and once at 100% of the plan's conversation count, in their WhatsApp, with no mention of any charge
+    (migration 0029 `usage_notices`, 0030 allows the new owner-message purpose; template `usage_warning` needs Meta approval, now on the go-live list). Tests: `test_usage_warnings.py` (thresholds,
+    once only, jump past the cap, new period, pilots and lapsed shops, one shop's owner only) and the shop-isolation test covers the new table.
+    **Also this stretch:** the turn-detection wiring test and three pricing property tests no longer depend on other tests' data or on filtered random inputs (they failed
+    occasionally in the full run). **Open question for the founder:** what happens after the cap (keep answering vs pause after a grace); until decided it keeps answering.
 

@@ -13,7 +13,7 @@ TENANT_TABLES = [
     "messages", "negotiations", "deals", "handoffs", "knowledge_gaps", "owner_messages",
     "config_proposals", "audit_log", "learning_observations", "number_connect_requests", "channel_events",
     "support_tickets", "support_messages", "support_attachments", "agent_runs", "agent_timers",          # shops read and write their own tickets
-    "subscriptions", "invoices", "payments",                               # written by us, readable by the shop
+    "subscriptions", "invoices", "payments", "usage_notices",                               # written by us, readable by the shop
 ]
 
 
@@ -76,6 +76,7 @@ async def make_tenant(db, name: str) -> dict:
         ids.update(user=bu["id"], num=num["id"], conv=conv["id"], variant=var["id"], product=prod["id"])
     async with db.system_tx() as s:                     # billing rows: written by the platform once the shop exists (committed), read by the shop
         await s.execute("INSERT INTO subscriptions (business_id, plan, status) VALUES (%s,'pilot','pilot')", (bid,))
+        await s.execute("INSERT INTO usage_notices (business_id, period_start, threshold, used, cap) VALUES (%s,now(),80,400,500)", (bid,))
         inv = await (await s.execute(
             """INSERT INTO invoices (business_id, number, plan, period_start, period_end, lines, subtotal_paise, gst_paise, total_paise, due_at)
                VALUES (%s,%s,'growth',now(),now()+interval '1 month','[]',100,18,118,now()) RETURNING id""",

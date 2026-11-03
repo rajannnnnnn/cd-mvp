@@ -78,3 +78,6 @@ GRANT SELECT ON agent_runs TO app_system;
 -- the agent's clock (ADR 0038): the agent writes its own shop's timers; the platform's scan for due ones reads them, never edits
 GRANT SELECT, INSERT, UPDATE, DELETE ON agent_timers TO app_user;
 GRANT SELECT ON agent_timers TO app_system;
+-- usage notices (ADR 0032): the platform records them as the billing cycle runs; the shop can read what it was told
+GRANT SELECT ON usage_notices TO app_user;
+GRANT SELECT, INSERT ON usage_notices TO app_system;

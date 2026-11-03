@@ -80,6 +80,16 @@ check the count themselves and see it rise, or the meter becomes a support burde
 - Each tier's margin depends on ADR 0026 and ADR 0027 landing first; without channel and model cost
   accounting these numbers cannot be trusted.
 
+## Implementation notes (2026-11-03)
+
+- **Warnings are built.** The billing cycle (web scheduler) checks each capped shop's count for the current period and sends the owner one WhatsApp notice at 80% and one at 100%
+  (`usage_warning`, template in `templates.py`, memory in `usage_notices`, one row per shop, period and threshold, so a restart or a second scheduler cannot repeat it). A shop that jumps
+  straight past the cap gets one notice, not two. A new billing period starts the count again. Pilot shops and lapsed shops get none. The text says there is no extra charge and the
+  assistant keeps answering. The billing screen shows the same message from 80%.
+- **Nothing stops the assistant at the cap.** The "short grace period" above is not enforced, because what should happen when the grace ends (keep answering, slow down, pause) changes what
+  customers experience and what we absorb in cost. **Founder decision pending:** after the cap, does the assistant keep answering (we absorb the cost and nudge the owner to upgrade), or pause
+  after N days or N extra conversations? Until decided, it keeps answering.
+
 ## How to revisit
 
 Set the real numbers from Phase 2 measurement in a superseding ADR. If owners dispute counts or

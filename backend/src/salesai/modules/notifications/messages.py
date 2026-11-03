@@ -78,6 +78,19 @@ def summary_body(lang: str, m: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def usage_warning(lang: str, biz: str, used: int, cap: int, threshold: int) -> tuple[str, list[str]]:
+    """ADR 0032: how close the shop is to its plan's conversation count. No price is mentioned because there is none to pay."""
+    if threshold >= 100:
+        line = pick(lang, "You have reached it. Your assistant keeps answering, with no extra charge. Upgrade in the app to make room.",
+                    "आप इसकी सीमा तक पहुँच गए हैं। आपका असिस्टेंट जवाब देता रहेगा, कोई अतिरिक्त शुल्क नहीं। जगह बढ़ाने के लिए ऐप में प्लान अपग्रेड करें।")
+    else:
+        line = pick(lang, "Your assistant keeps answering, with no extra charge. Upgrade in the app if you would like more room.",
+                    "आपका असिस्टेंट जवाब देता रहेगा, कोई अतिरिक्त शुल्क नहीं। ज़्यादा जगह चाहिए तो ऐप में प्लान अपग्रेड करें।")
+    params = [biz, str(used), str(cap), line]
+    return pick(lang, f"📊 {biz}: {used} of the {cap} conversations in your plan are used this month. {line}",
+                f"📊 {biz}: इस महीने आपके प्लान की {cap} बातचीत में से {used} इस्तेमाल हो चुकी हैं। {line}"), params
+
+
 def disconnect_alert(lang: str, biz: str, number: str, reason: str) -> tuple[str, list[str]]:
     body = pick(lang, f"⚠️ {biz}: your WhatsApp number {number} is disconnected. The AI assistant has been paused. Reason: {reason}",
                 f"⚠️ {biz}: आपका WhatsApp नंबर {number} डिस्कनेक्ट हो गया है। AI असिस्टेंट रोक दिया गया है। कारण: {reason}")

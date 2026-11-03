@@ -108,6 +108,9 @@ class OwnerLoop:
             elif built["purpose"] == "disconnect_alert":
                 data = built["data"]
                 body, params = M.disconnect_alert(lang, biz["name"], data.get("number", ""), data.get("reason", ""))
+            elif built["purpose"] == "usage_warning":
+                data = built["data"]
+                body, params = M.usage_warning(lang, biz["name"], int(data.get("used", 0)), int(data.get("cap", 0)), int(data.get("threshold", 80)))
             else:
                 body, params = built["data"].get("text", ""), []
             await self.send_to_owner(bid, u, built["purpose"], body, built["template"], params)

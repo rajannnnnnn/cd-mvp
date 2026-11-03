@@ -14,6 +14,7 @@ from typing import Any
 
 from salesai.alerts import raise_alert
 from salesai.db import Database, jsonb, required
+from salesai.events.outbox import emit
 from salesai.modules.billing.payments import PaymentProvider
 from salesai.modules.billing.plans import GRACE_DAYS, PLANS, TRIAL_DAYS, TRIAL_PLAN, Plan, gst_for
 
@@ -284,7 +285,7 @@ class BillingService:
     # ------------------------------------------------------------------ the periodic cycle (scheduler)
     async def run_cycle(self) -> dict[str, int]:
         now = self.now()
-        done = {"trial_ended": 0, "renewed": 0, "ended": 0, "past_due": 0, "lapsed": 0}
+        done = {"trial_ended": 0, "renewed": 0, "ended": 0, "past_due": 0, "lapsed": 0, "usage_notices": 0}
         async with self.db.system_tx() as c:
             for r in await (await c.execute("SELECT business_id FROM subscriptions WHERE status='trialing' AND trial_ends_at <= %s FOR UPDATE", (now,))).fetchall():
                 await c.execute("UPDATE subscriptions SET status='canceled' WHERE business_id=%s", (r["business_id"],))
@@ -311,7 +312,46 @@ class BillingService:
                     if not (b and (b["onboarding"] or {}).get("billing_paused")):
                         await self._lapse(c, inv["business_id"], f"invoice {inv['number']} unpaid")
                         done["lapsed"] += 1
+        done["usage_notices"] = await self._usage_notices(now)
         return done
+
+    # ADR 0032: tell the owner once at 80% and once at 100% of the plan's conversation count. Nothing stops the assistant: a cap is a prompt to upgrade.
+    NOTICE_AT = (80, 100)
+
+    async def _usage_notices(self, now: datetime) -> int:
+        sent = 0
+        async with self.db.system_tx() as c:
+            subs = await (await c.execute(
+                """SELECT s.business_id, s.plan, s.status, s.created_at, s.current_period_start FROM subscriptions s
+                   WHERE s.status IN ('trialing','active','past_due')
+                     AND NOT EXISTS (SELECT 1 FROM usage_notices n WHERE n.business_id = s.business_id AND n.threshold = 100
+                                       AND n.period_start = COALESCE(CASE WHEN s.status = 'trialing' THEN s.created_at ELSE s.current_period_start END, s.created_at))""")).fetchall()
+        for sub in subs:
+            plan = PLANS.get(sub["plan"])
+            cap = plan.included_conversations if plan else None
+            if not cap:
+                continue
+            start = sub["created_at"] if sub["status"] == "trialing" else (sub["current_period_start"] or sub["created_at"])
+            async with self.db.tenant(sub["business_id"]) as t:
+                used = (await (await t.execute(
+                    "SELECT count(DISTINCT conversation_id) AS n FROM turns WHERE created_at >= %s AND created_at < %s AND status IN ('planned','sent')",
+                    (start, now + timedelta(seconds=1)))).fetchone())["n"]
+            crossed = [pct for pct in self.NOTICE_AT if used * 100 >= cap * pct]
+            if not crossed:
+                continue
+            async with self.db.system_tx() as c:
+                fresh = []
+                for pct in crossed:
+                    row = await (await c.execute(
+                        """INSERT INTO usage_notices (business_id, period_start, threshold, used, cap) VALUES (%s,%s,%s,%s,%s)
+                           ON CONFLICT DO NOTHING RETURNING 1""", (sub["business_id"], start, pct, used, cap))).fetchone()
+                    if row:
+                        fresh.append(pct)
+                if fresh:                    # one message for the highest threshold newly crossed: a shop that jumps past the cap is not told twice
+                    await emit(c, "owner.notification_requested", {"purpose": "usage_warning", "data": {"used": used, "cap": cap, "threshold": max(fresh)}},
+                               business_id=sub["business_id"], ordering_key=f"biz:{sub['business_id']}")
+                    sent += 1
+        return sent
 
     async def _renew(self, c: Any, sub: dict[str, Any], now: datetime) -> None:
         bid = sub["business_id"]
