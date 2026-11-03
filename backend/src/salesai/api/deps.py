@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import ipaddress
 import json
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
+from functools import lru_cache
 from typing import Annotated, Any
 
 from fastapi import Depends, Header, Request
@@ -45,10 +47,30 @@ async def owner_principal(p: Annotated[Principal, Depends(tenant_principal)]) ->
     return p
 
 
-async def operator_principal(p: Annotated[Principal, Depends(principal)]) -> Principal:
-    if p.role != "operator":
-        raise ApiError(403, "forbidden", "Operator access required.")
-    return p
+@lru_cache(maxsize=16)
+def _networks(spec: str) -> tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]:
+    return tuple(ipaddress.ip_network(x.strip(), strict=False) for x in spec.split(",") if x.strip())
+
+
+async def admin_gate(request: Request, rt: RT) -> None:
+    """The optional address allowlist of the founder's console (ADR 0028), checked on every admin request, sign-in included."""
+    allowed = _networks(rt.settings.admin_allowed_ips)
+    if not allowed:
+        return
+    try:
+        addr = ipaddress.ip_address(client_ip(request) or "")
+    except ValueError:
+        addr = None
+    if addr is None or not any(addr in n for n in allowed):
+        raise ApiError(403, "ip_not_allowed", "The admin console cannot be opened from this address.")
+
+
+async def operator_principal(rt: RT, authorization: Annotated[str | None, Header()] = None) -> Principal:
+    """The platform operator, signed in to the admin console with a second factor. A shop-app token never gets here: it is signed
+    with a different secret, so it does not even verify."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise AuthError("unauthenticated", "Sign in to continue.")
+    return await rt.admin_auth.authenticate(authorization.split(None, 1)[1])
 
 
 async def setup_principal(p: Annotated[Principal, Depends(principal)]) -> Principal:

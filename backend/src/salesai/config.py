@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import ipaddress
 import json
 import re
 from functools import lru_cache
@@ -10,7 +11,7 @@ from typing import Any, Literal
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-Role = Literal["api", "ingress", "web", "worker", "scheduler", "migrate", "all"]
+Role = Literal["api", "ingress", "web", "admin", "worker", "scheduler", "migrate", "all"]
 
 ALL_QUEUES = (
     "inbound.events",
@@ -79,6 +80,12 @@ class Settings(BaseSettings):
     number_connect_wait_s: float = Field(30.0, gt=0, le=120)   # how long a connect request waits for the gateway (several Meta calls)
     otp_per_phone_per_hour: int = 5
     otp_per_ip_per_hour: int = 30
+
+    # --- the admin plane (ADR 0028): the founder's console is its own application on its own origin
+    admin_jwt_secret: str = Field("", description="at least 32 characters, different from JWT_SECRET. Admin part only")
+    admin_session_minutes: int = 30           # how long a console session lasts; there is no refresh, only a fresh authenticator code
+    admin_allowed_origins: str = ""           # the console's own origin(s), e.g. https://admin.yourcompany.example
+    admin_allowed_ips: str = ""               # optional: comma-separated addresses or ranges that may reach the console (empty = anyone who can sign in)
 
     # --- channels
     simulator_enabled: bool = True
@@ -189,23 +196,34 @@ class Settings(BaseSettings):
         need: set[str] = set()
         if self.role == "all":
             need |= {"master_key", "jwt_secret", "otp_secret", "meta_app_secret", "meta_verify_token"}
-        elif self.role == "api":                       # the web part holds no Meta secret (ADR 0025); the master key is for the
-            need |= {"master_key", "jwt_secret", "otp_secret"}   # operator's manual pilot numbers, retired by Tech Provider approval
+        elif self.role == "api":                       # the public web part holds no Meta secret and no master key (ADR 0025, 0028)
+            need |= {"jwt_secret", "otp_secret"}
+        elif self.role == "admin":                     # the founder's console: the master key is for registering a pilot number by hand
+            need |= {"master_key", "jwt_secret", "otp_secret", "admin_jwt_secret"}
         elif self.role == "ingress":
             need |= {"meta_app_secret", "meta_verify_token"}
         elif self.role == "worker" and set(self.queues) & SENDING_QUEUES:
             need |= {"master_key", "meta_app_secret"}  # the gateway's send part: opens the WhatsApp tokens, completes Embedded Signup
             if self.otp_channel == "whatsapp_cloud":
                 need.add("platform_wa_access_token")   # the platform's own sender: sign-in codes, and alerts when a shop's number is down
-        if self.simulator_enabled and self.role not in ("web", "migrate"):
+        if self.simulator_enabled and self.role not in ("web", "admin", "migrate"):
             need.add("meta_app_secret")                # the simulator signs the webhooks it plays back
         for name in sorted(need):
             if not getattr(self, name):
                 raise ValueError(f"{name.upper()} is required for role {self.role!r}")
-        for name, minimum in (("jwt_secret", 32), ("otp_secret", 32), ("meta_app_secret", 8), ("meta_verify_token", 8)):
+        for name, minimum in (("jwt_secret", 32), ("otp_secret", 32), ("admin_jwt_secret", 32), ("meta_app_secret", 8), ("meta_verify_token", 8)):
             v = getattr(self, name)
             if v and len(v) < minimum:
                 raise ValueError(f"{name.upper()} must be at least {minimum} characters")
+        if self.admin_jwt_secret and self.admin_jwt_secret == self.jwt_secret:
+            raise ValueError("ADMIN_JWT_SECRET must differ from JWT_SECRET: the public application must not be able to sign admin sessions")
+        if not 5 <= self.admin_session_minutes <= 480:
+            raise ValueError("ADMIN_SESSION_MINUTES must be between 5 and 480")
+        for cidr in self.admin_ips:
+            try:
+                ipaddress.ip_network(cidr, strict=False)
+            except ValueError as e:
+                raise ValueError(f"ADMIN_ALLOWED_IPS entry {cidr!r} is not an address or range") from e
         return self
 
     @property
@@ -262,8 +280,10 @@ class Settings(BaseSettings):
                 raise ValueError("SIMULATOR_ENABLED must be false and OTP_CHANNEL=whatsapp_cloud in production")
             if self.payment_provider == "test":
                 raise ValueError("PAYMENT_PROVIDER=test settles invoices without taking money; use PAYMENT_PROVIDER=manual in production")
+            if self.role == "admin" and (not self.admin_origins or "*" in self.admin_origins):
+                raise ValueError("ADMIN_ALLOWED_ORIGINS must name the console's own origin in production (never empty or *)")
             weak = ("change-me", "dev-", "test-")
-            for name in ("jwt_secret", "otp_secret", "meta_app_secret", "meta_verify_token"):
+            for name in ("jwt_secret", "otp_secret", "admin_jwt_secret", "meta_app_secret", "meta_verify_token"):
                 if any(w in getattr(self, name).lower() for w in weak):
                     raise ValueError(f"{name.upper()} looks like a placeholder; set a real secret")
         for e in self.alert_emails:
@@ -287,6 +307,14 @@ class Settings(BaseSettings):
     @property
     def queues(self) -> list[str]:
         return [q.strip() for q in self.worker_queues.split(",") if q.strip()]
+
+    @property
+    def admin_origins(self) -> list[str]:
+        return [o.strip() for o in self.admin_allowed_origins.split(",") if o.strip()]
+
+    @property
+    def admin_ips(self) -> list[str]:
+        return [i.strip() for i in self.admin_allowed_ips.split(",") if i.strip()]
 
     @property
     def alert_emails(self) -> list[str]:

@@ -16,7 +16,7 @@ from salesai.modules.alerting import AlertRouter
 from salesai.modules.alerting.email_sink import EmailSink
 from salesai.modules.alerting.router import WhatsAppSink
 from salesai.modules.alerting.webhook_sink import WebhookSink
-from salesai.modules.auth import AuthService
+from salesai.modules.auth import AdminAuth, AuthService
 from salesai.modules.billing import BillingService, ManualProvider, MetaUsage, TestGateway
 from salesai.modules.channels import ChannelRegistry
 from salesai.modules.channels.connect import NumberConnector
@@ -77,6 +77,7 @@ class Runtime:
         self.owner_sender = OwnerSender(db, self.channels)
         self.owner = OwnerLoop(db, self.llm, settings.llm_model_check)
         self.auth = AuthService(db, settings, pump=self._pump)
+        self.admin_auth = AdminAuth(db, settings, self.auth)     # the founder's console sign-in (ADR 0028)
         self.sim = SimulatorNetwork(db, settings.meta_app_secret)
         self.alerts = build_alert_router(db, self.channels, settings)
         self.billing = BillingService(db, ManualProvider(settings.payment_instructions) if settings.payment_provider == "manual" else TestGateway(), seller={"name": settings.invoice_seller_name, "address": settings.invoice_seller_address, "gstin": settings.invoice_seller_gstin})

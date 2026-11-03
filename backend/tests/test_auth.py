@@ -208,14 +208,10 @@ async def test_one_number_two_businesses_uses_a_ticket_then_picks(world, auth):
         await auth.select_business(res["ticket"], uuid.uuid4(), None)   # ticket already consumed
 
 
-async def test_operator_login_and_impersonation_is_audited(world, auth):
+async def test_an_operator_has_no_operator_session_from_the_public_sign_in(world, auth):
+    """ADR 0028: the shop app's code-only sign-in never produces an operator session; the console has its own."""
     async with world.rt.db.system_tx() as c:
         phone = f"+9194{uuid.uuid4().int % 10**8:08d}"
         await c.execute("INSERT INTO accounts (phone, name, platform_role) VALUES (%s,'Ops','operator')", (phone,))
-    op = await login(world, auth, phone)
-    assert op.role == "operator" and op.business_id is None
-    shop = await world.make_shop()
-    imp = await auth.impersonate(await auth.authenticate(op.access_token), shop.business_id, None)
-    p = await auth.authenticate(imp.access_token)
-    assert p.business_id == shop.business_id and p.role == "owner" and p.impersonated_by is not None
-    assert await world.q(shop, "SELECT 1 FROM audit_log WHERE action='operator.impersonation'")
+    p = await login(world, auth, phone)
+    assert p.role == "setup" and p.business_id is None

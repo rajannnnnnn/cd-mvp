@@ -76,6 +76,7 @@ def env(pg_urls: dict[str, str]) -> dict[str, str]:
         "MASTER_KEY": base64.b64encode(b"k" * 32).decode(),
         "JWT_SECRET": "test-jwt-secret-0123456789abcdefghij",
         "OTP_SECRET": "test-otp-secret-0123456789abcdefghij",
+        "ADMIN_JWT_SECRET": "test-admin-secret-0123456789abcdefgh",
         "META_APP_SECRET": "test-app-secret",
         "META_VERIFY_TOKEN": "test-verify-token",
         "OTP_MIN_INTERVAL_S": "0",
@@ -171,7 +172,7 @@ def redis_url():
 async def app(rt):
     from salesai.api.app import create_app
 
-    return create_app(rt, "web")
+    return create_app(rt, "all")        # the shop app and the founder's console together; tests/test_admin_auth.py checks each role on its own
 
 
 @pytest_asyncio.fixture

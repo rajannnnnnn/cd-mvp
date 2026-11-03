@@ -48,8 +48,8 @@ async def test_tickets_are_private_to_their_shop_and_support_is_for_operators_on
     assert (await client.get(f"{V1}/support/tickets/{t['id']}", headers=hdr(b))).status_code == 404
     assert (await client.post(f"{V1}/support/tickets/{t['id']}/messages", headers=hdr(b), json={"body": "hi"})).status_code == 404
     assert (await client.post(f"{V1}/support/tickets/{t['id']}/resolve", headers=hdr(b))).status_code == 404
-    assert (await client.get(f"{V1}/operator/support", headers=hdr(a))).status_code == 403
-    assert (await client.post(f"{V1}/operator/support/{t['id']}/messages", headers=hdr(a), json={"body": "x"})).status_code == 403
+    assert (await client.get(f"{V1}/operator/support", headers=hdr(a))).status_code == 401
+    assert (await client.post(f"{V1}/operator/support/{t['id']}/messages", headers=hdr(a), json={"body": "x"})).status_code == 401
     assert (await client.post(f"{V1}/support/tickets", json=TICKET)).status_code == 401
 
 

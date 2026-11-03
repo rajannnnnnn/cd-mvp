@@ -343,16 +343,16 @@ async def test_simulator_only_touches_your_own_numbers_and_can_be_disabled(world
 
 # ------------------------------------------------------------------ operator
 async def operator_token(world, client):
-    async with world.rt.db.system_tx() as c:
-        phone = f"+9193{uuid.uuid4().int % 10**8:08d}"
-        await c.execute("INSERT INTO accounts (phone, name, platform_role) VALUES (%s,'Ops','operator')", (phone,))
-    return await login(client, phone)
+    """A platform operator signed in to the admin console the real way: a WhatsApp code, then an authenticator code."""
+    from tests.admin_helpers import admin_login, make_admin
+    phone, secret = await make_admin(world)
+    return await admin_login(client, world.rt, phone, secret)
 
 
 async def test_operator_console_onboarding_support_and_guards(world, client):
     op = await operator_token(world, client)
     shop, tok = await owner(world, client)
-    assert (await client.get(f"{V1}/operator/businesses", headers=hdr(tok))).status_code == 403          # owners are not operators
+    assert (await client.get(f"{V1}/operator/businesses", headers=hdr(tok))).status_code == 401          # a shop token does not even verify on the console
     assert (await client.get(f"{V1}/operator/businesses")).status_code == 401
     phone = f"+9192{uuid.uuid4().int % 10**8:08d}"
     r = await client.post(f"{V1}/operator/businesses", headers=hdr(op), json={"name": "New Kirana", "owner_name": "Ramesh", "owner_phone": phone, "simulated_number": f"+9190{uuid.uuid4().int % 10**8:08d}"})
@@ -456,7 +456,7 @@ async def test_the_assistant_switch_belongs_to_the_platform_team_not_the_shop(wo
         assert (await client.post(f"{V1}{path}", headers=hdr(tok), json={"enabled": False, "code": "123456"})).status_code in (404, 405)
     r = await client.patch(f"{V1}/business", headers=hdr(tok), json={"ai_enabled": False})
     assert r.status_code == 422                                                                  # the business settings do not accept it either
-    assert (await client.patch(f"{V1}/operator/businesses/{shop.business_id}", headers=hdr(tok), json={"ai_enabled": False})).status_code == 403
+    assert (await client.patch(f"{V1}/operator/businesses/{shop.business_id}", headers=hdr(tok), json={"ai_enabled": False})).status_code == 401
     assert (await client.get(f"{V1}/business", headers=hdr(tok))).json()["ai_enabled"] is True   # nothing the owner can do changed it
     op = await operator_token(world, client)
     assert (await set_ai(client, op, shop.business_id, False)).status_code == 204

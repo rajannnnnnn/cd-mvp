@@ -197,7 +197,7 @@ async def test_manual_payments_stay_open_until_the_platform_team_confirms(world,
     assert (await client.get(f"{V1}/billing", headers=hdr(owner))).json()["status"] == "trialing"
     op = await operator_token(world, client)
     assert inv["id"] in [i["id"] for i in (await client.get(f"{V1}/operator/invoices", headers=hdr(op))).json()]
-    assert (await client.post(f"{V1}/operator/invoices/{inv['id']}/mark-paid", headers=hdr(owner))).status_code == 403
+    assert (await client.post(f"{V1}/operator/invoices/{inv['id']}/mark-paid", headers=hdr(owner))).status_code == 401
     done = await client.post(f"{V1}/operator/invoices/{inv['id']}/mark-paid", headers=hdr(op), params={"reference": "UTR123"})
     assert done.status_code == 200 and done.json()["status"] == "paid"
     assert (await client.get(f"{V1}/billing", headers=hdr(owner))).json()["status"] == "active"

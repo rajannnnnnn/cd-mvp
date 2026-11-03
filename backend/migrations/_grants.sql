@@ -64,3 +64,6 @@ GRANT SELECT, INSERT, UPDATE ON number_connect_requests TO app_user;          --
 GRANT SELECT, UPDATE, DELETE ON number_connect_requests TO app_system;        -- the gateway answers; retention clears
 GRANT SELECT, INSERT, UPDATE ON channel_events TO app_user;     -- the gateway hands events over, the agent marks them handled (ADR 0025)
 GRANT SELECT, DELETE ON channel_events TO app_system;           -- retention removes handled events
+
+-- ---------------------------------------------------------------- admin plane (app_system only; ADR 0028)
+GRANT SELECT, INSERT, UPDATE, DELETE ON admin_credentials, admin_sessions TO app_system;

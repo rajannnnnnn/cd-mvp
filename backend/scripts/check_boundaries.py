@@ -37,7 +37,7 @@ ALLOWED_DEPS: dict[str, set[str]] = {
     "sales": set(),
     "handoffs": set(),
     "channels": {"tenants"},
-    "auth": {"channels"},
+    "auth": {"channels", "tenants"},        # the admin sign-in writes the platform audit trail
     "delivery": {"channels", "handoffs"},
     "agent": {"catalog", "delivery", "handoffs", "pricing", "sales"},
     "conversations": {"agent", "channels", "handoffs"},

@@ -146,7 +146,7 @@ async def test_the_platform_team_can_read_a_shops_usage_and_a_shop_cannot(world,
     assert bad.status_code == 422
     owner = await login(client, shop.owner_phone)                 # a shop never sees the platform's cost view
     r = await client.get(f"{V1}/operator/businesses/{shop.business_id}/meta-usage", params={"month": "2026-11"}, headers=hdr(owner))
-    assert r.status_code == 403
+    assert r.status_code == 401
 
 
 def test_rates_and_the_free_allowance_are_configuration():

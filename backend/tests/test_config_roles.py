@@ -14,12 +14,13 @@ DB = {"DATABASE_URL": "postgresql://x", "PRICING_DATABASE_URL": "postgresql://x"
       "MIGRATION_DATABASE_URL": "postgresql://x"}
 MASTER = base64.b64encode(b"k" * 32).decode()
 SECRETS = {"MASTER_KEY": MASTER, "JWT_SECRET": "j" * 40, "OTP_SECRET": "o" * 40, "META_APP_SECRET": "m" * 24, "META_VERIFY_TOKEN": "v" * 24}
+ADMIN_SECRET = "a" * 40            # the console's own secret; held only by the admin part, so it is not in SECRETS (those are the shop side's)
 
 
 @pytest.fixture(autouse=True)
 def _clean_environment(monkeypatch):
     """Settings reads os.environ; other test files export the whole secret set for the session. These tests are about what is ABSENT."""
-    for name in list(SECRETS) + ["ROLE", "WORKER_QUEUES", "SIMULATOR_ENABLED", "ENV", "OTP_CHANNEL", "LLM_PROVIDER", "PAYMENT_PROVIDER"]:
+    for name in list(SECRETS) + ["ADMIN_JWT_SECRET", "ROLE", "WORKER_QUEUES", "SIMULATOR_ENABLED", "ENV", "OTP_CHANNEL", "LLM_PROVIDER", "PAYMENT_PROVIDER"]:
         monkeypatch.delenv(name, raising=False)
 
 
@@ -63,12 +64,21 @@ def test_the_sender_needs_the_platform_token_when_codes_go_out_over_whatsapp():
 
 
 def test_the_web_api_holds_no_meta_secret_at_all():
-    web = ("MASTER_KEY", "JWT_SECRET", "OTP_SECRET")                                                # master key: operator's manual pilot numbers
+    web = ("JWT_SECRET", "OTP_SECRET")                          # ADR 0028: not the master key either; the admin part holds it for pilot numbers
     s = build("api", keep=web)
-    assert s.meta_app_secret == "" and s.meta_verify_token == ""
+    assert s.meta_app_secret == "" and s.meta_verify_token == "" and s.master_key == "" and s.admin_jwt_secret == ""
     for name in web:
         with pytest.raises(ValidationError, match=name):
             build("api", keep=tuple(k for k in web if k != name))
+
+
+def test_the_admin_part_holds_the_master_key_and_its_own_secret_and_no_meta_secret():
+    keep = ("MASTER_KEY", "JWT_SECRET", "OTP_SECRET")
+    s = build("admin", keep=keep, ADMIN_JWT_SECRET=ADMIN_SECRET)
+    assert s.meta_app_secret == "" and s.meta_verify_token == ""
+    for name in (*keep, "ADMIN_JWT_SECRET"):
+        with pytest.raises(ValidationError, match=name):
+            build("admin", keep=tuple(k for k in keep if k != name), ADMIN_JWT_SECRET="" if name == "ADMIN_JWT_SECRET" else ADMIN_SECRET)
 
 
 def test_a_worker_with_the_default_queues_is_a_sender_and_needs_the_gateways_secrets():
@@ -90,7 +100,8 @@ PROD = {"ENV": "production", "SIMULATOR_ENABLED": "false", "OTP_CHANNEL": "whats
 
 def test_only_the_agents_workers_need_a_model_configured_in_production():
     # the web and gateway parts never call a model, so asking them for an API key (or refusing the stand-in) is noise
-    build("api", keep=("MASTER_KEY", "JWT_SECRET", "OTP_SECRET"), **PROD)
+    build("api", keep=("JWT_SECRET", "OTP_SECRET"), **PROD)
+    build("admin", keep=("MASTER_KEY", "JWT_SECRET", "OTP_SECRET"), ADMIN_JWT_SECRET=ADMIN_SECRET, ADMIN_ALLOWED_ORIGINS="https://admin.example.com", **PROD)
     build("ingress", keep=("META_APP_SECRET", "META_VERIFY_TOKEN"), **PROD)
     build("scheduler", **PROD)
     build("worker", keep=("MASTER_KEY", "META_APP_SECRET"), WORKER_QUEUES="outbound.actions,inbound.events", **PROD)

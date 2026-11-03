@@ -17,6 +17,7 @@ BASE = {
     "DATABASE_URL": "postgresql://x", "PRICING_DATABASE_URL": "postgresql://x", "SYSTEM_DATABASE_URL": "postgresql://x",
     "MIGRATION_DATABASE_URL": "postgresql://x", "MASTER_KEY": base64.b64encode(b"k" * 32).decode(),
     "JWT_SECRET": "j" * 40, "OTP_SECRET": "o" * 40, "META_APP_SECRET": "m" * 24, "META_VERIFY_TOKEN": "v" * 24,
+    "ADMIN_JWT_SECRET": "a" * 40,         # set explicitly: the rest of the suite exports a test-looking one into the process environment
 }
 
 

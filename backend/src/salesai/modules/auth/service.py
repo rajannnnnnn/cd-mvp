@@ -42,7 +42,7 @@ class Principal:
     account_id: uuid.UUID
     session_id: uuid.UUID
     business_id: uuid.UUID | None
-    role: str                      # owner | staff | operator
+    role: str                      # owner | staff (shop app) | operator (admin app only)
     phone: str
     impersonated_by: uuid.UUID | None = None
 
@@ -138,6 +138,33 @@ class AuthService:
             r = required(await (await c.execute("SELECT status, error FROM otp_deliveries WHERE id=%s", (delivery_id,))).fetchone(), "otp delivery")
         return r["status"], r["error"]
 
+    async def _check_challenge(self, c: Conn, phone: str, code: str) -> tuple[dict[str, Any], bool]:
+        """The newest open challenge for the number and whether `code` is wrong for it. Raises when there is none or it is locked."""
+        ch = await (await c.execute(
+            """SELECT id, code_hash, attempts FROM otp_challenges
+               WHERE phone=%s AND consumed_at IS NULL AND expires_at > now() ORDER BY created_at DESC LIMIT 1 FOR UPDATE""", (phone,))).fetchone()
+        if ch is None:
+            raise AuthError("invalid_code", "That code is wrong or has expired.")
+        if ch["attempts"] >= self.s.otp_max_attempts:
+            raise AuthError("locked", "Too many wrong attempts. Request a new code.", 429)
+        return ch, not crypto.constant_time_equal(ch["code_hash"], self._hash(phone, code.strip()))
+
+    async def consume_code(self, raw_phone: str, code: str) -> bool:
+        """Check a one-time code and use it up, and do nothing else: no account is created and no session issued. The admin
+        sign-in's first step. It never honours OTP_ACCEPT_ANY: the demo setting cannot apply to the founder's console."""
+        try:
+            phone = normalize_phone(raw_phone)
+        except ValueError:
+            return False
+        async with self.db.system_tx() as c:
+            try:
+                ch, wrong = await self._check_challenge(c, phone, code)
+            except AuthError:
+                return False
+            await c.execute("UPDATE otp_challenges SET attempts = attempts + 1 WHERE id=%s" if wrong else
+                            "UPDATE otp_challenges SET consumed_at = now() WHERE id=%s", (ch["id"],))
+        return not wrong
+
     async def verify_otp(self, raw_phone: str, code: str, ip: str | None, device: str | None, source: str | None = None) -> TokenPair | dict[str, Any]:
         """Exchange a code for a session. A number that has no account yet is signed up on the spot; one with no business gets a
         `setup` session that can only run onboarding. OTP_ACCEPT_ANY (never in production) skips the code check for demos."""
@@ -153,14 +180,7 @@ class AuthService:
         async with self.db.system_tx() as c:
             ch = None
             if not self.s.otp_accept_any:
-                ch = await (await c.execute(
-                    """SELECT id, code_hash, attempts FROM otp_challenges
-                       WHERE phone=%s AND consumed_at IS NULL AND expires_at > now() ORDER BY created_at DESC LIMIT 1 FOR UPDATE""", (phone,))).fetchone()
-                if ch is None:
-                    raise AuthError("invalid_code", "That code is wrong or has expired.")
-                if ch["attempts"] >= self.s.otp_max_attempts:
-                    raise AuthError("locked", "Too many wrong attempts. Request a new code.", 429)
-                wrong = not crypto.constant_time_equal(ch["code_hash"], self._hash(phone, code.strip()))
+                ch, wrong = await self._check_challenge(c, phone, code)
             if wrong:        # count the failure and COMMIT it before raising (a raise inside the tx would roll it back)
                 assert ch is not None
                 await c.execute("UPDATE otp_challenges SET attempts = attempts + 1 WHERE id=%s", (ch["id"],))
@@ -180,8 +200,8 @@ class AuthService:
                            WHERE bu.account_id=%s AND b.status <> 'churned' ORDER BY b.name""", (acct["id"],))).fetchall()
         if wrong or acct is None:
             raise AuthError("invalid_code", "That code is wrong or has expired.")
-        if acct["platform_role"] == "operator":
-            return await self._issue(acct, None, "operator", device, ip)
+        # A platform operator gets no operator session here: the founder's console has its own sign-in with a second factor
+        # (ADR 0028), and nothing the public application issues can open it. An operator's own shop, if any, still works.
         if not memberships:
             return await self._issue(acct, None, "setup", device, ip)       # new here: the only thing they can do is set up a business
         if len(memberships) == 1:
@@ -242,7 +262,7 @@ class AuthService:
 
     async def _role(self, c: Conn, acct: dict[str, Any], bid: uuid.UUID | None) -> str | None:
         if bid is None:
-            return "operator" if acct["platform_role"] == "operator" else "setup"
+            return "setup"
         r = await (await c.execute("SELECT role FROM business_users WHERE account_id=%s AND business_id=%s", (acct["id"], bid))).fetchone()
         return r["role"] if r else None
 

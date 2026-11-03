@@ -1,5 +1,6 @@
 """Process entrypoint. One build artifact, several roles selected by configuration:
-    python -m salesai [api|ingress|web|worker|scheduler|migrate|all]
+    python -m salesai [api|ingress|web|admin|worker|scheduler|migrate|all]
+    python -m salesai admin-enroll +919999900000     (give a platform operator an authenticator; see docs/ADMIN_CONSOLE.md)
 Every role exposes /healthz and /readyz; migrations are a separate one-off step."""
 from __future__ import annotations
 
@@ -30,6 +31,22 @@ def health_app(rt: Runtime, role: str) -> FastAPI:
     return app
 
 
+async def admin_enroll(phone: str) -> None:
+    """Run on the server by the founder: the only way to set up (or replace) the console's second factor. The secret is printed
+    once and never stored in the clear; scan or type it into an authenticator app."""
+    from salesai.modules.auth import totp
+    from salesai.modules.auth.admin import ISSUER, enroll_admin
+    from salesai.runtime import Runtime
+
+    s = get_settings()
+    rt = await Runtime.create(s)
+    try:
+        secret = await enroll_admin(rt.db, s, phone)
+    finally:
+        await rt.close()
+    print(f"Authenticator enrolled for {phone}.\nSecret (type it into an authenticator app): {secret}\n{totp.provisioning_uri(secret, phone, ISSUER)}")  # noqa: T201
+
+
 async def run(role: str) -> None:
     s = get_settings()
     setup_logging(s.log_level)
@@ -58,8 +75,8 @@ async def run(role: str) -> None:
         servers.append(server)
         tasks.append(asyncio.create_task(server.serve()))
 
-    if role in ("api", "ingress", "web", "all"):
-        serve(create_app(rt, "web" if role == "all" else role))
+    if role in ("api", "ingress", "web", "admin", "all"):
+        serve(create_app(rt, role))
     elif role in ("worker", "scheduler"):
         serve(health_app(rt, role))
     if role in ("worker", "all"):
@@ -78,6 +95,9 @@ async def run(role: str) -> None:
 def main() -> None:
     if sys.platform == "win32":     # psycopg's async mode cannot use Windows' default Proactor event loop
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    if len(sys.argv) == 3 and sys.argv[1] == "admin-enroll":
+        asyncio.run(admin_enroll(sys.argv[2]))
+        sys.exit(0)
     role = sys.argv[1] if len(sys.argv) > 1 else get_settings().role
     asyncio.run(run(role))
 

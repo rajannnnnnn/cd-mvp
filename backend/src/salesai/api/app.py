@@ -1,5 +1,7 @@
-"""FastAPI application factory. Roles select which routers are mounted: `api` (REST + simulator), `ingress`
-(Meta webhooks only), `web` / `all` (both)."""
+"""FastAPI application factory. Roles select which routers are mounted: `api` (the shop-facing REST + simulator), `ingress`
+(Meta webhooks only), `admin` (the founder's console: its own sign-in and the operator routes, nothing of the shop app),
+`web` (api + ingress) and `all` (everything, for development). The shop-facing application has no admin surface at all
+(ADR 0028): a compromise of it cannot reach the console, because the console's routes are not there."""
 from __future__ import annotations
 
 import contextlib
@@ -7,13 +9,15 @@ import time
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 
-from fastapi import FastAPI, Request, Response
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from salesai import __version__
 from salesai.api import errors
+from salesai.api.deps import admin_gate
 from salesai.api.hub import ChangeHub
 from salesai.api.routes import (
+    admin_auth,
     analytics,
     auth,
     billing,
@@ -57,12 +61,25 @@ def create_app(rt: Runtime | None = None, role: str = "web", *, owns_runtime: bo
         app.state.rt = rt
         if not hasattr(rt, "hub"):
             rt.hub = ChangeHub(rt.settings.system_database_url)
-    settings_origins = (rt.settings.origins if rt else None)
-    if settings_origins is None:
+    cfg = rt.settings if rt else None
+    if cfg is None:
         from salesai.config import get_settings
-        settings_origins = get_settings().origins
+        cfg = get_settings()
+    # the admin application answers cross-origin calls from the console's own origin only, never from the shop app's
+    settings_origins = cfg.origins if role != "admin" else cfg.admin_origins
     app.add_middleware(CORSMiddleware, allow_origins=settings_origins, allow_credentials=False, allow_methods=["*"], allow_headers=["*"],
                        expose_headers=["X-Request-Id"], max_age=600)
+
+    if role == "admin":
+        @app.middleware("http")
+        async def admin_headers(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
+            resp = await call_next(request)
+            resp.headers["Cache-Control"] = "no-store"
+            resp.headers["X-Frame-Options"] = "DENY"
+            resp.headers["X-Content-Type-Options"] = "nosniff"
+            resp.headers["Referrer-Policy"] = "no-referrer"
+            resp.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+            return resp
 
     @app.middleware("http")
     async def request_context(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
@@ -81,6 +98,9 @@ def create_app(rt: Runtime | None = None, role: str = "web", *, owns_runtime: bo
     if role in ("api", "web", "all"):
         v1 = "/api/v1"
         app.include_router(system.public, prefix=v1)
-        for r in (auth.router, business.router, catalog.router, contacts.router, conversations.router, workflow.router, metrics.router, events.router, pricing.router, simulator.router, operator.router, onboarding.router, billing.router, analytics.router, support.router):
+        for r in (auth.router, business.router, catalog.router, contacts.router, conversations.router, workflow.router, metrics.router, events.router, pricing.router, simulator.router, onboarding.router, billing.router, analytics.router, support.router):
             app.include_router(r, prefix=v1)
+    if role in ("admin", "all"):
+        app.include_router(admin_auth.router, dependencies=[Depends(admin_gate)])
+        app.include_router(operator.router, prefix="/api/v1", dependencies=[Depends(admin_gate)])
     return app
