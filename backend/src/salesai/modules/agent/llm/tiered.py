@@ -48,6 +48,11 @@ class TieredPlanner:
     def __init__(self, llm: LLMProvider, rules: LLMProvider, *, intents: frozenset[str] = DEFAULT_RULES_INTENTS, enabled: bool = True):
         self.llm, self.rules, self.intents, self.enabled = llm, rules, frozenset(intents), enabled
 
+    @property
+    def providers(self) -> list[LLMProvider]:
+        """The model route behind the rules, as the other routes expose it (the routing tests and the founder's tools look here)."""
+        return list(getattr(self.llm, "providers", [self.llm]))
+
     async def generate(self, req: LLMRequest, schema: type[T]) -> LLMResult[T]:
         if req.stage != "planner" or not self.enabled or not self.intents:
             return await self.llm.generate(req, schema)
