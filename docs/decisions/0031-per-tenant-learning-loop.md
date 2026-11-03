@@ -114,3 +114,15 @@ shop (DPDP). Recording runs in its own savepoint, so a failure never undoes the 
 "Never learn across shops" is enforced as a tested rule: row-level security per shop, and a test that fails if any
 module other than `modules/handoffs/learning.py` and tenant export/delete references the table. It is labelled
 **proposed INV-13** because invariants are the founder's to add to `TECHNICAL_DESIGN.md`.
+
+## Consent and Meta compliance, in plain words (2026-11-03)
+
+- **What kind of learning:** facts, not model training. The assistant keeps a list of things the *owner* has said (for example "we do not give refunds on sarees") and may use them when answering that shop's customers.
+  No model is trained, fine-tuned or adjusted on anyone's messages, and nothing is shared between shops.
+- **Business consent:** recording an owner's answer to a handoff is part of running their shop and is visible to them. *Proposing* a fact is off until the owner turns it on for their shop, and each proposed fact needs their own
+  one-digit answer on WhatsApp before it is used; they can see where every fact came from and delete it in one tap. Learned facts leave with the shop's data export and are deleted with the shop.
+- **Meta's AI-provider clause** bans using WhatsApp data to train or improve AI models (even anonymised), except for work exclusive to one business. Per-shop facts used only for that shop are inside that exception.
+  The rule that keeps us inside it (nothing pooled, no cross-shop statistics or priors) is proposed as INV-13 and **awaits the founder's confirmation**; the code already observes it (row-level security on the table, an
+  allow-list of modules that may touch it). Customers' messages are never a source of learned facts.
+- **Build order unchanged:** recording is built; proposing stays after the pilot, behind the per-shop opt-in.
+

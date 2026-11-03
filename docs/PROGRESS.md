@@ -353,4 +353,8 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
   - **The floor-reading database login goes to one process (ADR 0042), 2026-11-03.** `PRICING_DATABASE_URL` is now required only by the worker that decides turns (and the all-in-one dev process) and is optional everywhere else;
     the deploy files give it to `agent/agent` alone, and a process without it fails loudly if it ever tries to read a floor. A breach of the web API, webhook receiver, gateway, scheduler or console no longer yields it (INV-1).
     Tests: `test_config_roles.py`, `test_deploy_files.py`. **Still open:** narrowing `app_system` (bypasses row security, shared by several parts) per component.
+  - **Shop-wide discount default (ADR 0033), 2026-11-03.** The assistant step of onboarding asks "Can you usually give a discount?" (No / Yes, a little); new products start with the answer
+    (`sales_settings.discount_default`, backend test added). **Webhook sweep (earlier backlog item): not needed.** The webhook row and its event are written in one transaction, so a received webhook cannot be lost between the two.
+    **Not built, by decision:** learning *proposals* stay after the pilot, behind a per-shop opt-in (ADR 0031, explained in its new consent and Meta section). **Remaining engineering:** narrower `app_system` per component,
+    a wider eval set and the model benchmark (both need the model key), rewriting the stale browser specs (task list above). Everything else that can be built without the founder's accounts and keys is built.
 
