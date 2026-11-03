@@ -164,3 +164,12 @@ async def test_the_truncation_error_reports_the_total_that_was_sent_and_names_bo
         await provider(api, thinking_tokens=500).generate(req(max_tokens=60), PlannerOutput)
     msg = str(e.value)
     assert "max_tokens=560" in msg and "OPENAI_COMPAT_THINKING_TOKENS" in msg and "LLM_EFFORT_" in msg
+
+
+async def test_the_truncation_error_says_how_many_tokens_the_model_used(api):
+    """The operator needs to tell 'the setting never arrived' (used about the base budget) from 'the model thinks a lot' (used the whole budget)."""
+    api.reply_text('{"intent": "pro', completion_tokens=4060, finish_reason="length")
+    with pytest.raises(LLMError) as e:
+        await provider(api, thinking_tokens=4000).generate(req(max_tokens=60, effort="low"), PlannerOutput)
+    msg = str(e.value)
+    assert "used 4060" in msg and "max_tokens=4060" in msg and "effort low" in msg
