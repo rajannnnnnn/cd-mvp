@@ -70,3 +70,5 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON admin_credentials, admin_sessions TO app
 GRANT SELECT, INSERT, UPDATE ON break_glass_grants TO app_system;
 -- the boards count deals and sum their value; the customer's order details never leave the shop's own role
 GRANT SELECT (id, business_id, conversation_id, kind, value, status, created_at, closed_at) ON deals TO app_system;
+-- the recovery sweep looks for work nobody is doing; it reads ids, states and ages, never message text
+GRANT SELECT (id, business_id, business_user_id, direction, purpose, status, created_at) ON owner_messages TO app_system;

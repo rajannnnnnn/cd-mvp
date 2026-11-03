@@ -48,6 +48,9 @@ class OutboundSender:
                 if p.get("message_id"):
                     msg = await (await c.execute("SELECT * FROM messages WHERE id=%s", (p["message_id"],))).fetchone()
 
+            if msg is not None and action in ("send_text", "send_reaction") and msg["status"] != "queued":
+                return                                                                # already sent or cancelled: a repeated request does nothing
+
             # --- send-time checks
             human = bool(p.get("human"))
             if not human and conv["version"] != p["version"]:                        # INV-7 (an owner's own message is never stale)

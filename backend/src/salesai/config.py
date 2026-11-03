@@ -50,6 +50,16 @@ class Settings(BaseSettings):
     worker_queues: str = ",".join(ALL_QUEUES)
     scheduler_component: Literal["all", "web", "gateway", "agent"] = "all"   # which component's timers this scheduler runs (ADR 0025)
     worker_concurrency: int = 8
+    # restart tolerance (ADR 0035): a job's lease is short and renewed while it runs, so a crashed worker's jobs return within
+    # seconds; on a stop request, unfinished jobs are given back after the grace period instead of waiting for a lease
+    worker_lease_s: int = Field(30, ge=5, le=600)
+    worker_shutdown_grace_s: float = Field(20.0, ge=0, le=300)
+    # the recovery sweep: work the database says should be happening that nobody is doing
+    recovery_stuck_after_s: float = Field(90.0, ge=0)         # an unanswered customer message this old with nobody working on it is re-driven
+    recovery_retry_after_s: float = Field(180.0, ge=0)        # ...and given this long to work before it is tried again
+    recovery_max_attempts: int = Field(3, ge=1)               # after this many tries the owner is handed the chat and the founder is alerted
+    recovery_queued_reply_s: float = Field(120.0, ge=0)       # a reply planned this long ago and still not sent is requested again
+    recovery_mailbox_s: float = Field(60.0, ge=0)             # a hand-off row between components nobody picked up for this long is requested again
     relay_poll_ms: int = 100
     blob_backend: Literal["fs"] = "fs"
     blob_path: str = "./.data/blobs"

@@ -129,6 +129,7 @@ for _, c in ipairs(ranked) do
     local h = head(P, id)
     unindex(P, id, c.m, h)
     redis.call('HINCRBY', P..'job:'..id, 'attempts', 1)
+    redis.call('HINCRBY', P..'job:'..id, 'token', 1)
     redis.call('HSET', P..'job:'..id, 'status', 'running', 'locked_by', worker, 'lease_until', t + lease_s * 1000)
     redis.call('ZADD', P..'leases', t + lease_s * 1000, c.m)
     redis.call('SADD', P..'running:'..c.q, c.m)
@@ -149,6 +150,7 @@ if redis.call('EXISTS', jk) == 0 then return 'missing' end
 local h = head(P, id)
 local status = redis.call('HGET', jk, 'status')
 if status ~= 'running' then return 'not-running' end
+if tostring(redis.call('HGET', jk, 'token') or '0') ~= ARGV[7] then return 'not-owner' end    -- a worker that lost the job cannot touch it
 local t = now_ms()
 release_running(P, id, member, h)
 redis.call('HSET', jk, 'locked_by', '')
@@ -169,6 +171,17 @@ elseif action == 'defer' then
   make_pending(P, id, member, h, run_at, tonumber(h[5] ~= '' and h[5] or '0') or 0)
 end
 return 'ok'
+"""
+
+_EXTEND = _LUA_COMMON + """
+local P, id, token, lease_s = ARGV[1], tonumber(ARGV[2]), ARGV[3], tonumber(ARGV[4])
+local jk = P..'job:'..id
+if redis.call('EXISTS', jk) == 0 then return 0 end
+if redis.call('HGET', jk, 'status') ~= 'running' or tostring(redis.call('HGET', jk, 'token') or '0') ~= token then return 0 end
+local t = now_ms()
+redis.call('HSET', jk, 'lease_until', t + lease_s * 1000)
+redis.call('ZADD', P..'leases', t + lease_s * 1000, string.format('%016d', id))
+return 1
 """
 
 _REAP = _LUA_COMMON + """
@@ -269,6 +282,7 @@ class RedisQueue:
         self._claim = self.r.register_script(_CLAIM)
         self._release = self.r.register_script(_RELEASE)
         self._reap = self.r.register_script(_REAP)
+        self._extend = self.r.register_script(_EXTEND)
         self._cancel = self.r.register_script(_CANCEL_SUPERSEDED)
         self._replay = self.r.register_script(_REPLAY)
         self._purge = self.r.register_script(_PURGE)
@@ -298,7 +312,7 @@ class RedisQueue:
         return jobs
 
     async def _rel(self, job: Job, action: str, run_at_ms: int = 0, error: str = "") -> None:
-        await self._release(keys=[], args=[self.p, int(job.id), action, run_at_ms, error[:2000], _DONE_TTL_S])
+        await self._release(keys=[], args=[self.p, int(job.id), action, run_at_ms, error[:2000], _DONE_TTL_S, job.token])
 
     async def _hash(self, job_id: int) -> dict[str, str]:
         raw = await self.r.hgetall(f"{self.p}job:{job_id}")
@@ -328,6 +342,9 @@ class RedisQueue:
 
     async def cancel_superseded(self, entity_key: str, below_version: int) -> int:
         return int(await self._cancel(keys=[], args=[self.p, entity_key, below_version, _DONE_TTL_S]))
+
+    async def extend_lease(self, job: Job, lease_s: int) -> bool:
+        return int(await self._extend(keys=[], args=[self.p, int(job.id), job.token, lease_s])) == 1
 
     async def reap_expired(self) -> int:
         return int(await self._reap(keys=[], args=[self.p]))
@@ -385,4 +402,4 @@ class RedisQueue:
             entity_key=h.get("entity_key") or None,
             entity_version=int(h["entity_version"]) if h.get("entity_version") else None,
             dedupe_key=h.get("dedupe_key") or None, max_attempts=int(h["max_attempts"]))
-        return Job(id=str(i), spec=spec, attempts=int(h["attempts"]))
+        return Job(id=str(i), spec=spec, attempts=int(h["attempts"]), token=int(h.get("token") or 0))

@@ -28,7 +28,7 @@ LEADER_LOCKS = {"all": LEADER_LOCK, "web": LEADER_LOCK + 1, "gateway": LEADER_LO
 # What each component's scheduler does. Moving events along (the relay) and expiring queue leases are shared plumbing that
 # every scheduler does; the rest belongs to one component. `all` is the development combination and does everything.
 _WEB = frozenset({"gauges", "alerts", "billing", "retention"})            # billing, trials, platform alerts, sign-in data
-_AGENT = frozenset({"gauges", "daily_summaries", "nudges", "retention"})  # daily summaries, follow-ups, conversation data
+_AGENT = frozenset({"gauges", "daily_summaries", "nudges", "recovery", "retention"})  # daily summaries, follow-ups, the recovery sweep, conversation data
 _GATEWAY = frozenset({"gauges", "retention"})                             # its raw-request log
 DUTIES: dict[str, frozenset[str]] = {"web": _WEB, "agent": _AGENT, "gateway": _GATEWAY, "all": _WEB | _AGENT | _GATEWAY}
 
@@ -193,6 +193,8 @@ class Scheduler:
             await self.tick_nudges()
         if "gauges" in d:
             await self.tick_gauges()
+        if "recovery" in d:
+            await self.rt.reconciler.sweep()
         if "alerts" in d:
             await self.rt.alerts.dispatch()
         if "billing" in d:

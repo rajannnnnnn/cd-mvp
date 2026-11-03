@@ -26,6 +26,7 @@ from salesai.modules.channels.owner_send import OwnerSender
 from salesai.modules.channels.router import WebhookRouter
 from salesai.modules.channels.simulator import SimulatorNetwork
 from salesai.modules.conversations import ConversationIntake, HeuristicEOT, TurnWorker
+from salesai.modules.conversations.recovery import Reconciler
 from salesai.modules.delivery.sender import OutboundSender
 from salesai.modules.notifications import OwnerLoop
 from salesai.modules.pricing import PricingService
@@ -83,6 +84,9 @@ class Runtime:
         self.alerts = build_alert_router(db, self.channels, settings)
         self.billing = BillingService(db, ManualProvider(settings.payment_instructions) if settings.payment_provider == "manual" else TestGateway(), seller={"name": settings.invoice_seller_name, "address": settings.invoice_seller_address, "gstin": settings.invoice_seller_gstin})
         self.meta_usage = MetaUsage(db, rates_inr=settings.meta_rates, free_service_per_number=settings.meta_free_service_per_number)
+        self.reconciler = Reconciler(db, stuck_after_s=settings.recovery_stuck_after_s, retry_after_s=settings.recovery_retry_after_s,
+                                     max_attempts=settings.recovery_max_attempts, queued_message_s=settings.recovery_queued_reply_s,
+                                     mailbox_s=settings.recovery_mailbox_s)      # the agent's safety net under the queue (ADR 0035)
         self.boards = Boards(db, queue, self.meta_usage)       # the founder's four boards (ADR 0028)
         self.pump: Callable[[], Awaitable[None]] = self._wait_a_moment
         self.hub: Any = None
@@ -133,7 +137,9 @@ class Runtime:
 
     def worker(self, queues: list[str] | None = None, **kw: Any) -> WorkerRunner:
         return WorkerRunner(self.queue, self.registry, queues or self.settings.queues, staleness=self.staleness,
-                            concurrency=kw.pop("concurrency", self.settings.worker_concurrency), **kw)
+                            concurrency=kw.pop("concurrency", self.settings.worker_concurrency),
+                            lease_s=kw.pop("lease_s", self.settings.worker_lease_s),
+                            shutdown_grace_s=kw.pop("shutdown_grace_s", self.settings.worker_shutdown_grace_s), **kw)
 
 
 def make_queue(db: Database, s: Settings) -> Queue:

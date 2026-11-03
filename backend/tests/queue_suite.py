@@ -200,6 +200,43 @@ class QueueSuite:
         [again] = await queue.claim([qname], "w2")
         assert again.attempts == 2 and again.id == job.id
 
+
+    # ---------------------------------------------------------------- restart tolerance (ADR 0035)
+    async def test_a_live_worker_renews_its_lease_so_a_slow_job_is_not_taken_from_it(self, queue, qname):
+        await queue.publish(spec(qname))
+        [job] = await queue.claim([qname], "slow", lease_s=1)
+        for _ in range(4):                                   # the worker is alive: it renews before the lease ends
+            await asyncio.sleep(0.5)
+            assert await queue.extend_lease(job, 1) is True
+        assert await queue.reap_expired() == 0
+        assert await queue.claim([qname], "other") == []
+        await queue.complete(job)
+
+    async def test_a_lost_lease_is_reported_and_the_old_worker_cannot_finish_the_job(self, queue, qname):
+        await queue.publish(spec(qname, max_attempts=5))
+        [old] = await queue.claim([qname], "dies", lease_s=1)
+        await asyncio.sleep(1.3)
+        assert await queue.reap_expired() == 1
+        [new] = await queue.claim([qname], "w2", lease_s=30)
+        assert new.id == old.id and new.attempts == old.attempts + 1
+        assert await queue.extend_lease(old, 30) is False    # the zombie is told it no longer owns the job
+        await queue.complete(old)                            # ...and cannot complete, retry or kill it either
+        await queue.fail(old, "zombie failure")
+        await queue.defer(old, 0)
+        assert await queue.claim([qname], "w3") == []        # still running under the new owner
+        assert (await queue.stats([qname]))[0].dead == 0
+        await queue.complete(new)
+        assert (await queue.stats([qname]))[0].pending == 0
+
+    async def test_a_released_job_goes_back_at_once_without_using_up_an_attempt(self, queue, qname):
+        await queue.publish(spec(qname, max_attempts=2))
+        for _ in range(5):                                   # a graceful shutdown releases the job; a restart loop never kills it
+            [job] = await queue.claim([qname], "stopping")
+            assert job.attempts == 1
+            await queue.defer(job, 0)
+        [job] = await queue.claim([qname], "w")
+        assert job.attempts == 1
+
     async def test_job_survives_queue_restart(self, queue, qname, queue_factory):
         await queue.publish(spec(qname, payload={"durable": True}))
         fresh = await queue_factory()                           # a brand-new process / connection

@@ -300,3 +300,16 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
     severities and "happened N times". **Fixed along the way:** `tests/test_deploy_files.py` failed inside the full suite (not alone)
     because other tests leave settings in the process environment, which filled in what a compose file left out; each service is now
     built from a clean environment. **Not built:** automatic resolution when a cause clears; cost-spike and eval-drift rules (admin plane).
+  - **Admin plane A and B (ADR 0028), 2026-11-03.** Role `admin` is its own application: sign-in is a WhatsApp code then an authenticator
+    code (RFC 6238, stdlib), codes work once, five wrong ones lock 15 minutes, 30-minute sessions with no refresh, tokens signed with
+    `ADMIN_JWT_SECRET` which the public app does not hold, optional `ADMIN_ALLOWED_IPS`, enrolment by `python -m salesai admin-enroll`. The
+    shop app has no admin routes and the admin app no shop routes (tested); the public sign-in no longer issues operator sessions; the web
+    API no longer holds the master key. Four boards (`/api/v1/operator/boards/{sales,growth,money,health}`): aggregates only, `null` with a
+    reason for what is not measured. Break-glass: reading conversations needs a time-boxed grant with a reason, logged on the platform trail
+    and shown to the shop owner (`GET /business/platform-access`); impersonation needs a reason too. **Not built yet:** the admin frontend,
+    `deploy/admin`, passkeys (TOTP accepted by the ADR), recovery codes (re-enrolment on the server is the recovery).
+  - **Restart tolerance (ADR 0035), 2026-11-03.** Short renewed leases, fencing tokens (migration 0024), release-on-stop without using an
+    attempt, a recovery sweep from the database's own state on the agent scheduler (migration 0025), and a sender that refuses to send a
+    message that is no longer queued. Shared queue suite passes on Postgres and Redis. **Not built yet:** a gateway-side sweep for
+    webhook rows received but not processed (the raw log keeps them; replay exists in the console).
+

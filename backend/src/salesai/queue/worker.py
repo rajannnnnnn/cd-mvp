@@ -59,20 +59,43 @@ class StalenessResolver:
 
 
 class WorkerRunner:
+    """Restart tolerance (ADR 0035): a short lease that the worker renews with a heartbeat while it runs a job, so a crashed worker's
+    jobs come back within seconds and a slow-but-alive worker's never do; on a stop request, jobs not finished inside the grace
+    period are given back at once without using up an attempt; and a worker that discovers it lost a job stops working on it."""
+
     def __init__(self, queue: Queue, registry: HandlerRegistry, queues: list[str], *,
                  staleness: StalenessResolver | None = None, worker_id: str = "w-0",
                  concurrency: int = 8, tenant_cap: int | None = 2, poll_s: float = 0.05,
-                 handler_timeout_s: float = 90.0, lease_s: int = 120):
+                 handler_timeout_s: float = 90.0, lease_s: int = 30, heartbeat_s: float | None = None,
+                 shutdown_grace_s: float = 20.0):
         self.queue, self.registry, self.queues = queue, registry, queues
         self.staleness = staleness or StalenessResolver()
         self.worker_id, self.concurrency, self.tenant_cap = worker_id, concurrency, tenant_cap
         self.poll_s, self.handler_timeout_s, self.lease_s = poll_s, handler_timeout_s, lease_s
+        self.heartbeat_s = heartbeat_s if heartbeat_s is not None else max(0.2, lease_s / 3)
+        self.shutdown_grace_s = shutdown_grace_s
         self._inflight: set[asyncio.Task[Any]] = set()
+        self._releasing = False
+
+    async def _heartbeat(self, job: Job, work: asyncio.Future[Any], lost: asyncio.Event) -> None:
+        """Renew the lease while the handler runs. If the job is no longer ours, stop the handler: its result must not be applied."""
+        while True:
+            await asyncio.sleep(self.heartbeat_s)
+            try:
+                ok = await self.queue.extend_lease(job, self.lease_s)
+            except Exception:  # noqa: BLE001 - a missed beat is survivable; the next one may land
+                log.warning("lease renewal failed for job %s", job.id, exc_info=True)
+                continue
+            if not ok:
+                lost.set()
+                work.cancel()
+                return
 
     async def handle(self, job: Job) -> str:
         """Process one claimed job; returns the outcome label."""
         t0 = time.perf_counter()
         q, k = job.spec.queue, job.spec.kind
+        lost = asyncio.Event()                     # set by the heartbeat when this worker no longer owns the job
         with bind(business_id=job.spec.business_id, job_id=job.id):
             try:
                 if await self.staleness.is_stale(job):
@@ -84,9 +107,23 @@ class WorkerRunner:
                         await self.queue.fail(job, f"no handler for {q}/{k}", retryable=False)
                         outcome = "no_handler"
                     else:
-                        await asyncio.wait_for(handler(job), self.handler_timeout_s)
+                        work = asyncio.ensure_future(handler(job))
+                        beat = asyncio.create_task(self._heartbeat(job, work, lost))
+                        try:
+                            await asyncio.wait_for(work, self.handler_timeout_s)
+                        finally:
+                            beat.cancel()
                         await self.queue.complete(job)
                         outcome = "done"
+            except asyncio.CancelledError:
+                if self._releasing:                    # told to stop: give the job back now, for free, and let the next worker take it
+                    await self.queue.defer(job, 0)
+                    outcome = "released"
+                elif lost.is_set():
+                    outcome = "lost"                   # someone else owns it now; do nothing to it
+                    log.warning("job %s: lease lost, handler stopped", job.id)
+                else:
+                    raise
             except Defer as d:
                 await self.queue.defer(job, d.delay_s)
                 outcome = "deferred"
@@ -127,4 +164,9 @@ class WorkerRunner:
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(stop.wait(), self.poll_s * random.uniform(1, 2))  # noqa: S311
         if self._inflight:
-            await asyncio.gather(*self._inflight, return_exceptions=True)
+            _, pending = await asyncio.wait(self._inflight, timeout=self.shutdown_grace_s)
+            if pending:                                # not finished inside the grace: release them rather than wait for a lease
+                self._releasing = True
+                for t in pending:
+                    t.cancel()
+                await asyncio.gather(*pending, return_exceptions=True)

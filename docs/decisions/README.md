@@ -40,7 +40,8 @@ superseded by a new ADR, never rewritten. Status is `accepted` unless stated.
 | [0032](0032-plan-packaging-by-conversations.md) | Plans sold by conversations included per month, with overage |
 | [0033](0033-two-question-pricing-setup.md) | Pricing setup reduced to two questions; the rest derived, advanced fields kept |
 | [0034](0034-llm-routing-is-configuration.md) | LLM vendor, model and effort per stage are configuration; gpt-oss-20b is the default |
+| [0035](0035-restart-tolerance.md) | Restart tolerance: renewed short leases, fencing, release on stop, and a recovery sweep from the database's own state |
 
 **Numbering note.** Two ADRs share the number **0020** (`0020-support-tickets.md` and
 `0020-channel-gateway.md`). Published files are not renumbered; both are listed above. **0024** is
-reserved as noted. New ADRs continue from **0035**.
+reserved as noted. New ADRs continue from **0036**.

@@ -43,6 +43,7 @@ async def test_a_scheduler_runs_exactly_its_components_duties(rt, monkeypatch, c
         monkeypatch.setattr(sch, tick, spy(name))
     monkeypatch.setattr(rt.billing, "run_cycle", spy("billing"))                              # these would act on every shop in the database
     monkeypatch.setattr(rt.alerts, "dispatch", spy("alerts"))
+    monkeypatch.setattr(rt.reconciler, "sweep", spy("recovery"))                              # the agent's recovery sweep
     await sch.tick_slow(tidy=True)
     assert called == DUTIES[component]                                                       # all of its own duties, and nothing of anyone else's
     called.clear()

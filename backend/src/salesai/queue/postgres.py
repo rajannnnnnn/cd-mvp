@@ -27,7 +27,7 @@ def _to_job(r: dict[str, Any]) -> Job:
         ordering_key=r["ordering_key"], run_at=r["run_at"], entity_key=r["entity_key"],
         entity_version=r["entity_version"], dedupe_key=r["dedupe_key"], max_attempts=r["max_attempts"],
     )
-    return Job(id=str(r["id"]), spec=spec, attempts=r["attempts"])
+    return Job(id=str(r["id"]), spec=spec, attempts=r["attempts"], token=int(r["claim_token"]))
 
 
 class PostgresQueue:
@@ -91,7 +91,7 @@ class PostgresQueue:
                     if n["n"] >= tenant_cap:
                         continue
                 row = await (await c.execute(
-                    """UPDATE jobs SET status='running', attempts=attempts+1, locked_by=%s,
+                    """UPDATE jobs SET status='running', attempts=attempts+1, claim_token=claim_token+1, locked_by=%s,
                               lease_until = now() + make_interval(secs => %s)
                        WHERE id = (SELECT id FROM jobs WHERE id=%s AND status='pending' FOR UPDATE SKIP LOCKED)
                        RETURNING *""", (worker_id, lease_s, r["id"]))).fetchone()
@@ -101,33 +101,40 @@ class PostgresQueue:
 
     async def complete(self, job: Job) -> None:
         async with self.db.system_tx() as c:
-            await c.execute("UPDATE jobs SET status='done', finished_at=now(), lease_until=NULL WHERE id=%s",
-                            (int(job.id),))
+            await c.execute("UPDATE jobs SET status='done', finished_at=now(), lease_until=NULL WHERE id=%s AND status='running' AND claim_token=%s",
+                            (int(job.id), job.token))
 
     async def fail(self, job: Job, error: str, *, retryable: bool = True) -> str:
         dead = (not retryable) or job.attempts >= job.spec.max_attempts
         async with self.db.system_tx() as c:
             if dead:
                 await c.execute(
-                    "UPDATE jobs SET status='dead', last_error=%s, finished_at=now(), lease_until=NULL WHERE id=%s",
-                    (error[:2000], int(job.id)))
+                    "UPDATE jobs SET status='dead', last_error=%s, finished_at=now(), lease_until=NULL WHERE id=%s AND status='running' AND claim_token=%s",
+                    (error[:2000], int(job.id), job.token))
             else:
                 await c.execute(
                     """UPDATE jobs SET status='pending', last_error=%s, lease_until=NULL, locked_by=NULL,
-                              run_at = now() + make_interval(secs => %s) WHERE id=%s""",
-                    (error[:2000], backoff_s(job.attempts, base=self.backoff_base), int(job.id)))
+                              run_at = now() + make_interval(secs => %s) WHERE id=%s AND status='running' AND claim_token=%s""",
+                    (error[:2000], backoff_s(job.attempts, base=self.backoff_base), int(job.id), job.token))
         return "dead" if dead else "retry"
 
     async def defer(self, job: Job, delay_s: float) -> None:
         async with self.db.system_tx() as c:
             await c.execute(
                 """UPDATE jobs SET status='pending', attempts=GREATEST(attempts-1,0), lease_until=NULL, locked_by=NULL,
-                          run_at = now() + make_interval(secs => %s) WHERE id=%s""", (delay_s, int(job.id)))
+                          run_at = now() + make_interval(secs => %s) WHERE id=%s AND status='running' AND claim_token=%s""",
+                (delay_s, int(job.id), job.token))
+
+    async def extend_lease(self, job: Job, lease_s: int) -> bool:
+        async with self.db.system_tx() as c:
+            r = await c.execute("UPDATE jobs SET lease_until = now() + make_interval(secs => %s) WHERE id=%s AND status='running' AND claim_token=%s",
+                                (lease_s, int(job.id), job.token))
+            return r.rowcount > 0
 
     async def supersede(self, job: Job) -> None:
         async with self.db.system_tx() as c:
-            await c.execute("UPDATE jobs SET status='cancelled', finished_at=now(), lease_until=NULL WHERE id=%s",
-                            (int(job.id),))
+            await c.execute("UPDATE jobs SET status='cancelled', finished_at=now(), lease_until=NULL WHERE id=%s AND status='running' AND claim_token=%s",
+                            (int(job.id), job.token))
 
     async def cancel_superseded(self, entity_key: str, below_version: int) -> int:
         async with self.db.system_tx() as c:

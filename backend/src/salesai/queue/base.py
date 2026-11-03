@@ -32,6 +32,7 @@ class Job:
     id: str
     spec: JobSpec
     attempts: int
+    token: int = 0                           # fencing token: goes up at every claim; only the holder of the latest can finish the job
 
 
 @dataclass
@@ -70,7 +71,13 @@ class Queue(Protocol):
     async def fail(self, job: Job, error: str, *, retryable: bool = True) -> str:
         """Retry with backoff, or dead-letter. Returns 'retry' | 'dead'."""
 
-    async def defer(self, job: Job, delay_s: float) -> None: ...
+    async def defer(self, job: Job, delay_s: float) -> None:
+        """Give a claimed job back to run again after `delay_s` without using up an attempt (rate limits; a worker being stopped)."""
+
+    async def extend_lease(self, job: Job, lease_s: int) -> bool:
+        """A live worker's heartbeat. False means the job is no longer this worker's (its lease ran out and it was taken back):
+        the worker must stop working on it. Every way of finishing a job (complete, fail, defer, supersede) is likewise a no-op
+        for a worker that no longer owns it, so a stalled worker waking up late cannot undo the job's new owner."""
 
     async def supersede(self, job: Job) -> None:
         """Discard a claimed job whose conversation moved on (INV-7)."""
