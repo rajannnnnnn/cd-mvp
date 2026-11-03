@@ -156,3 +156,11 @@ async def test_a_truncated_reply_tells_the_operator_which_setting_to_raise(api):
     with pytest.raises(LLMError) as e:
         await provider(api).generate(req(max_tokens=60), PlannerOutput)
     assert "OPENAI_COMPAT_THINKING_TOKENS" in str(e.value) and not e.value.retryable
+
+
+async def test_the_truncation_error_reports_the_total_that_was_sent_and_names_both_remedies(api):
+    api.reply_text('{"intent": "pro', finish_reason="length")
+    with pytest.raises(LLMError) as e:
+        await provider(api, thinking_tokens=500).generate(req(max_tokens=60), PlannerOutput)
+    msg = str(e.value)
+    assert "max_tokens=560" in msg and "OPENAI_COMPAT_THINKING_TOKENS" in msg and "LLM_EFFORT_" in msg

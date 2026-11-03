@@ -108,8 +108,9 @@ class OpenAICompatProvider:
             obj = last_json_object(content)
         except ValueError as e:
             if choice.get("finish_reason") == "length":
-                raise LLMError(f"reply truncated at max_tokens={req.max_tokens} for stage {req.stage}; "
-                               "a reasoning model needs headroom for its thinking: raise OPENAI_COMPAT_THINKING_TOKENS (for example 2000)", retryable=False) from e
+                raise LLMError(f"reply truncated at max_tokens={req.max_tokens + self.thinking_tokens} for stage {req.stage}; "
+                               "a reasoning model spends part of that on thinking: raise OPENAI_COMPAT_THINKING_TOKENS "
+                               f"(now {self.thinking_tokens}) or lower LLM_EFFORT_{req.stage.upper()}", retryable=False) from e
             raise LLMError("reply contained no JSON object", retryable=False) from e
         try:
             out = schema.model_validate(obj)
