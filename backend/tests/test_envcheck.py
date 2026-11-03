@@ -19,7 +19,9 @@ def run(args: list[str], env: dict[str, str], cwd) -> subprocess.CompletedProces
     return subprocess.run([sys.executable, "-m", "salesai", *args], env={"PATH": "/usr/bin:/bin", **env}, cwd=cwd, capture_output=True, text=True, timeout=60)  # noqa: S603
 
 
-def test_a_missing_setting_is_named_and_marked_required():
+def test_a_missing_setting_is_named_and_marked_required(monkeypatch):
+    for name in ("CONSOLE_DATABASE_URL", "ADMIN_JWT_SECRET", "JWT_SECRET", "OTP_SECRET", "MASTER_KEY", "ROLE"):
+        monkeypatch.delenv(name, raising=False)              # other tests export the whole secret set into this process
     with pytest.raises(ValidationError) as e:
         Settings(_env_file=None, role="admin", database_url="x", system_database_url="x", migration_database_url="x")      # type: ignore[arg-type]
     text = explain(e.value, "admin")
@@ -53,7 +55,9 @@ def test_the_doctor_for_a_part_reports_what_is_missing_for_that_part(tmp_path):
     assert r.returncode == 1 and "CONSOLE_DATABASE_URL" in r.stderr and "ADMIN_JWT_SECRET" in r.stderr and "Traceback" not in r.stderr
 
 
-def test_optional_settings_are_advice_and_never_block():
+def test_optional_settings_are_advice_and_never_block(monkeypatch):
+    for name in ("ALERT_EMAIL_TO", "SMTP_HOST", "INVOICE_SELLER_NAME", "ROLE"):
+        monkeypatch.delenv(name, raising=False)
     s = Settings(_env_file=None, role="api", jwt_secret="j" * 40, otp_secret="o" * 40, database_url="x", system_database_url="x",
                  migration_database_url="x", simulator_enabled=False)      # type: ignore[arg-type]
     notes = " ".join(advisories(s))
