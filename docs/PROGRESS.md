@@ -321,4 +321,8 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
     customer finished 15.1 % to 3.8 %, mean wait 3.27 s to 1.62 s. `TieredPlanner` puts the deterministic planner in front of the language model for a
     conservative allow-list (safety cases, greetings, thanks, plain shop facts, an exactly named product), and the optional model check is skipped for replies
     that state nothing risky. Full suite green on the commit before these two (snapshot run, exit 0).
+  - **Chat-native adaptation (ADR 0041), 2026-11-03.** `customers.profile` was never written; now the customer's style (register very casual to formal, language and
+    script mix, length, emoji, how they address the shop) is worked out by rules from their own messages, handed to the writer (prompt v4, `reply_hint`), kept on
+    the customer, and enforced by a deterministic voice check (no support-desk phrases, no document formatting, no emoji for people who use none, not far longer
+    than they write). Five voice scenarios and an every-scenario invariant added to the evals. Real-model quality is only measurable with a key: on the go-live checklist.
 
