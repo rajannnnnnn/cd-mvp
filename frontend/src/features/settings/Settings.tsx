@@ -466,7 +466,7 @@ export default function Settings() {
   const asked = (OLD_TABS[raw] ?? raw) as Tab
   const tab: Tab = TABS.includes(asked) ? asked : 'shop'
   const setTab = (t: Tab) => setParams(t === 'shop' ? {} : { tab: t }, { replace: true })
-  const canEdit = role === 'owner' || role === 'operator'
+  const canEdit = role === 'owner'
   const dataKey = useMemo(() => JSON.stringify(biz.data ?? null), [biz.data])
   const tabs: { value: Tab; label: ReactNode }[] = [
     { value: 'shop', label: <span className="inline-flex items-center gap-1.5"><Building2 className="h-4 w-4" />{tr('Shop')}</span> }, { value: 'assistant', label: <span className="inline-flex items-center gap-1.5"><Sliders className="h-4 w-4" />{tr('AI assistant')}</span> },

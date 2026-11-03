@@ -5,7 +5,7 @@
 #   scripts/stack.sh web             Scale the API:  scripts/stack.sh web --scale api=3
 #
 # Needs deploy/web/.env (copy .env.example). Start the database job (deploy/db) first.
-# Holds: MASTER_KEY, JWT_SECRET, OTP_SECRET. It does NOT hold the Meta app secret or any model key.
+# Holds: JWT_SECRET, OTP_SECRET. It does NOT hold the Meta app secret, the master key, any model key or the admin console's secret (ADR 0028).
 # Published: the site on WEB_PORT (put a TLS proxy in front). The database is external.
 name: chatdeal-web
 
@@ -44,7 +44,6 @@ services:
     environment:
       <<: *web-env
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?set ALLOWED_ORIGINS in deploy/web/.env}
-      MASTER_KEY: ${MASTER_KEY:?set MASTER_KEY in deploy/web/.env}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/web/.env}
       OTP_SECRET: ${OTP_SECRET:?set OTP_SECRET in deploy/web/.env}
       OTP_ACCEPT_ANY: ${OTP_ACCEPT_ANY:-false}

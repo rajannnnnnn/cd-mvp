@@ -1,6 +1,6 @@
 /** Token storage shared by every tab. Refresh tokens ROTATE, so refreshing is serialized across tabs with the
  *  Web Locks API; a tab that finds the stored refresh token already rotated simply adopts the new pair. */
-export interface Tokens { access: string; refresh: string; exp: number; businessId: string | null; role: 'owner' | 'staff' | 'operator' }
+export interface Tokens { access: string; refresh: string; exp: number; businessId: string | null; role: 'owner' | 'staff' }
 const KEY = 'chatdeal.tokens.v1'
 const listeners = new Set<() => void>()
 

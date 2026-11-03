@@ -1,19 +1,15 @@
 import { PhoneInput } from '@/ui/inputs'
 import { isPhone, toE164 } from '@/lib/phone'
 import { useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, AlertOctagon, Building2, CircleDollarSign, Download, Eye, Inbox, LifeBuoy, Plus, RotateCw, Trash2, Webhook } from 'lucide-react'
-import { api, ok, type Schemas } from '@/api/client'
-import { useAuth } from '@/auth/AuthProvider'
-import { tokens } from '@/auth/tokens'
+import { Activity, AlertOctagon, Building2, CircleDollarSign, Download, Inbox, LifeBuoy, Plus, RotateCw, Trash2, Webhook } from 'lucide-react'
+import { api, ok, type Schemas } from '../adminApi'
 import { Badge, Confirm, EmptyState, ErrorNote, Field, Modal, Segmented, Skeleton, Spinner, Stat, Switch, useToast } from '@/ui'
 import { ago, cx, inr, phone as fmtPhone } from '@/lib/format'
 import { StatusBadge, Thread } from '@/features/support/Thread'
 import { TableSkeleton } from '@/ui/skeletons'
 
-export const STASH_KEY = 'chatdeal.operator.stash'
-type Tab = 'tenants' | 'alerts' | 'queues' | 'webhooks' | 'turns' | 'costs' | 'billing' | 'support'
+export type Tab = 'tenants' | 'alerts' | 'queues' | 'webhooks' | 'turns' | 'costs' | 'billing' | 'support'
 const sevTone = (s: string) => (s === 'critical' || s === 'high' ? 'red' : s === 'medium' ? 'amber' : 'blue') as 'red' | 'amber' | 'blue'
 
 function Table({ head, children, empty }: { head: string[]; children: ReactNode; empty?: ReactNode }) {
@@ -51,7 +47,7 @@ function NewBusinessModal({ onClose }: { onClose: () => void }) {
 }
 
 function Tenants() {
-  const nav = useNavigate(); const toast = useToast(); const qc = useQueryClient(); const { adopt } = useAuth()
+  const toast = useToast(); const qc = useQueryClient()
   const [adding, setAdding] = useState(false)
   const [del, setDel] = useState<Schemas['TenantRow'] | null>(null)
   const [typed, setTyped] = useState('')
@@ -61,16 +57,6 @@ function Tenants() {
     mutationFn: (t: Schemas['TenantRow']) => ok(api.DELETE('/api/v1/operator/businesses/{business_id}', { params: { path: { business_id: t.id }, query: { confirm_name: typed } } })),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['op-tenants'] }); setDel(null); setTyped(''); toast('Tenant and all its data deleted') }, onError: (e) => toast((e as Error).message, 'error'),
   })
-  const impersonate = async (t: Schemas['TenantRow']) => {
-    // Signing in as a shop needs a reason the shop's owner can read (ADR 0028). A proper dialog comes with the separate admin console.
-    const reason = (window.prompt(`Why do you need to sign in as ${t.name}? The owner will be able to see this.`) ?? '').trim()
-    if (reason.length < 10) { toast('Please give a reason of at least 10 characters.', 'error'); return }
-    try {
-      const cur = tokens.get(); if (cur) sessionStorage.setItem(STASH_KEY, JSON.stringify(cur))
-      const r = await ok(api.POST('/api/v1/operator/businesses/{business_id}/impersonate', { params: { path: { business_id: t.id } }, body: { reason } }))
-      await adopt(r); nav('/home')
-    } catch (e) { toast((e as Error).message, 'error') }
-  }
   const exportIt = async (t: Schemas['TenantRow']) => {
     try {
       const data = await ok(api.GET('/api/v1/operator/businesses/{business_id}/export', { params: { path: { business_id: t.id } } }))
@@ -100,7 +86,7 @@ function Tenants() {
               <Td><Switch checked={t.ai_enabled} onChange={(v) => patch.mutate({ id: t.id, body: { ai_enabled: v } })} label={`AI for ${t.name}`} /></Td>
               <Td className="text-[13px] tnum">{t.inbound_24h} in · {t.turns_24h} turns{t.failed_24h > 0 && <span className="ml-1 font-bold text-danger">{t.failed_24h} failed</span>}<div className="text-muted">{inr(t.cost_inr_24h.toFixed(2))}</div></Td>
               <Td>{t.open_handoffs > 0 ? <Badge tone="amber">{t.open_handoffs} open</Badge> : <span className="text-muted">—</span>}</Td>
-              <Td><div className="flex justify-end gap-1"><button className="btn btn-outline btn-sm whitespace-nowrap" onClick={() => impersonate(t)}><Eye className="h-3.5 w-3.5" /> Open as owner</button><button className="btn btn-ghost btn-icon" title="Export data" onClick={() => exportIt(t)}><Download className="h-4 w-4" /></button><button className="btn btn-ghost btn-icon text-danger" title="Delete tenant" onClick={() => { setDel(t); setTyped('') }}><Trash2 className="h-4 w-4" /></button></div></Td>
+              <Td><div className="flex justify-end gap-1"><button className="btn btn-ghost btn-icon" title="Export data" onClick={() => exportIt(t)}><Download className="h-4 w-4" /></button><button className="btn btn-ghost btn-icon text-danger" title="Delete tenant" onClick={() => { setDel(t); setTyped('') }}><Trash2 className="h-4 w-4" /></button></div></Td>
             </tr>
           ))}
         </Table>
@@ -217,6 +203,8 @@ function Costs() {
     </Table></>)
 }
 
+const loadPicture = async (id: string) => (await api.GET('/api/v1/operator/support/attachments/{attachment_id}', { params: { path: { attachment_id: id } }, parseAs: 'blob' })).data as Blob | undefined
+
 function SupportQueue() {
   const toast = useToast(); const qc = useQueryClient()
   const [only, setOnly] = useState<'open' | 'all'>('open')
@@ -249,7 +237,7 @@ function SupportQueue() {
               <div><div className="text-xs font-bold uppercase tracking-wide text-muted">Ticket #{t.number} · {t.business_name} · {t.category}</div><h2 className="font-display text-xl font-bold">{t.subject}</h2></div>
               <div className="flex items-center gap-2"><StatusBadge status={t.status} />{t.status !== 'resolved' ? <button className="btn btn-outline btn-sm" onClick={() => status.mutate('resolved')}>Mark sorted</button> : <button className="btn btn-outline btn-sm" onClick={() => status.mutate('open')}>Reopen</button>}</div>
             </div>
-            <Thread messages={t.messages} mine="support" busy={answer.isPending} onSend={(b) => answer.mutateAsync(b)} placeholder="Reply to the shop…" />
+            <Thread loadPicture={loadPicture} messages={t.messages} mine="support" busy={answer.isPending} onSend={(b) => answer.mutateAsync(b)} placeholder="Reply to the shop…" />
           </section>)}
       </div>
     </div>)
@@ -269,7 +257,7 @@ export default function Operator() {
   ]
   return (
     <div className="mx-auto max-w-[1240px] space-y-5 px-4 py-6 lg:px-8 lg:py-8">
-      <div><h1 className="text-[28px] font-extrabold">Operator console</h1><p className="text-[15px] text-muted">Every business on the platform: health, volume, cost, and the plumbing underneath.</p></div>
+      <div><h1 className="text-[28px] font-extrabold">Shops &amp; support</h1><p className="text-[15px] text-muted">Every business on the platform, the alerts and support tickets, and the plumbing underneath.</p></div>
       <div className="-mx-4 overflow-x-auto px-4"><Segmented value={tab} onChange={setTab} options={tabs} className="w-max" /></div>
       {tab === 'tenants' && <Tenants />}{tab === 'alerts' && <Alerts />}{tab === 'support' && <SupportQueue />}{tab === 'queues' && <Queues />}{tab === 'webhooks' && <Webhooks />}{tab === 'turns' && <Turns />}{tab === 'costs' && <Costs />}{tab === 'billing' && <PlatformBilling />}
     </div>

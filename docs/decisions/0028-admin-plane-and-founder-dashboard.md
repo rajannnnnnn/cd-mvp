@@ -67,6 +67,22 @@ tenant app's bundle never contains admin code.
 - Per-tenant gross margin requires ADR 0026's channel accounting and ADR 0027's model cost records. The
   Money board is only as good as those.
 
+## Implementation notes (2026-11-03)
+
+- **Two applications, one codebase.** Role `admin` mounts only the console's sign-in and operator routes; the shop-facing roles mount none of them, and a test checks each
+  role's routes both ways. The console has its own front-end build (`npm run build:admin`, `frontend/admin`), its own image (`Dockerfile.admin`), its own web server
+  with the strictest browser headers (`Caddyfile.admin`), and a deploy part of its own (`deploy/admin`). The owner app's bundle contains no console code, and the console
+  imports no owner screens; a test fails if either changes.
+- **Sign-in:** a WhatsApp code, then an authenticator code (RFC 6238 in the standard library). One-use codes, a lock after five wrong ones, a ticket that is not a session, 30-minute
+  sessions with no refresh, tokens signed with `ADMIN_JWT_SECRET` (held only by this part), an optional address allowlist, enrolment as a server command. A public sign-in never
+  produces an operator session. The web API no longer holds the master key; the console does (to register a pilot number by hand).
+- **Aggregates by default, break-glass for content.** The four boards return counts and sums, with `null` and a reason for anything not measured. Reading a chat needs a reason, a time
+  limit and a grant bound to one operator and one shop; it is written to the platform trail and shown to the shop's owner (`GET /business/platform-access`). Signing in as a shop
+  requires the same kind of reason and is not offered by the console.
+- **Passkeys** are not built (the decision accepts an authenticator app). Per-component database roles are still open (the console uses the shared platform role; narrower grants
+  such as column-level access to deals are in place).
+- Operating guide: `docs/ADMIN_CONSOLE.md`.
+
 ## How to revisit
 
 If a second person joins the platform team, add roles and per-role scoping before widening any default

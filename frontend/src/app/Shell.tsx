@@ -24,12 +24,6 @@ export default function Shell({ booting = false }: { booting?: boolean }) {
   const { t } = useT()
   const qc = useQueryClient()
   const nav = useNavigate()
-  const backToConsole = async () => {
-    try {
-      const stash = sessionStorage.getItem('chatdeal.operator.stash')
-      if (stash) { sessionStorage.removeItem('chatdeal.operator.stash'); qc.clear(); tokens.set(JSON.parse(stash)); await reload(); window.location.assign('/app/operator') } else await logout()
-    } catch { await logout() }
-  }
   const loc = useLocation()
   const toast = useToast()
   const cfg = usePublicConfig()
@@ -56,7 +50,7 @@ export default function Shell({ booting = false }: { booting?: boolean }) {
     { to: '/analytics', icon: BarChart3, key: 'nav.analytics', label: tr('Analytics'), also: ['/reports'] },
     { to: '/billing', icon: CreditCard, key: 'nav.billing', label: tr('Billing'), owner: true },
     { to: '/settings', icon: Settings, key: 'nav.settings', label: tr('Settings') },
-  ] : [{ to: '/operator', icon: ShieldCheck, key: 'nav.operator', label: tr('Operator console') }], [isOwner, needs])
+  ] : [], [isOwner, needs])
   const sibling = (i: Item) => !!i.also?.some((p) => loc.pathname === p || loc.pathname.startsWith(`${p}/`))     // pages that live under this menu entry
   const visible = items.filter((i) => (!i.dev || cfg.data?.simulator_enabled) && (!i.owner || role === 'owner'))
   const mobile = isOwner ? visible.slice(0, 4) : visible
@@ -101,7 +95,6 @@ export default function Shell({ booting = false }: { booting?: boolean }) {
           <div className="lg:hidden"><Logo size={28} wordmark={false} /></div>
           <div className="min-w-0 flex-1 lg:hidden">{booting ? <Skeleton className="h-4 w-40" /> : <div className="truncate text-sm font-bold">{me?.business?.name ?? t('nav.operator', 'Operator console')}</div>}</div>
           <div className="hidden flex-1 lg:block" />
-          {me?.impersonated && <button className="badge badge-amber cursor-pointer hover:brightness-95" onClick={backToConsole}>{tr('Viewing as owner (support) · Back to console')}</button>}
           <button className="btn btn-ghost btn-icon lg:hidden" onClick={flipTheme} aria-label={tr('Theme')}>{theme === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}</button>
           <button className="grid h-11 w-11 place-items-center lg:hidden" onClick={() => setMenu(true)} aria-label={tr('Account')}><Avatar name={me?.name ?? me?.phone} size={32} /></button>
         </header>

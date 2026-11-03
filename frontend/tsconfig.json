@@ -6,5 +6,5 @@
     "strict": true, "noUnusedLocals": false, "noUnusedParameters": false, "noFallthroughCasesInSwitch": true,
     "baseUrl": ".", "paths": { "@/*": ["src/*"] }
   },
-  "include": ["src", "vite.config.ts", "e2e"]
+  "include": ["src", "admin/src", "vite.config.ts", "vite.admin.config.ts", "e2e"]
 }

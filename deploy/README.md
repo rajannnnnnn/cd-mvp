@@ -7,8 +7,9 @@ nothing else: no part calls another, and a rule in CI fails the build if the cod
 | Part | Folder | What it is | Holds | Published |
 |---|---|---|---|---|
 | **db** | `deploy/db` | the database migrations, a one-off job | the schema-owner credential | nothing |
-| **web** | `deploy/web` | the site, its REST API, and its own timer (billing, trials, alerts, sign-in data) | `MASTER_KEY`, `JWT_SECRET`, `OTP_SECRET` | the site, `:8080` |
+| **web** | `deploy/web` | the site, its REST API, and its own timer (billing, trials, alerts, sign-in data) | `JWT_SECRET`, `OTP_SECRET` | the site, `:8080` |
 | **gateway** | `deploy/gateway` | the only part that talks to Meta: `receive`, `inbound`, `send`, its own timer | `META_APP_SECRET`, `META_VERIFY_TOKEN`, `MASTER_KEY`, the platform's WhatsApp token | `receive`, `:8001` |
+| **admin** | `deploy/admin` | the founder's console: boards, agent audit, alerts, support, reading a chat as a recorded exception. Its own address and sign-in | `ADMIN_JWT_SECRET`, `MASTER_KEY`, `JWT_SECRET`, `OTP_SECRET` | the console, `:8082` |
 | **agent** | `deploy/agent` | the ChatDeal AI: turns, pricing, the writer, owner alerts, follow-ups | the model key | nothing |
 
 Two things to notice. The web part holds no Meta secret and the agent holds no WhatsApp token, so a break-in on either cannot
@@ -18,7 +19,7 @@ reach WhatsApp. And the database is **external**: it is never part of a compose 
 
 1. Create the database and its four roles with `db/bootstrap_roles.sql`.
 2. For each part you want, copy `.env.example` to `.env` in its folder and fill it in. A value that must be the same in several
-   parts says so (`MASTER_KEY`: web and gateway; the four database URLs: all).
+   parts says so (`MASTER_KEY`: admin and gateway; the four database URLs: all).
 3. Run the migrations, then start the parts:
 
 ```bash
@@ -49,7 +50,7 @@ when it is back (nothing acknowledged is lost, INV-6). Look at a part with `scri
 | To set up | Part | Where it comes from |
 |---|---|---|
 | Database URLs (four) | all | your Postgres host; roles from `db/bootstrap_roles.sql` |
-| `MASTER_KEY` | web, gateway | `openssl rand -base64 32`. **Back it up: lose it and every business must reconnect WhatsApp** |
+| `MASTER_KEY` | admin, gateway | `openssl rand -base64 32`. **Back it up: lose it and every business must reconnect WhatsApp** |
 | `JWT_SECRET`, `OTP_SECRET` | web | 32+ random characters each |
 | `META_APP_ID`, `META_APP_SECRET`, `META_VERIFY_TOKEN`, `META_CONFIG_ID`, `META_GRAPH_VERSION` | gateway (id, config and version also web) | `docs/WHATSAPP_GO_LIVE.md` |
 | `PLATFORM_SENDER_PHONE_NUMBER_ID`, `PLATFORM_WA_ACCESS_TOKEN` | gateway | our own WhatsApp number, for sign-in codes |

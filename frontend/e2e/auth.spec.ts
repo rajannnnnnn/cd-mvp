@@ -20,7 +20,7 @@ test.describe('number-centric authentication', () => {
   })
 
   test('the app is closed to anyone who is not signed in', async ({ page }) => {
-    for (const path of ['/app/home', '/app/chats', '/app/products', '/app/operator']) {
+    for (const path of ['/app/home', '/app/chats', '/app/products']) {
       await page.goto(path)
       await expect(page).toHaveURL(/login/)
     }
@@ -39,9 +39,10 @@ test.describe('number-centric authentication', () => {
     await expect(page.getByText(/wrong or has expired/i)).toBeVisible()
   })
 
-  test('the operator lands in the console and an owner cannot open it', async ({ page }) => {
+  test('the console is not part of the owner app: its address does not exist here', async ({ page }) => {
     await login(page, OPERATOR)
-    await expect(page).toHaveURL(/\/app\/operator/)
-    await expect(page.getByRole('heading', { name: 'Operator console' })).toBeVisible()
+    await page.goto('/app/operator')
+    await expect(page).not.toHaveURL(/\/app\/operator/)                         // it falls back to the shop's own screens, never a console
+    await expect(page.getByRole('heading', { name: /operator console/i })).toHaveCount(0)
   })
 })

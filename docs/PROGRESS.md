@@ -325,4 +325,9 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
     script mix, length, emoji, how they address the shop) is worked out by rules from their own messages, handed to the writer (prompt v4, `reply_hint`), kept on
     the customer, and enforced by a deterministic voice check (no support-desk phrases, no document formatting, no emoji for people who use none, not far longer
     than they write). Five voice scenarios and an every-scenario invariant added to the evals. Real-model quality is only measurable with a key: on the go-live checklist.
+  - **The founder's console as its own app (ADR 0028 part C), 2026-11-03.** `frontend/admin` (own build, own image, own strict web server, own deploy part `deploy/admin`, own `.env`):
+    sign-in with a WhatsApp code and an authenticator code, a session clock with extend and sign-out, the four boards, the agent audit (summary, filterable runs, per-run timeline),
+    "Read a chat" (recorded, time-limited), and the existing shops, alerts, support, queues and billing screens moved over. The owner app lost every console route and screen;
+    tests enforce the separation (static import test, bundle check, deploy-file tests). Operating guide: `docs/ADMIN_CONSOLE.md`. **Not built:** passkeys; "sign in as a shop" in the UI.
+    **Noticed, not yet fixed:** the public pricing page and `plans.json` still show an "each extra conversation" overage column, which contradicts ADR 0032 (caps, no overage).
 

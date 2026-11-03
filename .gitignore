@@ -11,6 +11,7 @@ __pycache__/
 .data/
 node_modules/
 dist/
+dist-admin/
 *.log
 test-results/
 playwright-report/

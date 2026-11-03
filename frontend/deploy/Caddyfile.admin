@@ -1,0 +1,58 @@
+{
+	admin off
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	root * /srv
+
+	# The founder's console (ADR 0028): the strictest headers in the product. No third-party script, style or frame is ever allowed, nothing is cached,
+	# nothing may embed it. Browser rules are a second wall behind the server's own checks.
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		Cache-Control "no-store"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+		Cross-Origin-Opener-Policy same-origin
+		Cross-Origin-Resource-Policy same-origin
+		Strict-Transport-Security "max-age=63072000; includeSubDomains"
+		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; manifest-src 'none'; frame-src 'none'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+		-Server
+	}
+
+	# --- an address allowlist at the edge as well as in the API (empty = everyone who can sign in)
+	@blocked not remote_ip {$ALLOW_IPS:0.0.0.0/0 ::/0}
+	handle @blocked {
+		respond "Not available from this address." 403
+	}
+
+	handle /healthz {
+		respond "ok" 200
+	}
+
+	# --- the admin API: its own sign-in and the console's routes. Nothing else is proxied: the shop API and the webhooks are not reachable here.
+	handle /admin/v1/* {
+		reverse_proxy {$API_UPSTREAM}
+	}
+	handle /api/v1/operator/* {
+		reverse_proxy {$API_UPSTREAM}
+	}
+
+	handle /config.json {
+		root * /srv
+		file_server
+	}
+
+	# --- the console: a single-page app; client-side routes fall back to its index
+	handle {
+		root * /srv
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		try_files {path} /index.html
+		file_server
+	}
+}

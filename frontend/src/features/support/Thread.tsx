@@ -16,7 +16,7 @@ export function StatusBadge({ status }: { status: keyof typeof STATUS_LABEL }) {
 }
 
 /** A ticket's messages and a reply box. `mine` is the side the viewer is on ('shop' for an owner, 'support' for platform staff). */
-export function Thread({ messages, mine, onSend, busy, placeholder, pictures }: { messages: Msg[]; mine: 'shop' | 'support'; onSend: (body: string, files: File[]) => Promise<unknown> | void; busy?: boolean; placeholder?: string; pictures?: boolean }) {
+export function Thread({ messages, mine, onSend, busy, placeholder, pictures, loadPicture }: { messages: Msg[]; mine: 'shop' | 'support'; onSend: (body: string, files: File[]) => Promise<unknown> | void; busy?: boolean; placeholder?: string; pictures?: boolean; loadPicture?: (id: string) => Promise<Blob | undefined> }) {
   const [text, setText] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const send = async () => { const b = text.trim(); if (!b) return; await onSend(b, files); setText(''); setFiles([]) }
@@ -26,7 +26,7 @@ export function Thread({ messages, mine, onSend, busy, placeholder, pictures }: 
         {messages.map((m) => (
           <li key={m.id} className={cx('flex flex-col', m.author === mine ? 'items-end' : 'items-start')}>
             <div className={cx('max-w-[88%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm', m.author === mine ? 'rounded-tr-md bg-[rgb(var(--bubble-out))]' : 'rounded-tl-md bg-surface2')}>{m.body}</div>
-            {!!m.attachments?.length && <div className={cx('mt-1.5 flex max-w-[88%] flex-wrap gap-2', m.author === mine && 'justify-end')}>{m.attachments.map((a) => <PictureThumb key={a.id} id={a.id} operator={mine === 'support'} />)}</div>}
+            {!!m.attachments?.length && <div className={cx('mt-1.5 flex max-w-[88%] flex-wrap gap-2', m.author === mine && 'justify-end')}>{m.attachments.map((a) => <PictureThumb key={a.id} id={a.id} load={loadPicture} />)}</div>}
             <span className="mt-0.5 text-[11.5px] text-muted">{m.author === 'support' ? tr('Support') : tr('Your shop')} · {ago(m.created_at)}</span>
           </li>))}
       </ol>

@@ -19,16 +19,18 @@ import yaml
 from salesai.config import Settings
 
 DEPLOY = Path(__file__).resolve().parents[2] / "deploy"
-PARTS = ("db", "web", "gateway", "agent")
+PARTS = ("db", "web", "gateway", "agent", "admin")
 
 SECRETS = {"MASTER_KEY", "JWT_SECRET", "OTP_SECRET", "META_APP_SECRET", "META_VERIFY_TOKEN", "PLATFORM_WA_ACCESS_TOKEN",
-           "OPENAI_COMPAT_API_KEY", "ANTHROPIC_API_KEY", "SMTP_PASSWORD"}
+           "OPENAI_COMPAT_API_KEY", "ANTHROPIC_API_KEY", "SMTP_PASSWORD", "ADMIN_JWT_SECRET"}
 
 # What each service may hold. This table is the architecture, written as a test: a secret added to a service must be added here
 # deliberately, with a reason.
 EXPECTED_SECRETS: dict[str, set[str]] = {
     "db/migrate": set(),
-    "web/api": {"MASTER_KEY", "JWT_SECRET", "OTP_SECRET"},                     # master key: the operator's manual pilot numbers (ADR 0025)
+    "web/api": {"JWT_SECRET", "OTP_SECRET"},                                   # no master key and no admin secret: the public app cannot reach the console (ADR 0028)
+    "admin/api": {"MASTER_KEY", "JWT_SECRET", "OTP_SECRET", "ADMIN_JWT_SECRET"},   # the console: master key for a pilot number by hand, its own secret
+    "admin/site": set(),
     "web/scheduler": {"PLATFORM_WA_ACCESS_TOKEN", "SMTP_PASSWORD"},            # platform alerts: email to the founder, and Critical on WhatsApp (ADR 0029)
     "gateway/receive": {"META_APP_SECRET", "META_VERIFY_TOKEN"},
     "gateway/inbound": set(),
@@ -42,7 +44,7 @@ DUMMY = {
     "ENV": "production", "MASTER_KEY": "a" * 43 + "=", "JWT_SECRET": "j" * 40, "OTP_SECRET": "o" * 40, "META_APP_SECRET": "m" * 24,
     "META_VERIFY_TOKEN": "v" * 24, "PLATFORM_WA_ACCESS_TOKEN": "EAAplatformtoken", "OPENAI_COMPAT_API_KEY": "gsk_example",
     "ANTHROPIC_API_KEY": "sk-ant-example", "OPENAI_COMPAT_BASE_URL": "https://llm.example/v1", "LLM_PROVIDER": "openai_compat",
-    "ALLOWED_ORIGINS": "https://app.example.com", "META_GRAPH_VERSION": "v26.0", "OTP_CHANNEL": "whatsapp_cloud",
+    "ALLOWED_ORIGINS": "https://app.example.com", "ADMIN_JWT_SECRET": "z" * 40, "ADMIN_ALLOWED_ORIGINS": "https://admin.example.com", "META_GRAPH_VERSION": "v26.0", "OTP_CHANNEL": "whatsapp_cloud",
 }
 DB_URL = "postgresql://u:p@db.example:5432/salesai"
 
@@ -128,8 +130,29 @@ def test_no_two_parts_publish_the_same_host_port():
 
 def test_the_only_services_that_publish_a_port_are_the_ones_meant_to():
     published = {sid for sid, svc, _ in _services() if svc.get("ports")}
-    assert published == {"web/site", "gateway/receive"}                           # the website and Meta's webhook, nothing else
+    assert published == {"web/site", "gateway/receive", "admin/site"}             # the website, Meta's webhook and the founder's console, nothing else
 
 
 def test_the_old_combined_deploy_files_are_gone():
     assert not (DEPLOY / "standalone").exists()
+
+
+# ---------------------------------------------------------------- the founder's console is served strictly (ADR 0028)
+
+def test_the_consoles_web_server_sets_the_strictest_headers_and_proxies_only_the_consoles_routes():
+    caddy = (DEPLOY.parent / "frontend" / "deploy" / "Caddyfile.admin").read_text()
+    csp = next(line for line in caddy.splitlines() if "Content-Security-Policy" in line)
+    assert "default-src 'none'" in csp and "frame-ancestors 'none'" in csp and "object-src 'none'" in csp and "base-uri 'none'" in csp
+    assert "https://" not in csp and "unsafe-eval" not in csp and "script-src 'self'" in csp and "'unsafe-inline'" not in csp.split("style-src-attr")[0]
+    for header in ("X-Frame-Options DENY", "X-Content-Type-Options nosniff", "Referrer-Policy no-referrer", 'Cache-Control "no-store"', "Strict-Transport-Security"):
+        assert header in caddy
+    proxied = re.findall(r"handle (/\S+)", caddy)
+    assert set(proxied) >= {"/admin/v1/*", "/api/v1/operator/*"}
+    assert not any(p in proxied for p in ("/api/*", "/webhooks/*", "/api/v1/*")), proxied               # the shop API and Meta's webhook are not reachable through the console
+    compose = yaml.safe_load((DEPLOY / "admin" / "docker-compose.yml").read_text())
+    assert "INGRESS_UPSTREAM" not in str(compose["services"]["site"]["environment"])
+
+
+def test_the_consoles_image_is_built_from_the_consoles_own_bundle():
+    docker = (DEPLOY.parent / "frontend" / "Dockerfile.admin").read_text()
+    assert "build:admin" in docker and "dist-admin" in docker and "Caddyfile.admin" in docker

@@ -11,7 +11,7 @@ import { usePublicConfig } from '@/api/hooks'
 import { cx } from '@/lib/format'
 import { tr } from '@/i18n/tr'
 
-const DEMO = [{ label: 'Demo shop owner', phone: '9999900001' }, { label: 'Platform operator', phone: '9999900000' }]
+const DEMO = [{ label: 'Demo shop owner', phone: '9999900001' }]
 
 function OtpBoxes({ value, onChange, disabled, autoFocus }: { value: string; onChange: (v: string) => void; disabled?: boolean; autoFocus?: boolean }) {
   const refs = useRef<(HTMLInputElement | null)[]>([])

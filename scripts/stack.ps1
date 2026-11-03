@@ -5,12 +5,13 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 gateway                   the only part that talks to Meta
 #   powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 agent                     the ChatDeal AI
 #   powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 agent -Service agent -Scale 3     run 3 copies of one service
-#   powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 all                       db, then web, gateway and agent: everything on one machine
+#   powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 admin                     the founder's console (its own address and sign-in)
+#   powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 all                       db, then web, admin, gateway and agent: everything on one machine
 #   ... -Action logs | ps | down           -Build to rebuild the image first
 # Each part reads only its own deploy\<part>\.env (copy .env.example), so it is handed only its own secrets.
 # The parts share the database and nothing else, so you can run any subset, on any machines.   Frontend alone: scripts\dev-frontend.ps1
 param(
-  [Parameter(Mandatory)][ValidateSet('db', 'web', 'gateway', 'agent', 'all')][string]$Stack,
+  [Parameter(Mandatory)][ValidateSet('db', 'web', 'gateway', 'agent', 'admin', 'all')][string]$Stack,
   [ValidateSet('up', 'down', 'logs', 'ps')][string]$Action = 'up',
   [string]$Service,
   [int]$Scale = 1,
@@ -36,6 +37,6 @@ function Invoke-Part([string]$part) {
 }
 
 if ($Stack -eq 'all') {
-  $order = if ($Action -eq 'down') { @('agent', 'gateway', 'web') } else { @('db', 'web', 'gateway', 'agent') }
+  $order = if ($Action -eq 'down') { @('agent', 'gateway', 'admin', 'web') } else { @('db', 'web', 'admin', 'gateway', 'agent') }
   foreach ($p in $order) { Write-Host "== $p =="; Invoke-Part $p }
 } else { Invoke-Part $Stack }

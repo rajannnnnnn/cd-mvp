@@ -21,7 +21,6 @@ const Inbox = lazy(() => import('@/features/inbox/Inbox'))
 const Customers = lazy(() => import('@/features/customers/Customers'))
 const Settings = lazy(() => import('@/features/settings/Settings'))
 const Playground = lazy(() => import('@/features/playground/Playground'))
-const Operator = lazy(() => import('@/features/operator/Operator'))
 const Onboarding = lazy(() => import('@/features/onboarding/Onboarding'))
 const Billing = lazy(() => import('@/features/billing/Billing'))
 const Analytics = lazy(() => import('@/features/analytics/Analytics'))
@@ -82,14 +81,12 @@ function WizardGate() {
   if (status === 'loading') return <Splash />
   if (status === 'anon') return <Navigate to="/login" replace />
   if (role === 'owner' && me?.business?.slug && !slug) return <GoToShop slug={me.business.slug} rest="/onboarding" />
-  if (role === 'operator') return <Navigate to="/operator" replace />
   return <Onboarding />
 }
 
 function Index() {
   const { role } = useAuth()
   const ob = useQuery({ queryKey: ['onboarding'], enabled: role === 'owner', queryFn: () => ok(api.GET('/api/v1/onboarding')) })
-  if (role === 'operator') return <Navigate to="/operator" replace />
   if (role === 'owner' && ob.isLoading) return <Splash />
   if (role === 'owner' && ob.data && !ob.data.complete) return <Navigate to="/onboarding" replace />
   return <Navigate to="/home" replace />
@@ -127,7 +124,6 @@ export default function App() {
                     <Route path="reports" element={<Reports />} />
                     <Route path="try" element={<Playground />} />
                     <Route path="playground" element={<Navigate to="/try" replace />} />
-                    <Route path="operator/*" element={<Operator />} />
                   </Route>
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>

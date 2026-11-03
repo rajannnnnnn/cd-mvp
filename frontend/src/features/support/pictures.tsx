@@ -20,18 +20,17 @@ export async function uploadPictures(ticketId: string, messageId: number, files:
 }
 
 /** A picture that was already sent. It is fetched with the sign-in, so it never has a public address. Tap to see it large. */
-export function PictureThumb({ id, operator }: { id: string; operator?: boolean }) {
+export function PictureThumb({ id, load }: { id: string; load?: (id: string) => Promise<Blob | undefined> }) {
   const [url, setUrl] = useState<string | null>(null)
   const [big, setBig] = useState(false)
   const [failed, setFailed] = useState(false)
   useEffect(() => {
     let made: string | undefined; let gone = false
-    const get = operator
-      ? api.GET('/api/v1/operator/support/attachments/{attachment_id}', { params: { path: { attachment_id: id } }, parseAs: 'blob' })
-      : api.GET('/api/v1/support/attachments/{attachment_id}', { params: { path: { attachment_id: id } }, parseAs: 'blob' })
-    get.then((r) => { if (gone) return; if (r.data) { made = URL.createObjectURL(r.data as Blob); setUrl(made) } else setFailed(true) }).catch(() => setFailed(true))
+    // the admin console passes its own loader (its own sign-in); the owner app reads its own shop's picture
+    const get = load ? load(id) : api.GET('/api/v1/support/attachments/{attachment_id}', { params: { path: { attachment_id: id } }, parseAs: 'blob' }).then((r) => r.data as Blob | undefined)
+    get.then((blob) => { if (gone) return; if (blob) { made = URL.createObjectURL(blob); setUrl(made) } else setFailed(true) }).catch(() => setFailed(true))
     return () => { gone = true; if (made) URL.revokeObjectURL(made) }
-  }, [id, operator])
+  }, [id, load])
   if (failed) return <span className="text-xs text-muted">{tr('Picture unavailable')}</span>
   if (!url) return <span className="skeleton block h-24 w-24 !rounded-xl" aria-hidden />
   return (

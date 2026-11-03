@@ -1,0 +1,58 @@
+# ADMIN (ADR 0028): the founder's console. Its own application, on its own address, with its own sign-in (a WhatsApp code and an authenticator code), its own
+# secret, and no route to the shop's API. It reads aggregates by default; reading a chat is a recorded, time-limited exception.
+#
+#   scripts/stack.sh admin
+#
+# Needs deploy/admin/.env (copy .env.example). Start the database job (deploy/db) first, and enrol your authenticator once (see deploy/README.md).
+# Holds: MASTER_KEY (to register a pilot number by hand), JWT_SECRET, OTP_SECRET (the shop-side sign-in it asks the gateway to send), ADMIN_JWT_SECRET.
+# It does NOT hold the Meta app secret or any model key. Published: the console on ADMIN_PORT (put a TLS proxy in front; give it its own address).
+name: chatdeal-admin
+
+services:
+  api:
+    build: { context: ../../backend }
+    image: ${BACKEND_IMAGE:-chatdeal-backend:local}
+    restart: unless-stopped
+    command: ["admin"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
+    environment:
+      ENV: ${APP_ENV:?set APP_ENV in deploy/admin/.env}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      TRUST_PROXY: "true"
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in deploy/admin/.env}
+      PRICING_DATABASE_URL: ${PRICING_DATABASE_URL:?set PRICING_DATABASE_URL in deploy/admin/.env}
+      SYSTEM_DATABASE_URL: ${SYSTEM_DATABASE_URL:?set SYSTEM_DATABASE_URL in deploy/admin/.env}
+      MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?set MIGRATION_DATABASE_URL in deploy/admin/.env}
+      QUEUE_BACKEND: ${QUEUE_BACKEND:-postgres}
+      REDIS_URL: ${REDIS_URL:-}
+      OTP_CHANNEL: ${OTP_CHANNEL:-whatsapp_cloud}
+      SIMULATOR_ENABLED: "false"
+      PAYMENT_PROVIDER: manual                            # the console confirms bank transfers and UPI payments by hand
+      MASTER_KEY: ${MASTER_KEY:?set MASTER_KEY in deploy/admin/.env}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/admin/.env}
+      OTP_SECRET: ${OTP_SECRET:?set OTP_SECRET in deploy/admin/.env}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:?set ADMIN_JWT_SECRET in deploy/admin/.env}
+      ADMIN_ALLOWED_ORIGINS: ${ADMIN_ALLOWED_ORIGINS:?set ADMIN_ALLOWED_ORIGINS in deploy/admin/.env}
+      ADMIN_ALLOWED_IPS: ${ADMIN_ALLOWED_IPS:-}
+      ADMIN_SESSION_MINUTES: ${ADMIN_SESSION_MINUTES:-30}
+      OTP_DELIVERY_WAIT_S: ${OTP_DELIVERY_WAIT_S:-6}
+    expose: ["8000"]
+
+  site:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile.admin
+    image: ${ADMIN_FRONTEND_IMAGE:-chatdeal-admin-site:local}
+    restart: unless-stopped
+    depends_on: [api]
+    environment:
+      SITE_ADDRESS: ":80"
+      API_BASE: ${API_BASE:-}                        # empty = same origin: the console's server proxies only /admin/v1 and /api/v1/operator
+      API_UPSTREAM: api:8000
+      ALLOW_IPS: ${ALLOW_IPS:-0.0.0.0/0 ::/0}
+    ports: ["${ADMIN_PORT:-8082}:80"]

@@ -208,7 +208,6 @@ const ReportsPage = () => (<Page><SectionTabs tabs={INSIGHT_TABS()} /><TitleBar 
 const BillingPage = () => (<Page><TitleBar title="Billing" sub="Your plan, usage and invoices." /><Bone className="h-36 w-full rounded-2xl" /><div className="grid gap-5 lg:grid-cols-3">{range(3).map((i) => <Bone key={i} className="h-72 rounded-2xl" />)}</div></Page>)
 const SettingsPage = () => (<div className="mx-auto max-w-[900px] space-y-5 px-4 py-6 lg:px-8 lg:py-8" aria-busy="true" aria-label="Loading"><TitleBar title="Settings" sub="Everything about how your shop and assistant work." /><div className="-mx-4 overflow-x-auto px-4"><Segmented className="w-max" value="Shop" onChange={() => {}} options={['Shop', 'AI assistant', 'People', 'WhatsApp', 'Security', 'Support'].map((l) => ({ value: l, label: l }))} /></div><div className="card card-pad"><FormSkeleton fields={4} /></div><div className="card card-pad"><FormSkeleton fields={3} /></div></div>)
 const PlaygroundPage = () => (<Page><TitleBar title="Try the assistant" /><div className="flex justify-center"><Bone className="h-[620px] w-[304px] !rounded-[42px]" /></div></Page>)
-const OperatorPage = () => (<Page><TitleBar title="Operator console" sub="Every business on the platform: health, volume, cost, and the plumbing underneath." /><div className="-mx-4 overflow-x-auto px-4"><Segmented className="w-max" value="Tenants" onChange={() => {}} options={['Tenants', 'Alerts', 'Support', 'Queues', 'Webhooks', 'Billing', 'AI turns', 'Costs'].map((l) => ({ value: l, label: l }))} /></div><TableSkeleton rows={6} cols={5} /></Page>)
 
 /** One entry per route in `App.tsx`, keyed by the first path segment. `skeletons.test.ts` checks that no route is missing. */
 export const PAGE_SKELETONS: Record<string, () => ReactNode> = {
@@ -224,7 +223,6 @@ export const PAGE_SKELETONS: Record<string, () => ReactNode> = {
   billing: BillingPage,
   settings: SettingsPage,
   try: PlaygroundPage,
-  operator: OperatorPage,
 }
 
 /** Shown inside the app frame while a screen's code loads. Falls back to a plain page for any route not listed. */
