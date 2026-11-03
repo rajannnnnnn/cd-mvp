@@ -365,4 +365,7 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
     (sign-in, boards, break-glass, the database login), 7 front-end tests and the separation checks. **Not covered anywhere:** the owner's "assistant paused" banner in a browser, and the mobile project (not run here).
   - **Browser suite result, 2026-11-03:** on a local stack (desktop project) 43 of 43 specs pass after the last repair (the support spec now covers the owner's half only: opening a ticket; support's reply is written in the console and is covered by `test_support.py`).
     The console itself has no browser spec. Mobile project not run.
+  - **`python -m salesai doctor`, 2026-11-03.** For filling in the settings yourself and running: checks each database login, that the migrations are applied, that the floor and console secrets are out of reach of the shop and platform logins,
+    one tiny call to the model on each step (the local stand-in is reported as "not a real model"), the mail login (`--send-test-mail` sends one message), and the platform's WhatsApp token; each line names the setting to change; exit 1 on a failure.
+    Tested with fakes and the test database (`test_doctor.py`); the real model, mail and Meta checks have not run against real services.
 

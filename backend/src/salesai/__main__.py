@@ -98,6 +98,11 @@ def main() -> None:
     if len(sys.argv) == 3 and sys.argv[1] == "admin-enroll":
         asyncio.run(admin_enroll(sys.argv[2]))
         sys.exit(0)
+    if len(sys.argv) >= 2 and sys.argv[1] == "doctor":
+        from salesai.doctor import render, run_checks
+        text, code = render(asyncio.run(run_checks(get_settings(), send_mail="--send-test-mail" in sys.argv)))
+        print(text)
+        sys.exit(code)
     role = sys.argv[1] if len(sys.argv) > 1 else get_settings().role
     asyncio.run(run(role))
 

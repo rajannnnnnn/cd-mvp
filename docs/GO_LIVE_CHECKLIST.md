@@ -37,6 +37,13 @@ can only be made against the real services. Built up as the work goes; each item
 - [ ] **Message templates approved** for owner alerts, the disconnect alert, the usage warning (`usage_warning`, sent at 80% and 100% of a plan's conversation count) and sign-in codes. The texts are in `backend/src/salesai/templates.py`.
 - [ ] **Tech Provider approval** — gates self-serve onboarding for real shops.
 
+## Check your configuration (run this first, and again after every change)
+
+After filling in the `.env` files, run `python -m salesai doctor` (in the stack: `docker compose run --rm migrate python -m salesai doctor`, or on a server with the
+settings exported). It connects to the database with each login, confirms the migrations are applied and that the floor and console secrets are out of reach of
+the shop and platform logins, makes one tiny call to the model on each step, logs in to your mail server, and checks the platform's WhatsApp token. Each line says what
+it found and, when something is wrong, which setting to change. `--send-test-mail` also sends one message to `ALERT_EMAIL_TO`. It never changes data. Exit code 0 means nothing failed.
+
 ## AI (needs the LLM key)
 
 - [ ] Run the evaluation suite on gpt-oss-20b and fix any failures; check the truncation count (a reasoning model
