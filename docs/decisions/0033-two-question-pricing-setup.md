@@ -76,6 +76,19 @@ conditions. It is collapsed by default and nothing in the common path requires o
   where the final quote stops matters less. On the **Down to ₹___** path the owner stated a real
   minimum, and that is where stopping short of the floor protects something real.
 
+## Implementation notes (2026-11-03)
+
+- **Built for a product with one variant and nothing advanced** (the common case). The editor shows "What is the price?" (one typed field; `parsePrice` understands `450`, `Rs 450/-`, `₹1,250`, `from 450`, `450+`,
+  `450-600`, `450 to 600`, "ask me") and "Can the assistant give a discount?" (No / A little / Down to a lowest price). Rules and tests: `frontend/src/features/catalog/simple.ts`, `simple.test.ts`.
+- **Derived values:** steps = 2, rounding = whole rupees under ₹200, tens under ₹5,000, fifties above, no conditions. **"A little" = up to 5% off** (`LITTLE_DISCOUNT_PERCENT`), the private lowest price
+  rounded up to the shop's rounding so it is never lower than promised and always below the price. The 5% is my choice under "derived conservatively"; the founder can change the one constant.
+- **Advanced stays complete.** "More options" opens the editor as it was. A product the three answers cannot express (conditions, custom steps, bargaining that comes to the owner, "after a question or two"),
+  and any product with several variants, opens in the full editor. A saved lowest price is write-only (INV-1), so a saved one reads back as "Down to a lowest price" and shows "Saved privately".
+- **Ranges and "ask me"** show no discount question: a bargain needs a price to start from, so those use "More options".
+- **Not built yet:** the shop-wide default asked once at onboarding ("Can you usually give a discount?") and the category-level change.
+- Checked in a browser against a local stack: the typed price and the three answers, `starts from`, a range, the invalid-price message, and the derived "a little" needing no number
+  (`e2e/pricing-safety.spec.ts`).
+
 ## How to revisit
 
 Measure it: products per shop after onboarding, and how many shops ever open the advanced section. If

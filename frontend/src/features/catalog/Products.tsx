@@ -7,6 +7,7 @@ import { Badge, Confirm, EmptyState, ErrorNote, Field, focusFirstInvalid, KebabM
 import { MoneyInput, WholeInput } from '@/ui/inputs'
 import { cx, inr } from '@/lib/format'
 import { blank, fieldErrors, fromVariant, toPolicy, type Draft, type DraftField } from './draft'
+import { applyDiscount, discountChoice, formatPrice, LITTLE_DISCOUNT_PERCENT, parsePrice, type Choice } from './simple'
 import { tr } from '@/i18n/tr'
 import { CategoryField } from './CategoryField'
 import { DockPanel, SelectToggle, Tick, useView, ViewToggle } from './shared'
@@ -78,7 +79,64 @@ function FloorInput({ d, set }: { d: Draft; set: (p: Partial<Draft>) => void }) 
 }
 FloorInput.fieldControl = true
 
-function VariantEditor({ d, kind, set, onRemove, canRemove, single, errors }: { d: Draft; kind: Disclosure; set: (p: Partial<Draft>) => void; onRemove?: () => void; canRemove: boolean; single: boolean; errors: Partial<Record<DraftField, string>> }) {
+/** The two questions (ADR 0033): "What is the price?" typed the way you would say it, and "Can the assistant give a discount?". Everything else is derived;
+ *  the old fields stay in the full editor behind "More options". */
+function SimplePricing({ d, set, setKind, errors, onParseError, showAll }: {
+  d: Draft; set: (p: Partial<Draft>) => void; setKind: (k: Disclosure) => void; errors: Partial<Record<DraftField, string>>
+  onParseError: (e: string | null) => void; showAll: () => void
+}) {
+  const [text, setText] = useState(() => formatPrice(d))
+  const [parseErr, setParseErr] = useState<string | null>(null)
+  const [choice, setChoice] = useState<Choice>(() => discountChoice(d))
+  const quotes = d.disclosure === 'range' || d.disclosure === 'on_request'               // bargaining from a price needs a price to start from
+  const pick = (raw: string) => {
+    setText(raw)
+    if (!raw.trim()) { setParseErr(null); onParseError(null); set({ list_price: '', range_min: '', range_max: '' }); return }
+    const r = parsePrice(raw)
+    if (!r.ok) { setParseErr(r.error); onParseError(r.error); return }
+    setParseErr(null); onParseError(null)
+    setKind(r.disclosure)
+    let next: Draft = { ...d, disclosure: r.disclosure, list_price: 'list_price' in r ? r.list_price : '', range_min: 'range_min' in r ? r.range_min : '', range_max: 'range_max' in r ? r.range_max : '' }
+    if (r.disclosure === 'range' || r.disclosure === 'on_request') { next = applyDiscount(next, 'no'); setChoice('no') }
+    else if (choice === 'little') next = applyDiscount(next, 'little')                // the derived lowest price follows the price
+    set(next)
+  }
+  const answer = (c: Exclude<Choice, 'advanced'>) => {
+    const next = applyDiscount(d, c)
+    set(choice === 'little' && c === 'down_to' ? { ...next, floor_price: '' } : next)  // only "down to" asks for a number: do not carry the derived one over
+    setChoice(c)
+  }
+  const understood = !text.trim() || parseErr ? null
+    : d.disclosure === 'on_request' ? tr('You will quote this one yourself.')
+    : d.disclosure === 'range' ? tr('Shown as a range, {a} to {b}.', { a: inr(d.range_min), b: inr(d.range_max) })
+    : d.disclosure === 'starts_from' ? tr('Shown as “starts from {a}”.', { a: inr(d.list_price) })
+    : tr('Shown as a fixed price, {a}.', { a: inr(d.list_price) })
+  const priceErr = parseErr ?? errors.list_price ?? errors.range_min ?? errors.range_max
+  return (
+    <div className="mt-4 space-y-4">
+      <Field label={tr('What is the price?')} hint={tr('Type it the way you would tell a customer: 450, from 450, 450-600, or “ask me”.')} required error={priceErr}>
+        <input className="input" inputMode="text" maxLength={40} value={text} onChange={(e) => pick(e.target.value)} placeholder={tr('e.g. 450')} />
+      </Field>
+      {understood && <p className="-mt-2 text-[13px] text-muted">{understood}</p>}
+      {!quotes && <div>
+        <div className="mb-1.5 text-sm font-bold">{tr('Can the assistant give a discount?')}</div>
+        <div role="radiogroup" aria-label={tr('Can the assistant give a discount?')} className="flex flex-wrap gap-2">
+          {([['no', 'No'], ['little', 'A little'], ['down_to', 'Down to a lowest price']] as const).map(([v, label]) => (
+            <button key={v} type="button" role="radio" aria-checked={choice === v} onClick={() => answer(v)} className={cx('chip', choice === v && 'chip-active')}>{tr(label)}</button>))}
+        </div>
+        {choice === 'no' && <p className="mt-2 text-[13px] text-muted">{tr('The assistant will hold the price.')}</p>}
+        {choice === 'little' && <p className="mt-2 text-[13px] text-muted">{tr('The assistant may come down a little, up to about {n}%. You do not need to enter a number.', { n: LITTLE_DISCOUNT_PERCENT })}</p>}
+        {choice === 'down_to' && <div className="mt-3 space-y-3">
+          <Field label={tr('Lowest price you’ll accept (₹)')} hint={tr('Private')} required={!(d.floor_set && !d.clear_floor)} error={errors.floor_price}><FloorInput d={d} set={set} /></Field>
+          <LadderPreview d={d} />
+        </div>}
+      </div>}
+      <button type="button" className="text-[13px] font-semibold text-brand-ink underline-offset-2 hover:underline" onClick={showAll}>{tr('More options')}</button>
+    </div>
+  )
+}
+
+function VariantEditor({ d, kind, set, onRemove, canRemove, single, errors, simple }: { simple?: { setKind: (k: Disclosure) => void; onParseError: (e: string | null) => void; showAll: () => void }; d: Draft; kind: Disclosure; set: (p: Partial<Draft>) => void; onRemove?: () => void; canRemove: boolean; single: boolean; errors: Partial<Record<DraftField, string>> }) {
   const avail = d.availability === 'out_of_stock' ? [...AVAIL, { value: 'out_of_stock', label: 'Out of stock' }] : AVAIL
   return (
     <div className="rounded-2xl border border-line/80 bg-surface p-4">
@@ -91,6 +149,7 @@ function VariantEditor({ d, kind, set, onRemove, canRemove, single, errors }: { 
         <Field label={tr('Stock count')} hint={tr('Optional')}><WholeInput value={d.stock_qty} onChange={(v) => set({ stock_qty: v })} placeholder={tr('Number in stock')} /></Field>
       </div>
 
+      {simple ? <SimplePricing d={d} set={set} errors={errors} setKind={simple.setKind} onParseError={simple.onParseError} showAll={simple.showAll} /> : <>
       {kind !== 'on_request' && (
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {kind === 'range' && <>
@@ -135,6 +194,7 @@ function VariantEditor({ d, kind, set, onRemove, canRemove, single, errors }: { 
           )}
         </div>
       )}
+      </>}
     </div>
   )
 }
@@ -152,6 +212,8 @@ function ProductPanel({ product, categories, onClose }: { product: Product | 'ne
   const [kind, setKindState] = useState<Disclosure>(vs.find((v) => v.is_default)?.disclosure ?? vs[0]?.disclosure ?? 'fixed')   // one way of showing the price per product
   const setKind = (k: Disclosure) => { setKindState(k); setVs((a) => a.map((x) => ({ ...x, disclosure: k }))) }
   const [removed, setRemoved] = useState<string[]>([])
+  const [classic, setClassic] = useState(() => kind === 'after_qualifying' || discountChoice(vs[0] ?? blank(true)) === 'advanced')   // the full editor for what two questions cannot say
+  const [textErr, setTextErr] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [tried, setTried] = useState(false)                         // after the first Save press every problem is shown, and cleared live as it is fixed
   const [serverErr, setServerErr] = useState<Record<string, string>>({})
@@ -163,8 +225,10 @@ function ProductPanel({ product, categories, onClose }: { product: Product | 'ne
 
   const all = vs.map((v) => ({ ...v, disclosure: kind }))
   const nameErr = !name.trim() ? 'Give the product a name' : undefined
+  const simple = vs.length === 1 && !classic                         // one variant and nothing advanced: ask the two questions
   const found = all.map((v) => fieldErrors(v, multi))
-  const count = (nameErr ? 1 : 0) + found.reduce((n, e) => n + Object.keys(e).length, 0)
+  if (simple && found[0]?.list_price) delete found[0].floor_price      // a derived lowest price follows the price: one message, under the price
+  const count = (nameErr ? 1 : 0) + found.reduce((n, e) => n + Object.keys(e).length, 0) + (simple && textErr ? 1 : 0)
   const varErr = (i: number): Partial<Record<DraftField, string>> => ({ ...(tried ? found[i] : {}), ...Object.fromEntries(Object.entries(serverErr).filter(([k]) => k.startsWith(`${i}.`) || !k.includes('.')).map(([k, m]) => [k.split('.').pop(), m])) })
   const submit = () => {
     setTried(true); setError(null); setServerErr({})
@@ -228,14 +292,15 @@ function ProductPanel({ product, categories, onClose }: { product: Product | 'ne
 
         <label className="flex items-center justify-between gap-4 rounded-xl border border-line px-3.5 py-3 text-sm font-semibold"><span>{tr('For sale')}<span className="block text-[13px] font-normal text-muted">{tr('When hidden, the assistant will not offer it')}</span></span><Switch checked={active} onChange={setActiveFlag} label={tr('For sale')} /></label>
 
-        <div className="pt-1"><h3 className="font-display text-base font-bold">{tr('Price')}</h3>
+        {!simple && <div className="pt-1"><h3 className="font-display text-base font-bold">{tr('Price')}</h3>
           <div role="radiogroup" aria-label={tr('How the price is shown')} className="mt-2 flex flex-wrap gap-2">
             {(kind === 'after_qualifying' ? [...PRICE_TYPES, { value: 'after_qualifying' as Disclosure, label: 'After a question or two' }] : PRICE_TYPES).map((o) => (
               <button key={o.value} type="button" role="radio" aria-checked={kind === o.value} onClick={() => setKind(o.value)} className={cx('chip', kind === o.value && 'chip-active')}>{tr(o.label)}</button>))}
-          </div></div>
+          </div></div>}
         {multi && <div className="flex items-center justify-between"><h3 className="font-display text-base font-bold">{tr('Variants')}</h3></div>}
         {vs.map((v, i) => (
           <VariantEditor key={v.id ?? `n${i}`} d={v} kind={kind} single={!multi} set={(p) => setV(i, p)} canRemove={multi} errors={varErr(i)}
+            simple={simple ? { setKind, onParseError: setTextErr, showAll: () => setClassic(true) } : undefined}
             onRemove={() => { if (v.id) setRemoved((r) => [...r, v.id!]); setVs((a) => a.filter((_, j) => j !== i)) }} />
         ))}
         <button type="button" className="btn btn-soft btn-sm" onClick={() => setVs((a) => [...a, { ...blank(false), disclosure: kind }])}><Plus className="h-3.5 w-3.5" /> {tr('Add a variant (size, colour…)')}</button>

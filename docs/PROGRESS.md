@@ -339,4 +339,9 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
     once only, jump past the cap, new period, pilots and lapsed shops, one shop's owner only) and the shop-isolation test covers the new table.
     **Also this stretch:** the turn-detection wiring test and three pricing property tests no longer depend on other tests' data or on filtered random inputs (they failed
     occasionally in the full run). **Open question for the founder:** what happens after the cap (keep answering vs pause after a grace); until decided it keeps answering.
+  - **Pricing setup as two questions (ADR 0033), 2026-11-03.** New products ask "What is the price?" (typed as you would say it) and "Can the assistant give a discount?" (No / A little / Down to a lowest price);
+    the mode, steps, rounding and the "a little" lowest price are derived (up to 5% off, one constant); everything else is under "More options" and unchanged. 64 catalogue unit tests, and two browser tests passed against a
+    local stack (`frontend/e2e/pricing-safety.spec.ts`). **Not built:** the shop-wide default asked at onboarding; multi-variant products still use the full editor.
+    **Noticed, not caused by this:** these browser specs fail on the code before this change too, so the e2e suite needs a pass: `forms.spec.ts` (label clashes with the (i) tips, e.g. `getByLabel('Offer name')`
+    matches two elements; the "* required" note; the delete-button name) and the "Saved privately" check in `pricing-safety.spec.ts` against the demo product.
 

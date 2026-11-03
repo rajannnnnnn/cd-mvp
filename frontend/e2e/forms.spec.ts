@@ -14,6 +14,7 @@ test.describe('prices and mandatory fields', () => {
 
   test('DEAL-118: the Price field rejects alphabets and accepts a valid number', async ({ page }) => {
     const panel = await openNewProduct(page)
+    await panel.getByRole('button', { name: 'More options' }).click()                              // the full editor: every field, as before
     const price = panel.getByPlaceholder('Price in ₹', { exact: true })
     await price.fill('abc')
     await expect(price).toHaveValue('')                                                       // Scenario: alphabets are rejected
@@ -58,13 +59,14 @@ test.describe('prices and mandatory fields', () => {
     const panel = await openNewProduct(page)
     await expect(panel.getByText(/^\*\s*required$/)).toBeVisible()                  // the "* required" note
     await expect(star(panel, 'Product name')).toContainText('*')
-    await expect(star(panel, 'Price (₹)')).toContainText('*')
+    await expect(star(panel, 'What is the price?')).toContainText('*')
     for (const optional of ['Category', 'Description', 'Stock count', 'Availability']) await expect(star(panel, optional)).not.toContainText('*')
     await panel.getByRole('button', { name: 'Add product' }).click()
     await expect(panel.getByText('Give the product a name')).toBeVisible()
     await expect(panel.getByText('Price is required')).toBeVisible()
     await expect(panel.getByLabel('Product name')).toBeFocused()                              // the first missing field gets the focus
     await expect(panel.getByText('Please fix the 2 highlighted fields.')).toBeVisible()
+    await panel.getByRole('button', { name: 'More options' }).click()                              // the full editor: every field, as before
     await panel.getByRole('radio', { name: 'Price range' }).click()
     await expect(star(panel, 'Lowest in range')).toContainText('*')
     await expect(star(panel, 'Highest in range')).toContainText('*')

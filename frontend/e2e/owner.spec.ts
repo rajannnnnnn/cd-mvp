@@ -182,7 +182,7 @@ test.describe('owner app', () => {
     await expect(page.getByRole('switch', { name: /is for sale/ }).first()).toBeVisible()
     await panel.getByLabel('Product name').fill(`E2E Kurta ${stamp}`)
     await panel.getByRole('combobox', { name: 'Category' }).fill(cat)
-    await panel.getByPlaceholder('Price in ₹', { exact: true }).fill('500')
+    await panel.getByPlaceholder('e.g. 450').fill('500')                                              // one typed price: the two-question setup
     await panel.getByRole('button', { name: 'Add product' }).click()
     await expect(page.getByText('Product added')).toBeVisible()
     await expect(panel).toHaveCount(0)
@@ -200,7 +200,7 @@ test.describe('owner app', () => {
     await second.getByRole('option', { name: cat }).click()
     await expect(box).toHaveValue(cat)
     await second.getByLabel('Product name').fill(`E2E Dupatta ${stamp}`)
-    await second.getByPlaceholder('Price in ₹', { exact: true }).fill('600')
+    await second.getByPlaceholder('e.g. 450').fill('600')
     await second.getByRole('button', { name: 'Add product' }).click()
     await expect(page.getByText('Product added').first()).toBeVisible()
 
@@ -263,6 +263,8 @@ test.describe('owner app', () => {
     const panel = page.getByRole('complementary', { name: 'Add a product' })
     await expect(panel.getByText('Offer this to customers')).toHaveCount(0)
     await expect(panel.getByRole('option', { name: 'Out of stock' })).toHaveCount(0)
+    await expect(panel.getByRole('radiogroup', { name: 'How the price is shown' })).toHaveCount(0)   // a new product asks two questions, not for a price type first
+    await panel.getByRole('button', { name: 'More options' }).click()                              // the full editor: every field, as before
     const types = panel.getByRole('radiogroup', { name: 'How the price is shown' })
     await expect(types.getByRole('radio')).toHaveText(['Fixed price', 'Starts from', 'Price range', 'On request'])
     await expect(panel.getByText('The assistant tells customers the price straight away.')).toHaveCount(0)
