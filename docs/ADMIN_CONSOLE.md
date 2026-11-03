@@ -30,7 +30,8 @@ authenticator code. There is no "remember me".
    The secret is shown once and never stored in the clear.
 
 ```bash
-docker compose --env-file deploy/admin/.env -f deploy/admin/docker-compose.yml run --rm api python -m salesai admin-enroll +919999900000
+# the image already starts `python -m salesai`, so give only the command that follows it
+docker compose --env-file deploy/admin/.env -f deploy/admin/docker-compose.yml run --rm api admin-enroll +919999900000
 ```
 
 3. Fill in `deploy/admin/.env` (`ADMIN_JWT_SECRET` must differ from `JWT_SECRET`; `ADMIN_ALLOWED_ORIGINS` is the console's own address), then `scripts/stack.sh admin`.
