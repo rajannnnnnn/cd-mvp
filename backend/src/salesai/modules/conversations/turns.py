@@ -60,6 +60,10 @@ class TurnWorker:
                     "FROM whatsapp_numbers WHERE id=%s", (conv["whatsapp_number_id"],))).fetchone(), "num")
                 gaps = [r["gap_ms"] for r in await (await c.execute(
                     "SELECT gap_ms FROM messages WHERE conversation_id=%s AND direction='in' AND gap_ms IS NOT NULL ORDER BY created_at DESC LIMIT 20", (cid,))).fetchall()]
+                last_ai = await (await c.execute(
+                    "SELECT body FROM messages WHERE conversation_id=%s AND direction='out' AND sender='ai' AND kind='text' AND status <> 'cancelled' ORDER BY created_at DESC, id DESC LIMIT 1",
+                    (cid,))).fetchone()
+                ai_asked = bool(last_ai and (last_ai["body"] or "").rstrip().endswith(("?", "？")))     # a short reply to our question is an answer, not a fragment
             block = ai_block_reason(business=biz, conv=conv, customer=cust, number=num, now=now)
             if block:                                         # INV-10: recorded, never answered
                 await self._release(bid, cid, version)
@@ -69,7 +73,8 @@ class TurnWorker:
             settings = biz["conversation_settings"] or {}
             decision = await self.eot.decide(EotInput(
                 texts=[m["body"] or "" for m in msgs], kinds=[m["kind"] for m in msgs],
-                last_message_at=msgs[-1]["created_at"], first_unanswered_at=msgs[0]["created_at"], now=now, gaps_ms=gaps, settings=settings))
+                last_message_at=msgs[-1]["created_at"], first_unanswered_at=msgs[0]["created_at"], now=now, gaps_ms=gaps, settings=settings,
+                ai_asked_question=ai_asked, message_times=[m["created_at"] for m in msgs]))
             if not decision.ready:
                 async with self.db.tenant(bid) as c:
                     await emit(c, "conversation.eot_recheck",

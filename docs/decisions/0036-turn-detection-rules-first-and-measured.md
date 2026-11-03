@@ -58,3 +58,27 @@ Option 4. Decided in this order:
 If the live premature rate stays above a few percent after the pilot has volume, collect the bursts it got wrong and train the per-shop
 predictor on them (per shop only), or add the small model for the unclear band. If customers wait visibly longer than they need to,
 lower the quiet thresholds for complete messages first.
+
+## Results and implementation (2026-11-03)
+
+The first heuristic and the current rules, replayed over the 53-burst labelled corpus with the shop defaults (`tests/test_eot_accuracy.py`
+runs this on every build):
+
+| | started before the customer finished | customer waits after finishing (mean / p50 / p95) |
+|---|---|---|
+| first heuristic | 8 of 53 (15.1 %) | 3.27 s / 1.6 s / 5.2 s |
+| current rules | 2 of 53 (3.8 %) | 1.62 s / 1.2 s / 3.0 s |
+
+Fewer wasted or stale answers **and** a faster reply. The two it still gets wrong are known and intended: a voice note followed by a text, and a
+complete sentence followed by an extra detail ("mujhe ek saree chahiye" / "red colour me"). Waiting longer for those would slow every ordinary reply.
+
+What changed in the rules: the last message is classified as complete, open, partial (a request that usually gets details: "I want a...", "mujhe ...") or
+unsure, by punctuation, sentence-final words in English and Hinglish, continuation words, greetings, and whether the AI had just asked a question (a
+short reply is then an answer). The quiet time asked for depends on the class and on **this burst's own rhythm** first and the customer's history second,
+not on a fixed assumed gap, which is what made ordinary Hinglish messages wait over five seconds before. A photo alone waits a little longer for its
+caption, a voice note is a whole thought, someone firing off short messages gets more time, an ellipsis is the start of something.
+
+Also now in place: the conversation is re-checked after planning and before writing (a stale run stops before the writer); the audit records the live
+premature rate; `EotInput` carries the burst timing and the "AI asked a question" flag from the turn worker. A small model for the unclear band is still not built:
+the live premature rate decides whether it ever is.
+
