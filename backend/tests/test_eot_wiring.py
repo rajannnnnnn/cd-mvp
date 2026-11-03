@@ -24,14 +24,16 @@ async def test_turn_detection_is_told_the_burst_timing_and_whether_the_ai_had_ju
         phone = "+919800050001"
         await world.customer_says(shop, phone, "silk saree price?")
         await settle(world, shop, phone)
-        assert spy.seen and spy.seen[0].ai_asked_question is False and len(spy.seen[0].message_times) == 1
+        mine = [i for i in spy.seen if i.texts and i.texts[0] == "silk saree price?"]       # the database is shared: other tests' chats may be decided meanwhile
+        assert mine and mine[0].ai_asked_question is False and len(mine[0].message_times) == 1
         async with world.rt.db.tenant(shop.business_id) as c:                     # the AI's last message was a question
             await c.execute("""INSERT INTO messages (business_id, conversation_id, direction, sender, kind, body, status, created_at)
-                               SELECT business_id, id, 'out', 'ai', 'text', 'Which colour would you like?', 'sent', now() FROM conversations LIMIT 1""")
+                               SELECT business_id, conversation_id, 'out', 'ai', 'text', 'Which colour would you like?', 'sent', now()
+                               FROM messages WHERE direction='in' AND body='silk saree price?' ORDER BY created_at DESC LIMIT 1""")
         spy.seen.clear()
         await world.customer_says(shop, phone, "red")
         await settle(world, shop, phone, want=2)
-        assert spy.seen and all(i.ai_asked_question for i in spy.seen)
-        assert spy.seen[-1].texts[-1] == "red"
+        mine = [i for i in spy.seen if i.texts and i.texts[-1] == "red"]
+        assert mine and all(i.ai_asked_question for i in mine)
     finally:
         world.rt.turns.eot = old
