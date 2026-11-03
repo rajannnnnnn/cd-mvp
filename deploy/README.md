@@ -17,9 +17,10 @@ reach WhatsApp. And the database is **external**: it is never part of a compose 
 
 ## First time
 
-1. Create the database and its four roles with `db/bootstrap_roles.sql`.
+1. Create the database and its roles with `db/bootstrap_roles.sql` (pass `-v console_pw=...` to give the console its own login, `app_console`).
 2. For each part you want, copy `.env.example` to `.env` in its folder and fill it in. A value that must be the same in several
-   parts says so (`MASTER_KEY`: admin and gateway; the four database URLs: all).
+   parts says so (`MASTER_KEY`: admin and gateway). Database logins: every part has `DATABASE_URL`, `SYSTEM_DATABASE_URL` and `MIGRATION_DATABASE_URL`; only the agent also has
+   `PRICING_DATABASE_URL` (the login that can read price floors) and only the console has `CONSOLE_DATABASE_URL` (ADR 0042, 0043).
 3. Run the migrations, then start the parts:
 
 ```bash
@@ -30,6 +31,8 @@ scripts/stack.sh agent
 ```
 
 or all four on one machine: `scripts/stack.sh all`. On Windows use `scripts\stack.ps1` with the same names.
+
+4. **Check what you filled in:** `python -m salesai doctor` (see `docs/GO_LIVE_CHECKLIST.md`). It tells you which setting to change; run it again after each change.
 
 ## Running only some of them
 
