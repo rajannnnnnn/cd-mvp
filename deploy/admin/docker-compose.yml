@@ -55,4 +55,4 @@ services:
       API_BASE: ${API_BASE:-}                        # empty = same origin: the console's server proxies only /admin/v1 and /api/v1/operator
       API_UPSTREAM: api:8000
       ALLOW_IPS: ${ALLOW_IPS:-0.0.0.0/0 ::/0}
-    ports: ["${ADMIN_BIND:-127.0.0.1}:${ADMIN_PORT:-8082}:80"]      # this machine only; ADMIN_BIND=<private address> opens it to that network
+    ports: ["${ADMIN_BIND:-0.0.0.0}:${ADMIN_PORT:-8082}:80"]      # reachable by default; ADMIN_BIND=127.0.0.1 keeps it to this machine

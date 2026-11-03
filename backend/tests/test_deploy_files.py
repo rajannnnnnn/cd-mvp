@@ -142,13 +142,16 @@ def test_the_only_services_that_publish_a_port_are_the_ones_meant_to():
     assert published == {"web/site", "gateway/receive", "admin/site"}             # the website, Meta's webhook and the founder's console, nothing else
 
 
-def test_every_published_port_is_this_machine_only_unless_the_operator_opens_it():
-    """A port is published to this computer only by default. The site and the founder's console are opened to a network by naming an address
-    (WEB_BIND, ADMIN_BIND) or by putting the TLS proxy on the same machine; nobody on the local network reaches them by accident."""
+def test_published_ports_can_be_narrowed_by_setting_and_the_private_ones_are_loopback_only():
+    """The site and the console are reachable by default (they are meant to be served), and WEB_BIND / ADMIN_BIND narrow them. The webhook receiver
+    and the database are never published beyond this machine."""
     for sid, svc, _ in _services():
         for port in svc.get("ports", []):
             text = str(port)
-            assert text.startswith(("127.0.0.1:", "${WEB_BIND:-127.0.0.1}:", "${ADMIN_BIND:-127.0.0.1}:")), f"{sid} publishes {text} on every interface"
+            if sid in ("web/site", "admin/site"):
+                assert text.startswith(("${WEB_BIND:-0.0.0.0}:", "${ADMIN_BIND:-0.0.0.0}:")), f"{sid} cannot be narrowed: {text}"
+            else:
+                assert text.startswith("127.0.0.1:"), f"{sid} publishes {text} beyond this machine"
 
 
 def test_the_old_combined_deploy_files_are_gone():

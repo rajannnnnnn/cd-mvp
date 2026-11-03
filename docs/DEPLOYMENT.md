@@ -45,9 +45,7 @@ scripts/stack.sh all         # web, admin, gateway, agent (or one at a time: web
 python -m salesai doctor     # (run with the same settings; see section 5)
 ```
 
-**Who can reach each port.** Nothing is open to your network by default. The site (`:8080`), the console (`:8082`), the webhook receiver (`:8001`) and Postgres are published to the machine itself only (`127.0.0.1`). A TLS proxy running on the same machine reaches them as they are. If the proxy is on another machine, set `WEB_BIND` / `ADMIN_BIND` in that part's `.env` to this machine's *private* address (never `0.0.0.0` on a machine with a public address), and restrict the console further with `ADMIN_ALLOWED_IPS`. The agent publishes no port at all. Windows or your router can still expose a published port, so keep the firewall on.
-
-Put a TLS proxy (Caddy, Nginx, or a Cloudflare tunnel) in front of three public hostnames: `app.` -> `:8080`, `hooks.` -> `:8001` (or leave Meta's webhook on `app.` and set `WEBHOOK_UPSTREAM`), `admin.` -> `:8082`.
+**Who can reach each port.** The site (`:8080`) and the console (`:8082`) are reachable on every network address of the machine, so a phone or another PC on your network can open them. The webhook receiver (`:8001`) and Postgres are published to the machine itself only; a tunnel or proxy on the same machine reaches the receiver. To narrow the site or console, set `WEB_BIND` / `ADMIN_BIND` in that part's `.env` (`127.0.0.1` for this machine only, or a private address). Before go-live set `ADMIN_ALLOWED_IPS` so only your own address can open the console, and keep the machine's firewall on. The agent publishes no port.\n\nPut a TLS proxy (Caddy, Nginx, or a Cloudflare tunnel) in front of three public hostnames: `app.` -> `:8080`, `hooks.` -> `:8001` (or leave Meta's webhook on `app.` and set `WEBHOOK_UPSTREAM`), `admin.` -> `:8082`.
 
 ## 3. Many machines, and copies
 
