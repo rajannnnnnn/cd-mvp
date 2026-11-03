@@ -45,6 +45,14 @@ class TurnContext:
     def qualification(self) -> dict[str, Any]:
         return self.conv.get("qualification") or {}
 
+    @property
+    def customer_style(self) -> dict[str, Any]:
+        """How this customer writes, from their own messages in this chat (ADR 0041): rules, no model, this customer only."""
+        from salesai.modules.agent.style import style_of
+        said = [m["body"] for m in self.history if m["sender"] == "customer" and m.get("body")]
+        said += [m["body"] for m in self.unanswered if m.get("body") and m["id"] not in {h.get("id") for h in self.history}]
+        return style_of(said)
+
     def candidate(self, variant_id: uuid.UUID | str) -> dict[str, Any] | None:
         return next((c for c in self.candidates if str(c["variant_id"]) == str(variant_id)), None)
 
@@ -64,7 +72,7 @@ class TurnContext:
                              "body": m["body"] if m["sender"] == "customer" else redact_amounts(m["body"])} for m in self.history],
             },
             "unanswered": [{"id": str(m["id"]), "kind": m["kind"], "text": m["body"]} for m in self.unanswered],
-            "customer": {"name": self.customer.get("name"), "style": self.customer.get("profile") or {}},
+            "customer": {"name": self.customer.get("name"), "style": self.customer_style},
         }
 
 

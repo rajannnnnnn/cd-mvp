@@ -12,6 +12,8 @@ from tests.evals.graders import (
     handoff,
     knowledge_gap,
     latin_only,
+    matches_customer,
+    no_emoji,
     no_handoff,
     no_price,
     parts,
@@ -99,6 +101,19 @@ SCENARIOS: list[Scenario] = [
        Step("yes confirm", [replied()])], [deal("order")], ("order",)),
     S("visit-booking", "phones", "A visit time is captured and the owner is alerted",
       [Step("can I come to the shop tomorrow at 5pm to see the Samsung?", [replied()])], [deal("visit")], ("visit",)),
+
+    # ------------------------------------------------------------------ talking like the customer (ADR 0041)
+    S("voice-casual-hinglish", "sarees", "A very casual Hinglish customer with emoji gets a relaxed, short reply, not a company voice",
+      [Step("hlo bhai 😂", [replied(), short(200), matches_customer()]),
+       Step("ye banarasi saree kitne ka hai yaar", [replied(), quotes(8500), short(260), matches_customer(), latin_only()])], [], ("voice", "hinglish")),
+    S("voice-professional-english", "sarees", "A formal customer who uses no emoji gets a courteous, complete reply with none",
+      [Step("Good morning. Could you please share the price of the Banarasi silk saree?", [replied(), quotes(8500), no_emoji(), matches_customer()])], [], ("voice", "english")),
+    S("voice-terse", "phones", "A customer who writes in single words gets short answers",
+      [Step("redmi 13c", [replied(), short(300), matches_customer()]), Step("price", [replied(), quotes(10499), short(160), matches_customer()])], [], ("voice", "length")),
+    S("voice-hindi", "kirana", "A Devanagari customer is answered in Devanagari, plainly",
+      [Step("चावल का भाव क्या है?", [replied(), devanagari(), quotes(620), matches_customer()])], [], ("voice", "hindi")),
+    S("voice-plain-english", "phones", "An ordinary English customer gets an ordinary friendly answer",
+      [Step("do you have the samsung galaxy a15", [replied(), no_emoji(), short(300), matches_customer()])], [], ("voice", "english")),
 
     # ------------------------------------------------------------------ message mechanics and control
     S("fragments", "phones", "Fragmented messages get one batched answer, not three",

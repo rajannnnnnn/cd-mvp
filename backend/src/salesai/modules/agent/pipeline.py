@@ -28,6 +28,7 @@ from salesai.modules.agent.llm import LLMProvider, LLMRequest, LLMUnavailable
 from salesai.modules.agent.llm.local_nlg import render as render_directive
 from salesai.modules.agent.models import CheckOutput, PlannerOutput, WriterOutput
 from salesai.modules.agent.shape import shape_reply
+from salesai.modules.agent.style import reply_hint
 from salesai.modules.delivery import is_open, next_open, plan_delivery
 from salesai.modules.handoffs import create_handoff, log_gap
 from salesai.modules.pricing import PricingService
@@ -230,7 +231,8 @@ class AgentService:
         allowed = chk.numbers_in(" ".join(plan.allowed_texts))
         return chk.CheckContext(issued=frozenset(plan.issued), issued_percents=frozenset(plan.issued_percents),
                                 allowed_numbers=frozenset(allowed), real_urgency=frozenset(plan.real_urgency),
-                                sincere_identity_question=plan.sincere_identity_question, customer_script=plan.script)
+                                sincere_identity_question=plan.sincere_identity_question, customer_script=plan.script,
+                                customer_style=ctx.customer_style)
 
     async def _write_and_check(self, ctx: ctxmod.TurnContext, plan: pol.Plan, usage: Usage, prompt_refs: dict[str, str]
                                ) -> tuple[list[str] | None, str | None, dict[str, Any]]:
@@ -238,6 +240,7 @@ class AgentService:
             return [], None, {"silent": True}
         if not plan.directives:       # reaction only
             return [], plan.reaction_emoji, {"reaction_only": True}
+        style = ctx.customer_style
         wp = prompts.load("writer")
         prompt_refs["writer"] = wp.ref
         sales = ctx.business["sales_settings"] or {}
@@ -250,6 +253,8 @@ class AgentService:
             "first_reply": not ctx.has_prior_ai_message,
             "history": [{"sender": m["sender"], "text": (m["body"] or "")[:400]} for m in ctx.history[-12:]],
             "customer_just_said": [(m["body"] or "")[:400] for m in ctx.unanswered],
+            # how this customer writes, and what the reply is asked to match (ADR 0041): language mix, how casual, how long, emoji
+            "customer_style": style, "reply_hint": reply_hint(style),
         }
         checkctx = self._checkctx(ctx, plan)
         log: dict[str, Any] = {"attempts": []}
@@ -427,6 +432,8 @@ class AgentService:
             await emit(c, "turn.decided", {"turn_id": tid, "conversation_id": cid, "action": "reply" if parts else "silent", "intent": plan.intent},
                        business_id=bid)
             await announce_change(c, bid, cid)                                   # lead stage and a reply in flight changed: re-plan the clock
+            await c.execute("UPDATE customers SET profile = COALESCE(profile, '{}'::jsonb) || %s WHERE id=%s",
+                            (jsonb({"style": ctx.customer_style}), ctx.customer["id"]))      # how they write, kept with the customer (ADR 0041)
         TURN_SECONDS.observe(time.perf_counter() - t0)
         return TurnOutcome("committed" if acts else "silent", turn_id=tid, parts=parts, intent=plan.intent, route=route, llm=llm_usage,
                            reaction_only=bool(acts) and not parts)

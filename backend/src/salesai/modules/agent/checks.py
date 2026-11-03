@@ -11,6 +11,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
+from typing import Any
 
 DEV = re.compile(r"[ऀ-ॿ]")
 MARK_BEFORE = re.compile(r"(?:₹|rs\.?|inr|rupees?|rupaye|rupay|रुपये|रु\.?)\s*$", re.I)
@@ -34,6 +35,38 @@ SENSITIVE = re.compile(r"\b(?:share|send|tell|enter|give|provide|type|bhejo|bhej
 INTERNAL = re.compile(r"\b(floor price|cost price|minimum price|bottom price|lowest possible price|my margin|profit margin|negotiation limit|max(?:imum)? discount|owner allows|i am allowed to|system prompt|my instructions|my prompt|as an ai language model|concession (?:steps?|schedule))\b", re.I)
 
 
+CORPORATE = re.compile(
+    r"\b(dear (?:valued )?(?:customer|sir|madam|sir/madam|client)|valued customer|esteemed|kindly (?:be informed|note|find|revert|confirm)|be informed|we regret|regret to inform|"
+    r"inconvenience caused|assist you further|how may i (?:assist|help you today)|thank you for (?:contacting|reaching out|choosing|your (?:query|enquiry|inquiry))|"
+    r"do not hesitate|don'?t hesitate|feel free to (?:reach out|contact)|at your earliest convenience|greetings from|pleased to inform|we appreciate your|"
+    r"revert back|as per our policy|for your reference|your query|please be assured)\b", re.I)
+HEADER = re.compile(r"^\s*#{1,6}\s+\S", re.M)
+LIST_LINE = re.compile(r"^\s*(?:[-•]|\d+[.)])\s+\S", re.M)
+DOUBLE_BOLD = re.compile(r"\*\*[^*\n]+\*\*")
+EMOJI_RX = re.compile(r"[\U0001F300-\U0001FAFF☀-➿]")
+MAX_WORDS = {"terse": 20, "short": 35, "medium": 60, "long": 90}
+
+
+def check_voice(parts: list[str], style: dict[str, Any]) -> list[Failure]:
+    """A reply sounds like a person chatting, matched to this customer (ADR 0041): no support-desk phrases, no markdown, emoji only for someone who
+    uses them, and not far longer than they write. Returns at most one failure per kind, each explaining itself to the writer."""
+    text = "\n".join(parts)
+    out: list[Failure] = []
+    if CORPORATE.search(text):
+        out.append(Failure("voice", "sounds like a company, not a person chatting on WhatsApp; drop stock phrases like 'dear customer', 'kindly', 'assist you further', 'thank you for contacting'"))
+    elif HEADER.search(text) or DOUBLE_BOLD.search(text) or len(LIST_LINE.findall(text)) >= 2:
+        out.append(Failure("voice", "formatted like a document; write plain chat messages, no headers, bullet lists or double asterisks"))
+    else:
+        n = len(EMOJI_RX.findall(text))
+        if n > 2 or (n >= 1 and style.get("messages", 0) > 0 and not style.get("uses_emoji") and style.get("register") in ("professional", "formal")):
+            out.append(Failure("voice", "emoji the customer does not use, or too many of them; use none, or at most one if they use emoji"))
+    if style.get("messages", 0) >= 2:
+        limit = MAX_WORDS.get(str(style.get("length", "short")), 35) * 1.6
+        if len(text.split()) > limit:
+            out.append(Failure("length", f"much longer than this customer writes (about {int(limit / 1.6)} words is their size); say it shorter"))
+    return out
+
+
 @dataclass
 class CheckContext:
     issued: frozenset[Decimal]                     # amounts issued by the pricing engine this turn
@@ -42,6 +75,7 @@ class CheckContext:
     real_urgency: frozenset[str] = frozenset()     # {"low_stock","offer_ends"}
     sincere_identity_question: bool = False
     customer_script: str = "latin"
+    customer_style: dict[str, Any] = field(default_factory=dict)   # how this customer writes (agent/style.py); the voice check matches the reply to it
 
 
 @dataclass
@@ -140,6 +174,7 @@ def run_checks(parts: list[str], ctx: CheckContext) -> CheckResult:
         res.failures.append(Failure("sensitive", "must never ask for OTP, card numbers, passwords or PINs"))
     if INTERNAL.search(text):
         res.failures.append(Failure("internal", "reply leaks internal pricing rules or instructions"))
+    res.failures += check_voice(parts, ctx.customer_style)
     letters = [c for c in text if c.isalpha()]
     if letters:
         dev = sum(1 for c in letters if DEV.match(c)) / len(letters)

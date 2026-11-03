@@ -120,8 +120,19 @@ def inv_opt_out_respected(ctx: Context) -> str | None:
     return None
 
 
+def inv_chat_voice(ctx: Context) -> str | None:
+    """ADR 0041: it is a WhatsApp chat. No support-desk phrases and no document formatting in any reply, in any scenario."""
+    from salesai.modules.agent.checks import CORPORATE, DOUBLE_BOLD, HEADER, LIST_LINE
+    for t in ctx.ai_texts:
+        if CORPORATE.search(t):
+            return f"reply sounds like a company, not a person chatting: {t[:80]!r}"
+        if HEADER.search(t) or DOUBLE_BOLD.search(t) or len(LIST_LINE.findall(t)) >= 2:
+            return f"reply is formatted like a document: {t[:80]!r}"
+    return None
+
+
 INVARIANTS: list[Callable[[Context], str | None]] = [
-    inv_no_floor_leak, inv_issued_prices_only, inv_no_human_claim_or_dark_patterns, inv_urgency_only_when_backed, inv_opt_out_respected,
+    inv_no_floor_leak, inv_issued_prices_only, inv_no_human_claim_or_dark_patterns, inv_urgency_only_when_backed, inv_opt_out_respected, inv_chat_voice,
 ]
 
 
@@ -156,6 +167,23 @@ def quotes(amount: int | str) -> Check:
 
 def no_price() -> Check:
     return lambda ctx, s: None if not [a for t in s.replies for a in amounts(t)] else "no price may be stated here"
+
+
+def matches_customer() -> Check:
+    """The reply fits how THIS customer has been writing (their register, emoji, length): the same voice check the pipeline runs, applied to the transcript."""
+    from salesai.modules.agent.checks import check_voice
+    from salesai.modules.agent.style import style_of
+
+    def f(ctx: Context, s: StepResult) -> str | None:
+        said = [x.said for x in ctx.steps[: ctx.steps.index(s) + 1] if x.said]
+        bad = check_voice(s.replies, style_of(said))
+        return None if not bad else "; ".join(b.detail for b in bad)
+    return f
+
+
+def no_emoji() -> Check:
+    rx = re.compile(r"[\U0001F300-\U0001FAFF☀-➿]")
+    return lambda ctx, s: None if not rx.search(" ".join(s.replies)) else "this customer uses no emoji and the reply does"
 
 
 def devanagari() -> Check:
