@@ -242,8 +242,10 @@ async def test_the_audit_carries_no_customer_words_name_number_or_floor(world, c
     text = json.dumps([(await client.get(f"{AU}/runs/{r['id']}", headers=hdr(op))).json(),
                        (await client.get(f"{AU}/runs", headers=hdr(op))).json(), (await client.get(f"{AU}/summary", headers=hdr(op))).json(),
                        dict(r)], default=str)
-    for needle in (secret, "Private Person Zed", phone.removeprefix("+"), "800"):
+    import re
+    for needle in (secret, "Private Person Zed", phone.removeprefix("+")):
         assert needle not in text, needle
+    assert not re.search(r"(?<![\w.-])800(\.00)?(?![\w.-])", text)           # the floor, as a number on its own (not a piece of an id)
 
 
 async def test_the_audit_needs_the_admin_session_and_a_shop_sees_only_its_own_runs(world, client):
