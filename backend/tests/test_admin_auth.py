@@ -18,8 +18,6 @@ from salesai.modules.auth.admin import enroll_admin
 from tests.admin_helpers import A1, admin_login, code_for, make_admin, ticket
 from tests.test_api import V1, hdr, login
 
-pytestmark = pytest.mark.asyncio
-
 
 def bearer(tokens: dict) -> dict:
     return {"Authorization": f"Bearer {tokens['access_token']}"}

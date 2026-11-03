@@ -29,8 +29,8 @@ round_tos = st.sampled_from([D("1"), D("5"), D("10"), D("50")])
 
 
 @st.composite
-def requirements(draw):
-    kinds = draw(st.lists(st.sampled_from(["quantity", "advance_payment", "repeat_customer"]), max_size=3, unique=True))
+def requirements(draw, min_size=0):
+    kinds = draw(st.lists(st.sampled_from(["quantity", "advance_payment", "repeat_customer"]), min_size=min_size, max_size=3, unique=True))
     return tuple(Requirement(k, draw(st.integers(2, 10)) if k == "quantity" else None) for k in kinds)
 
 
@@ -172,23 +172,33 @@ def test_levels_are_strictly_decreasing_and_end_exactly_at_floor(lst, frac, step
     assert all(x >= floor for x in lv)
 
 
+@st.composite
+def negotiable_fixed_price(draw, min_steps=2, min_requirements=0):
+    """A negotiable fixed-price item with a real floor and at least two concession steps, generated directly (filtering random scenarios for
+    these properties rejected most inputs and made Hypothesis abort)."""
+    lst = draw(st.decimals(min_value=D("100"), max_value=D("200000"), places=2))
+    floor = q2(lst * draw(st.decimals(min_value=D("0.05"), max_value=D("0.9"), places=2)))
+    steps, rt = draw(st.integers(min_steps, 8)), draw(round_tos)
+    pol = Policy(disclosure="fixed", list_price=lst, range_min=None, range_max=None, negotiable=True, ai_may_negotiate=True,
+                 concession_steps=steps, requires=draw(requirements(min_requirements)), round_to=rt)
+    return pol, floor
+
+
 @SET
-@given(sc=scenario(disclosure="fixed", negotiating=True))
+@given(sc=negotiable_fixed_price())
 def test_first_concession_never_jumps_to_floor_when_steps_allow(sc):
-    p, floor, offs, f = sc
-    assume(floor is not None and floor < p.list_price and p.concession_steps >= 2)
+    p, floor = sc
     lv = concession_levels(p.list_price, floor, p.concession_steps, p.round_to)
-    assume(len(lv) >= 2)
+    assume(len(lv) >= 2)                                              # a coarse rounding can collapse the steps; those cases are tested elsewhere
     f = Facts(now=NOW, quantity=99, advance_payment=True, repeat_customer=True)
     d = decide(Request(p, floor, (), f, NegState(), "discount"))
     assert d.kind == "concede" and d.values[0].amount == lv[0] > floor
 
 
 @SET
-@given(sc=scenario(disclosure="fixed", negotiating=True))
+@given(sc=negotiable_fixed_price(min_steps=1, min_requirements=1))
 def test_requirements_must_be_met_before_a_concession(sc):
-    p, floor, _, _ = sc
-    assume(floor is not None and floor < p.list_price and p.concession_steps >= 1 and p.requires)
+    p, floor = sc
     assume(len(concession_levels(p.list_price, floor, p.concession_steps, p.round_to)) >= 1)
     poor = Facts(now=NOW, quantity=1, advance_payment=False, repeat_customer=False)
     d = decide(Request(p, floor, (), poor, NegState(), "discount"))
@@ -199,10 +209,9 @@ def test_requirements_must_be_met_before_a_concession(sc):
 
 # ------------------------------------------------------------------ never below the customer's offer
 @SET
-@given(sc=scenario(disclosure="fixed", negotiating=True), counters=st.lists(money, min_size=1, max_size=10))
+@given(sc=negotiable_fixed_price(min_steps=0), counters=st.lists(money, min_size=1, max_size=10))
 def test_never_offers_less_than_customer_already_offered(sc, counters):
-    p, floor, _, _ = sc
-    assume(floor is not None)
+    p, floor = sc
     f = Facts(now=NOW, quantity=99, advance_payment=True, repeat_customer=True)
     state = NegState()
     for c in counters:
@@ -220,10 +229,9 @@ def test_never_offers_less_than_customer_already_offered(sc, counters):
 
 # ------------------------------------------------------------------ hold once, then hand off
 @SET
-@given(sc=scenario(disclosure="fixed", negotiating=True), low=st.decimals(min_value=D("0.01"), max_value=D("0.99"), places=2))
+@given(sc=negotiable_fixed_price(min_steps=1), low=st.decimals(min_value=D("0.01"), max_value=D("0.99"), places=2))
 def test_insisting_below_floor_holds_once_then_hands_off(sc, low):
-    p, floor, _, _ = sc
-    assume(floor is not None and floor >= D("2") and p.concession_steps >= 1)
+    p, floor = sc
     f = Facts(now=NOW, quantity=99, advance_payment=True, repeat_customer=True)
     state, kinds, prices = NegState(), [], []
     counter = q2(floor * low)
