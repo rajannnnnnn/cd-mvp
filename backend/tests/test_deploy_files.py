@@ -165,3 +165,9 @@ def test_the_consoles_web_server_sets_the_strictest_headers_and_proxies_only_the
 def test_the_consoles_image_is_built_from_the_consoles_own_bundle():
     docker = (DEPLOY.parent / "frontend" / "Dockerfile.admin").read_text()
     assert "build:admin" in docker and "dist-admin" in docker and "Caddyfile.admin" in docker
+
+
+def test_the_one_machine_stack_also_gives_the_floor_login_only_to_the_services_that_decide_turns():
+    doc = yaml.safe_load((DEPLOY / "docker-compose.yml").read_text())
+    holders = {n for n, svc in doc["services"].items() if "PRICING_DATABASE_URL" in (svc.get("environment") or {})}
+    assert holders == {"worker", "seed"}, holders

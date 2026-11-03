@@ -23,7 +23,6 @@ x-backend: &backend
     TRUST_PROXY: "true"
     ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8080}
     DATABASE_URL: postgresql://app_user:${APP_USER_PASSWORD}@postgres:5432/salesai
-    PRICING_DATABASE_URL: postgresql://app_pricing:${APP_PRICING_PASSWORD}@postgres:5432/salesai
     SYSTEM_DATABASE_URL: postgresql://app_system:${APP_SYSTEM_PASSWORD}@postgres:5432/salesai
     MIGRATION_DATABASE_URL: postgresql://app_owner:${APP_OWNER_PASSWORD}@postgres:5432/salesai
     QUEUE_BACKEND: ${QUEUE_BACKEND:-postgres}
@@ -98,7 +97,9 @@ services:
   worker:
     <<: *backend
     command: ["worker"]
-    environment: *backend-env
+    environment:                         # the one service that decides turns, so the only one given the login that can read price floors (INV-1, ADR 0042)
+      <<: *backend-env
+      PRICING_DATABASE_URL: postgresql://app_pricing:${APP_PRICING_PASSWORD}@postgres:5432/salesai
     deploy: { replicas: 1 }
 
   scheduler:
@@ -125,7 +126,9 @@ services:
     restart: "no"
     entrypoint: ["python", "-m", "salesai.seed"]
     command: ["--conversations", "--spread-days", "6"]
-    environment: *backend-env
+    environment:                         # plays demo conversations through the real pipeline, so it decides turns too
+      <<: *backend-env
+      PRICING_DATABASE_URL: postgresql://app_pricing:${APP_PRICING_PASSWORD}@postgres:5432/salesai
 
   redis:
     image: redis:7-alpine
