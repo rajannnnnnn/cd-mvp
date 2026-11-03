@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from salesai.config import Settings
 from salesai.modules.tenants.vault import TokenVault
 
-DB = {"DATABASE_URL": "postgresql://x", "PRICING_DATABASE_URL": "postgresql://x", "SYSTEM_DATABASE_URL": "postgresql://x",
+DB = {"DATABASE_URL": "postgresql://x", "PRICING_DATABASE_URL": "postgresql://x", "SYSTEM_DATABASE_URL": "postgresql://x", "CONSOLE_DATABASE_URL": "postgresql://x",
       "MIGRATION_DATABASE_URL": "postgresql://x"}
 MASTER = base64.b64encode(b"k" * 32).decode()
 SECRETS = {"MASTER_KEY": MASTER, "JWT_SECRET": "j" * 40, "OTP_SECRET": "o" * 40, "META_APP_SECRET": "m" * 24, "META_VERIFY_TOKEN": "v" * 24}
@@ -177,4 +177,31 @@ def test_a_part_without_the_login_cannot_reach_floors_even_by_mistake():
         async def go():
             async with db.pricing_tenant("00000000-0000-0000-0000-000000000000"):
                 pass
+        asyncio.run(go())
+
+
+# ------------------------------------------------------------------ the console's own database login (ADR 0043)
+def test_only_the_founder_console_holds_the_login_that_reads_admin_sign_in_secrets():
+    no = {"CONSOLE_DATABASE_URL": ""}
+    with pytest.raises(ValidationError, match="CONSOLE_DATABASE_URL"):
+        build("admin", keep=("MASTER_KEY", "JWT_SECRET", "OTP_SECRET"), ADMIN_JWT_SECRET=ADMIN_SECRET, **no)
+    with pytest.raises(ValidationError, match="CONSOLE_DATABASE_URL"):
+        build("all", keep=tuple(SECRETS), **no)
+    build("api", keep=("JWT_SECRET", "OTP_SECRET"), **no)
+    build("ingress", keep=("META_APP_SECRET", "META_VERIFY_TOKEN"), **no)
+    build("scheduler", **no)
+    build("worker", WORKER_QUEUES="conversation.turns", **no)
+    build("worker", keep=("MASTER_KEY", "META_APP_SECRET"), WORKER_QUEUES="outbound.actions", **no)
+
+
+def test_a_part_without_the_console_login_cannot_open_a_console_transaction():
+    import asyncio
+
+    from salesai.db import Database
+    db = Database("postgresql://u@localhost/x", None, "postgresql://s@localhost/x")
+
+    async def go():
+        async with db.console_tx():
+            pass
+    with pytest.raises(RuntimeError, match="no console database login"):
         asyncio.run(go())

@@ -357,4 +357,7 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
     (`sales_settings.discount_default`, backend test added). **Webhook sweep (earlier backlog item): not needed.** The webhook row and its event are written in one transaction, so a received webhook cannot be lost between the two.
     **Not built, by decision:** learning *proposals* stay after the pilot, behind a per-shop opt-in (ADR 0031, explained in its new consent and Meta section). **Remaining engineering:** narrower `app_system` per component,
     a wider eval set and the model benchmark (both need the model key), rewriting the stale browser specs (task list above). Everything else that can be built without the founder's accounts and keys is built.
+  - **The console's own database login (ADR 0043), 2026-11-03.** `app_console` is the only login that can read the authenticator secrets, console sessions and break-glass grants; they were taken away from the shared `app_system`.
+    `CONSOLE_DATABASE_URL` goes to the console only (deploy/admin, `.env.example`, `scripts/dev_env.sh`); to enable it on an existing database run `ALTER ROLE app_console LOGIN PASSWORD '...'` after the migrations (the role is
+    created by `db/bootstrap_roles.sql`; re-run it, it is idempotent). Tests at the database, in the config rules and on the deploy files. **Still open (hardening, not a launch blocker):** splitting web, gateway, agent and scheduler apart.
 

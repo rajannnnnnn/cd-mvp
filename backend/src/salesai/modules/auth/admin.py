@@ -53,7 +53,7 @@ async def enroll_admin(db: Database, settings: Settings, phone: str) -> str:
         raise ValueError(f"{phone!r} is not a valid phone number") from e
     secret = totp.new_secret()
     blob = crypto.encrypt(_key(settings), secret, aad=b"admin-totp")
-    async with db.system_tx() as c:
+    async with db.console_tx() as c:
         acct = await (await c.execute("SELECT id FROM accounts WHERE phone=%s AND platform_role='operator' AND status='active'", (phone,))).fetchone()
         if acct is None:
             raise ValueError("no active platform operator account has that number")
@@ -90,13 +90,13 @@ class AdminAuth:
         """An active platform operator with an authenticator enrolled. Nobody else can even get a code."""
         if not self.s.admin_jwt_secret or self.s.otp_accept_any:
             return False
-        async with self.db.system_tx() as c:
+        async with self.db.console_tx() as c:
             return await (await c.execute(
                 """SELECT 1 FROM accounts a JOIN admin_credentials k ON k.account_id = a.id
                    WHERE a.phone=%s AND a.platform_role='operator' AND a.status='active'""", (phone,))).fetchone() is not None
 
     async def _audit(self, action: str, account_id: uuid.UUID | None, detail: dict[str, Any] | None = None) -> None:
-        async with self.db.system_tx() as c:
+        async with self.db.console_tx() as c:
             await platform_audit(c, actor_account_id=account_id, actor_label="admin", action=action, business_id=None, detail=detail)
 
     # ------------------------------------------------------------------ step 1: the WhatsApp code
@@ -124,7 +124,7 @@ class AdminAuth:
         if not await self._eligible(phone) or not await self.auth.consume_code(phone, code):
             await self._audit("admin.sign_in_failed", None, {"step": "whatsapp_code"})
             raise bad
-        async with self.db.system_tx() as c:
+        async with self.db.console_tx() as c:
             acct = await (await c.execute("SELECT id FROM accounts WHERE phone=%s", (phone,))).fetchone()
             assert acct is not None
             sid = uuid.uuid4()
@@ -137,7 +137,7 @@ class AdminAuth:
         claims, row = await self._load(ticket, "ticket")
         acct_id = uuid.UUID(claims["sub"])
         await self._check_authenticator(acct_id, code)
-        async with self.db.system_tx() as c:
+        async with self.db.console_tx() as c:
             await c.execute("UPDATE admin_sessions SET revoked_at = now() WHERE id=%s", (row["id"],))        # a ticket is used once
         session = await self._start_session(acct_id, ip)
         await self._audit("admin.signed_in", acct_id)
@@ -148,7 +148,7 @@ class AdminAuth:
         would roll the counter back and make the lock pointless."""
         failure: AuthError | None = None
         locked_now = False
-        async with self.db.system_tx() as c:
+        async with self.db.console_tx() as c:
             k = await (await c.execute("SELECT * FROM admin_credentials WHERE account_id=%s FOR UPDATE", (acct_id,))).fetchone()
             now = self._now()
             if k is None:
@@ -174,7 +174,7 @@ class AdminAuth:
     async def _start_session(self, acct_id: uuid.UUID, ip: str | None) -> AdminSession:
         ttl = self.s.admin_session_minutes * 60
         sid = uuid.uuid4()
-        async with self.db.system_tx() as c:
+        async with self.db.console_tx() as c:
             await c.execute("INSERT INTO admin_sessions (id, account_id, stage, ip, expires_at) VALUES (%s,%s,'session',%s,%s)",
                             (sid, acct_id, ip, self._now() + timedelta(seconds=ttl)))
         return AdminSession(self._token(acct_id, sid, "operator", ttl), ttl)
@@ -194,7 +194,7 @@ class AdminAuth:
             raise bad
         if claims["exp"] <= self.clock():
             raise AuthError("token_expired", "Your session expired.")
-        async with self.db.system_tx() as c:
+        async with self.db.console_tx() as c:
             row = await (await c.execute("SELECT * FROM admin_sessions WHERE id=%s", (sid,))).fetchone()
         if row is None or row["stage"] != stage or row["revoked_at"] is not None or row["expires_at"] <= self._now():
             raise AuthError("session_revoked", "This session was signed out.")
@@ -202,7 +202,7 @@ class AdminAuth:
 
     async def authenticate(self, token: str) -> Principal:
         claims, row = await self._load(token, "session")
-        async with self.db.system_tx() as c:          # still an operator, still enrolled: losing either ends the session at once
+        async with self.db.console_tx() as c:          # still an operator, still enrolled: losing either ends the session at once
             acct = await (await c.execute(
                 """SELECT a.phone FROM accounts a JOIN admin_credentials k ON k.account_id = a.id
                    WHERE a.id=%s AND a.platform_role='operator' AND a.status='active'""", (uuid.UUID(claims["sub"]),))).fetchone()
@@ -212,19 +212,19 @@ class AdminAuth:
 
     async def extend(self, principal: Principal, code: str, ip: str | None) -> AdminSession:
         await self._check_authenticator(principal.account_id, code)
-        async with self.db.system_tx() as c:
+        async with self.db.console_tx() as c:
             await c.execute("UPDATE admin_sessions SET revoked_at = now() WHERE id=%s", (principal.session_id,))
         session = await self._start_session(principal.account_id, ip)
         await self._audit("admin.session_extended", principal.account_id)
         return session
 
     async def logout(self, principal: Principal) -> None:
-        async with self.db.system_tx() as c:
+        async with self.db.console_tx() as c:
             await c.execute("UPDATE admin_sessions SET revoked_at = now() WHERE account_id=%s AND revoked_at IS NULL", (principal.account_id,))
         await self._audit("admin.signed_out", principal.account_id)
 
     async def expires_at(self, principal: Principal) -> datetime:
-        async with self.db.system_tx() as c:
+        async with self.db.console_tx() as c:
             row = await (await c.execute("SELECT expires_at FROM admin_sessions WHERE id=%s", (principal.session_id,))).fetchone()
         assert row is not None
         expires: datetime = row["expires_at"]

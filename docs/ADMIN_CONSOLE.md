@@ -48,3 +48,10 @@ To replace a lost phone, run the same enrol command again: it replaces the secre
 
 `scripts/dev_env.sh` creates a `.env` with the console enabled. Run the API in `all` mode, then `npm run dev:admin` in `frontend` (port 5174). The console's build
 (`npm run build:admin`) shares the component library with the owner app and nothing else; a test fails if either app starts importing the other's screens.
+
+## The console's database login
+
+The console uses its own database login, `app_console`, which is the only one that can read the authenticator secrets and sessions (ADR 0043). On a database that already exists, re-run
+`db/bootstrap_roles.sql` (it is safe to repeat; pass `-v console_pw=...`) or run `ALTER ROLE app_console LOGIN PASSWORD '...'`, then apply the migrations (they re-apply the grants) and put
+`CONSOLE_DATABASE_URL` in `deploy/admin/.env`. The `admin-enroll` command needs it too, because it writes the authenticator secret.
+

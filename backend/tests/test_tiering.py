@@ -133,7 +133,7 @@ async def test_other_stages_pass_straight_through():
 def settings(**kw) -> Settings:
     base = dict(role="all", master_key="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=", jwt_secret="j" * 32, otp_secret="o" * 32, meta_app_secret="m" * 12,
                 meta_verify_token="v" * 12, llm_provider="openai_compat", openai_compat_base_url="http://127.0.0.1:9/v1", openai_compat_api_key="k",
-                database_url="postgresql://x/x", pricing_database_url="postgresql://x/x", system_database_url="postgresql://x/x", migration_database_url="postgresql://x/x")
+                database_url="postgresql://x/x", pricing_database_url="postgresql://x/x", system_database_url="postgresql://x/x", console_database_url="postgresql://x/x", migration_database_url="postgresql://x/x")
     import os
     from unittest import mock
     with mock.patch.dict(os.environ, {}, clear=True):

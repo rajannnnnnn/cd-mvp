@@ -23,7 +23,7 @@ async def shop_audit(db: Database, business_id: uuid.UUID, account_id: uuid.UUID
 async def open_grant(db: Database, account_id: uuid.UUID, business_id: uuid.UUID, reason: str, minutes: int) -> dict[str, Any]:
     reason = reason.strip()
     expires = datetime.now(UTC) + timedelta(minutes=minutes)
-    async with db.system_tx() as c:
+    async with db.console_tx() as c:
         if not await (await c.execute("SELECT 1 FROM businesses WHERE id=%s", (business_id,))).fetchone():
             raise LookupError("Business not found.")
         g = await (await c.execute("INSERT INTO break_glass_grants (business_id, account_id, reason, expires_at) VALUES (%s,%s,%s,%s) RETURNING id, expires_at",
@@ -39,14 +39,14 @@ async def active_grant(db: Database, account_id: uuid.UUID, business_id: uuid.UU
     """The grant, if it is this operator's, for this shop, not ended and not expired. Anything else is None."""
     if grant_id is None:
         return None
-    async with db.system_tx() as c:
+    async with db.console_tx() as c:
         return await (await c.execute(
             """SELECT * FROM break_glass_grants WHERE id=%s AND account_id=%s AND business_id=%s AND ended_at IS NULL AND expires_at > now()""",
             (grant_id, account_id, business_id))).fetchone()
 
 
 async def end_grant(db: Database, account_id: uuid.UUID, grant_id: uuid.UUID) -> bool:
-    async with db.system_tx() as c:
+    async with db.console_tx() as c:
         g = await (await c.execute("UPDATE break_glass_grants SET ended_at = now() WHERE id=%s AND account_id=%s AND ended_at IS NULL RETURNING business_id",
                                    (grant_id, account_id))).fetchone()
         if g is None:
@@ -57,7 +57,7 @@ async def end_grant(db: Database, account_id: uuid.UUID, grant_id: uuid.UUID) ->
 
 
 async def list_conversations(db: Database, grant: dict[str, Any]) -> list[dict[str, Any]]:
-    async with db.system_tx() as c:
+    async with db.console_tx() as c:
         rows = await (await c.execute(
             """SELECT cv.id, cu.name AS customer_name, cu.wa_id, cv.lead_stage, cv.last_inbound_at, cv.updated_at,
                       (SELECT count(*) FROM messages m WHERE m.conversation_id = cv.id) AS messages
@@ -71,7 +71,7 @@ async def list_conversations(db: Database, grant: dict[str, Any]) -> list[dict[s
 
 
 async def read_messages(db: Database, grant: dict[str, Any], conversation_id: uuid.UUID) -> list[dict[str, Any]]:
-    async with db.system_tx() as c:
+    async with db.console_tx() as c:
         if not await (await c.execute("SELECT 1 FROM conversations WHERE id=%s AND business_id=%s", (conversation_id, grant["business_id"]))).fetchone():
             raise LookupError("Conversation not found.")
         rows = await (await c.execute(

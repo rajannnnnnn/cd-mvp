@@ -22,7 +22,7 @@ def jsonb(value: object) -> Jsonb:
 class Database:
     """Pools: `user` (RLS), `pricing` (floor reader), `system` (BYPASSRLS, platform only)."""
 
-    def __init__(self, user_url: str, pricing_url: str | None, system_url: str, pool_max: int = 10):
+    def __init__(self, user_url: str, pricing_url: str | None, system_url: str, pool_max: int = 10, console_url: str | None = None):
         def mk(url: str, name: str, maxsize: int) -> AsyncConnectionPool[Conn]:
             return AsyncConnectionPool(
                 url, min_size=1, max_size=maxsize, open=False, name=name,
@@ -32,9 +32,10 @@ class Database:
         self.user = mk(user_url, "user", pool_max)
         self.pricing = mk(pricing_url, "pricing", max(2, pool_max // 2)) if pricing_url else None      # only the agent's turn worker has this login (INV-1)
         self.system = mk(system_url, "system", max(2, pool_max // 2))
+        self.console = mk(console_url, "console", max(2, pool_max // 2)) if console_url else None      # the founder console only (ADR 0043)
 
     def _pools(self) -> list[AsyncConnectionPool[Conn]]:
-        return [p for p in (self.user, self.pricing, self.system) if p is not None]
+        return [p for p in (self.user, self.pricing, self.system, self.console) if p is not None]
 
     async def open(self) -> None:
         for p in self._pools():
@@ -64,6 +65,14 @@ class Database:
     async def system_tx(self) -> AsyncIterator[Conn]:
         """Transaction as app_system. Platform work only: tenant resolution, queue, auth."""
         async with self.system.connection() as conn, conn.transaction():
+            yield conn
+
+    @asynccontextmanager
+    async def console_tx(self) -> AsyncIterator[Conn]:
+        """Transaction as app_console: the founder console's own login, the only one that can read admin sign-in secrets, sessions and break-glass grants."""
+        if self.console is None:
+            raise RuntimeError("this process has no console database login (CONSOLE_DATABASE_URL): only the founder console holds it")
+        async with self.console.connection() as conn, conn.transaction():
             yield conn
 
     async def ping(self) -> bool:

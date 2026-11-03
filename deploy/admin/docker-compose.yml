@@ -26,6 +26,7 @@ services:
       TRUST_PROXY: "true"
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in deploy/admin/.env}
       SYSTEM_DATABASE_URL: ${SYSTEM_DATABASE_URL:?set SYSTEM_DATABASE_URL in deploy/admin/.env}
+      CONSOLE_DATABASE_URL: ${CONSOLE_DATABASE_URL:?set CONSOLE_DATABASE_URL in deploy/admin/.env}   # the console's own login: the only one that can read admin sign-in secrets (ADR 0043)
       MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?set MIGRATION_DATABASE_URL in deploy/admin/.env}
       QUEUE_BACKEND: ${QUEUE_BACKEND:-postgres}
       REDIS_URL: ${REDIS_URL:-}

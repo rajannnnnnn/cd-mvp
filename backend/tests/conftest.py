@@ -25,7 +25,7 @@ if sys.platform == "win32":   # psycopg's async mode cannot use Windows' default
 
 ROOT = Path(__file__).resolve().parents[2]
 SUPER = os.environ.get("TEST_PG_SUPERUSER_URL", "postgresql://postgres@127.0.0.1:5432/postgres")
-PW = {"owner": "owner_pw", "user": "user_pw", "pricing": "pricing_pw", "system": "system_pw"}
+PW = {"owner": "owner_pw", "user": "user_pw", "pricing": "pricing_pw", "system": "system_pw", "console": "console_pw"}
 
 
 def _with_db(url: str, db: str, user: str | None = None, pw: str | None = None) -> str:
@@ -45,7 +45,7 @@ def pg_urls() -> dict[str, str]:
     subprocess.run(  # noqa: S603
         [shutil.which("psql") or "psql", "-v", "ON_ERROR_STOP=1", "-q",  # which(): finds psql.cmd on Windows
          "-v", f"owner_pw={PW['owner']}", "-v", f"user_pw={PW['user']}",
-         "-v", f"pricing_pw={PW['pricing']}", "-v", f"system_pw={PW['system']}",
+         "-v", f"pricing_pw={PW['pricing']}", "-v", f"system_pw={PW['system']}", "-v", f"console_pw={PW['console']}",
          "-f", str(ROOT / "db" / "bootstrap_roles.sql"),
          _with_db(SUPER, name)],       # connection string LAST: Windows psql ignores options placed after it
 
@@ -56,6 +56,7 @@ def pg_urls() -> dict[str, str]:
         "owner": _with_db(SUPER, name, "app_owner", PW["owner"]),
         "user": _with_db(SUPER, name, "app_user", PW["user"]),
         "pricing": _with_db(SUPER, name, "app_pricing", PW["pricing"]),
+        "console": _with_db(SUPER, name, "app_console", PW["console"]),
         "system": _with_db(SUPER, name, "app_system", PW["system"]),
     }
     from salesai.migrate import run_migrations
@@ -72,6 +73,7 @@ def env(pg_urls: dict[str, str]) -> dict[str, str]:
         "DATABASE_URL": pg_urls["user"],
         "PRICING_DATABASE_URL": pg_urls["pricing"],
         "SYSTEM_DATABASE_URL": pg_urls["system"],
+        "CONSOLE_DATABASE_URL": pg_urls["console"],
         "MIGRATION_DATABASE_URL": pg_urls["owner"],
         "MASTER_KEY": base64.b64encode(b"k" * 32).decode(),
         "JWT_SECRET": "test-jwt-secret-0123456789abcdefghij",
@@ -98,7 +100,7 @@ async def db(env: dict[str, str]):  # noqa: ARG001
     from salesai.db import Database
 
     s = get_settings()
-    database = Database(s.database_url, s.pricing_database_url, s.system_database_url, 10)
+    database = Database(s.database_url, s.pricing_database_url, s.system_database_url, 10, s.console_database_url)
     await database.open()
     yield database
     await database.close()

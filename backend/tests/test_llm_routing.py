@@ -16,7 +16,7 @@ from salesai.modules.agent.llm.chain import ResilientLLM
 from salesai.modules.agent.llm.factory import StageRouter, make_llm
 from salesai.modules.agent.models import PlannerOutput
 
-DB = {"DATABASE_URL": "postgresql://x", "PRICING_DATABASE_URL": "postgresql://x", "SYSTEM_DATABASE_URL": "postgresql://x",
+DB = {"DATABASE_URL": "postgresql://x", "PRICING_DATABASE_URL": "postgresql://x", "SYSTEM_DATABASE_URL": "postgresql://x", "CONSOLE_DATABASE_URL": "postgresql://x",
       "MIGRATION_DATABASE_URL": "postgresql://x"}
 SECRETS = {"MASTER_KEY": base64.b64encode(b"k" * 32).decode(), "JWT_SECRET": "j" * 40, "OTP_SECRET": "o" * 40,
            "META_APP_SECRET": "m" * 24, "META_VERIFY_TOKEN": "v" * 24}

@@ -97,7 +97,7 @@ async def test_a_grant_runs_out_ends_early_and_covers_one_shop_and_one_operator(
     assert (await client.delete(f"{OP}/break-glass/{g['id']}", headers=hdr(op))).status_code == 204              # ended early
     assert (await client.get(msgs, headers=hdr(op), params={"grant": g["id"]})).status_code == 403
     g2 = await opened(client, op, shop)
-    async with world.rt.db.system_tx() as c:
+    async with world.rt.db.console_tx() as c:
         await c.execute("UPDATE break_glass_grants SET expires_at = now() - interval '1 second' WHERE id=%s", (g2["id"],))
     assert (await client.get(msgs, headers=hdr(op), params={"grant": g2["id"]})).status_code == 403              # ran out
     assert await platform_rows(world, shop, "break_glass.ended")

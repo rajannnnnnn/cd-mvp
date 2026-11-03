@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     database_url: str = Field(..., description="app_user: tenant work, RLS applies")
     pricing_database_url: str = Field("", description="app_pricing: the only login that can read price floors; held by the agent's turn worker and nobody else (INV-1)")
     system_database_url: str = Field(..., description="app_system: platform work, BYPASSRLS")
+    console_database_url: str = Field("", description="app_console: the founder console only; the one login that can read admin sign-in secrets and sessions (ADR 0043)")
     migration_database_url: str = Field(..., description="app_owner: migrations only")
     db_pool_max: int = 10
 
@@ -233,6 +234,8 @@ class Settings(BaseSettings):
                 need.add("platform_wa_access_token")   # the platform's own sender: sign-in codes, and alerts when a shop's number is down
         if self.simulator_enabled and self.role not in ("web", "admin", "migrate"):
             need.add("meta_app_secret")                # the simulator signs the webhooks it plays back
+        if self.role in ("admin", "all"):
+            need.add("console_database_url")           # ADR 0043: the console's own database login
         if self.reads_floors:
             need.add("pricing_database_url")           # INV-1: the login that can read price_floors goes to the agent's turn worker only
         for name in sorted(need):

@@ -171,3 +171,9 @@ def test_the_one_machine_stack_also_gives_the_floor_login_only_to_the_services_t
     doc = yaml.safe_load((DEPLOY / "docker-compose.yml").read_text())
     holders = {n for n, svc in doc["services"].items() if "PRICING_DATABASE_URL" in (svc.get("environment") or {})}
     assert holders == {"worker", "seed"}, holders
+
+
+@pytest.mark.parametrize("sid,svc,part", RUNNABLE, ids=[r[0] for r in RUNNABLE])
+def test_only_the_console_is_given_the_login_that_reads_admin_sign_in_secrets(sid, svc, part):
+    """ADR 0043: admin credentials and sessions are readable by app_console alone, so a breach of the web, gateway or agent part cannot read them."""
+    assert ("CONSOLE_DATABASE_URL" in (svc.get("environment") or {})) == (sid == "admin/api"), sid

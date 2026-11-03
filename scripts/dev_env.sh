@@ -6,7 +6,7 @@ SUPER="${DEV_PG_SUPERUSER_URL:-postgresql://postgres@127.0.0.1:5432/postgres}"
 DB="${DEV_DB:-salesai_dev}"
 psql "$SUPER" -tc "SELECT 1 FROM pg_database WHERE datname='$DB'" | grep -q 1 || psql "$SUPER" -c "CREATE DATABASE $DB"
 DBURL="${SUPER%/*}/$DB"
-psql "$DBURL" -v ON_ERROR_STOP=1 -q -v owner_pw=owner_pw -v user_pw=user_pw -v pricing_pw=pricing_pw -v system_pw=system_pw -f db/bootstrap_roles.sql
+psql "$DBURL" -v ON_ERROR_STOP=1 -q -v owner_pw=owner_pw -v user_pw=user_pw -v pricing_pw=pricing_pw -v system_pw=system_pw -v console_pw=console_pw -f db/bootstrap_roles.sql
 HOSTPART="127.0.0.1:5432"
 cat > .env <<ENVEOF
 ENV=dev
@@ -16,6 +16,7 @@ ALLOWED_ORIGINS=http://localhost:5173,http://localhost:8080,http://127.0.0.1:517
 DATABASE_URL=postgresql://app_user:user_pw@$HOSTPART/$DB
 PRICING_DATABASE_URL=postgresql://app_pricing:pricing_pw@$HOSTPART/$DB
 SYSTEM_DATABASE_URL=postgresql://app_system:system_pw@$HOSTPART/$DB
+CONSOLE_DATABASE_URL=postgresql://app_console:console_pw@$HOSTPART/$DB
 MIGRATION_DATABASE_URL=postgresql://app_owner:owner_pw@$HOSTPART/$DB
 MASTER_KEY=$(head -c 32 /dev/urandom | base64)
 JWT_SECRET=dev-jwt-$(head -c 24 /dev/urandom | base64 | tr -d '/+=')

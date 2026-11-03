@@ -1,9 +1,9 @@
 -- Re-applied after every migration run (idempotent). Least privilege per role.
 -- Tenant tables are protected by RLS for app_user / app_pricing; app_system bypasses RLS by attribute.
 
-REVOKE ALL ON ALL TABLES IN SCHEMA public FROM app_user, app_pricing, app_system;
-REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM app_user, app_pricing, app_system;
-REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM app_user, app_pricing, app_system;
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM app_user, app_pricing, app_system, app_console;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM app_user, app_pricing, app_system, app_console;
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM app_user, app_pricing, app_system, app_console;
 
 -- ---------------------------------------------------------------- app_user (tenant work)
 GRANT SELECT, INSERT, UPDATE, DELETE ON
@@ -65,9 +65,10 @@ GRANT SELECT, UPDATE, DELETE ON number_connect_requests TO app_system;        --
 GRANT SELECT, INSERT, UPDATE ON channel_events TO app_user;     -- the gateway hands events over, the agent marks them handled (ADR 0025)
 GRANT SELECT, DELETE ON channel_events TO app_system;           -- retention removes handled events
 
--- ---------------------------------------------------------------- admin plane (app_system only; ADR 0028)
-GRANT SELECT, INSERT, UPDATE, DELETE ON admin_credentials, admin_sessions TO app_system;
-GRANT SELECT, INSERT, UPDATE ON break_glass_grants TO app_system;
+-- ---------------------------------------------------------------- admin plane (app_console only; ADR 0028, 0043)
+-- The console's sign-in secrets, sessions and break-glass grants are readable by its own login and by no other part's.
+GRANT SELECT, INSERT, UPDATE, DELETE ON admin_credentials, admin_sessions TO app_console;
+GRANT SELECT, INSERT, UPDATE ON break_glass_grants TO app_console;
 -- the boards count deals and sum their value; the customer's order details never leave the shop's own role
 GRANT SELECT (id, business_id, conversation_id, kind, value, status, created_at, closed_at) ON deals TO app_system;
 -- the recovery sweep looks for work nobody is doing; it reads ids, states and ages, never message text

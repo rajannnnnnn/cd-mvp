@@ -111,7 +111,7 @@ async def test_a_wrong_authenticator_code_is_refused_and_five_lock_the_account(w
     assert r.status_code == 429                                                   # even the right code is refused while locked
     t2 = await ticket(client, phone)
     assert (await client.post(f"{A1}/auth/totp", json={"ticket": t2, "code": code_for(world.rt, secret, steps_ahead=1)})).status_code == 429
-    async with world.rt.db.system_tx() as c:                                      # the lock ends
+    async with world.rt.db.console_tx() as c:                                      # the lock ends
         await c.execute("UPDATE admin_credentials SET locked_until = now() - interval '1 second' WHERE account_id=(SELECT id FROM accounts WHERE phone=%s)", (phone,))
     t3 = await ticket(client, phone)
     assert (await client.post(f"{A1}/auth/totp", json={"ticket": t3, "code": code_for(world.rt, secret, steps_ahead=1)})).status_code == 200
@@ -135,7 +135,7 @@ async def test_a_ticket_works_once(world, client):
 
 async def test_the_secret_is_not_stored_in_the_clear(world):
     phone, secret = await make_admin(world)
-    async with world.rt.db.system_tx() as c:
+    async with world.rt.db.console_tx() as c:
         blob = (await (await c.execute("SELECT totp_secret_enc FROM admin_credentials WHERE account_id=(SELECT id FROM accounts WHERE phone=%s)", (phone,))).fetchone())["totp_secret_enc"]
     assert secret.encode() not in bytes(blob)
     import hashlib
@@ -257,7 +257,7 @@ def _settings(**kw) -> Settings:
     """Settings as a container would see them: only what it is given, not what the rest of the suite put in this process."""
     base = dict(role="admin", master_key="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=", jwt_secret="j" * 32, otp_secret="o" * 32,
                 admin_jwt_secret="a" * 32, database_url="postgresql://x/x", pricing_database_url="postgresql://x/x",
-                system_database_url="postgresql://x/x", migration_database_url="postgresql://x/x")
+                system_database_url="postgresql://x/x", console_database_url="postgresql://x/x", migration_database_url="postgresql://x/x")
     with mock.patch.dict(os.environ, {}, clear=True):
         return Settings(_env_file=None, **{**base, **kw})
 
@@ -295,3 +295,15 @@ def test_production_refuses_a_placeholder_admin_secret_and_a_wildcard_origin():
         _settings(**{**prod, "admin_allowed_origins": "*"}, admin_jwt_secret="z" * 40)
     with pytest.raises(ValueError, match="ADMIN_ALLOWED_ORIGINS"):
         _settings(**{**prod, "admin_allowed_origins": ""}, admin_jwt_secret="z" * 40)
+
+
+async def test_the_other_parts_database_login_cannot_read_admin_secrets_or_sessions(pg_urls):
+    """ADR 0043 at the database: app_system (web, gateway, agent, scheduler) is refused; app_console (the founder console) can read them."""
+    import psycopg
+    for table in ("admin_credentials", "admin_sessions", "break_glass_grants"):
+        with psycopg.connect(pg_urls["system"], autocommit=True) as c, pytest.raises(psycopg.errors.InsufficientPrivilege):
+            c.execute(f"SELECT 1 FROM {table} LIMIT 1")      # noqa: S608
+        with psycopg.connect(pg_urls["console"], autocommit=True) as c:
+            c.execute(f"SELECT 1 FROM {table} LIMIT 1")      # noqa: S608
+    with psycopg.connect(pg_urls["console"], autocommit=True) as c:      # and it keeps everything the platform role has
+        c.execute("SELECT 1 FROM businesses LIMIT 1")
