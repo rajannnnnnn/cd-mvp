@@ -239,9 +239,9 @@ class Settings(BaseSettings):
             need.add("console_database_url")           # ADR 0043: the console's own database login
         if self.reads_floors:
             need.add("pricing_database_url")           # INV-1: the login that can read price_floors goes to the agent's turn worker only
-        for name in sorted(need):
-            if not getattr(self, name):
-                raise ValueError(f"{name.upper()} is required for role {self.role!r}")
+        missing = [n.upper() for n in sorted(need) if not getattr(self, n)]
+        if missing:                          # all of them at once, so one start-up report shows everything that is missing
+            raise ValueError(f"{', '.join(missing)} {'is' if len(missing) == 1 else 'are'} required for role {self.role!r}")
         for name, minimum in (("jwt_secret", 32), ("otp_secret", 32), ("admin_jwt_secret", 32), ("meta_app_secret", 8), ("meta_verify_token", 8)):
             v = getattr(self, name)
             if v and len(v) < minimum:

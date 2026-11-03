@@ -50,6 +50,9 @@ async def admin_enroll(phone: str) -> None:
 async def run(role: str) -> None:
     s = get_settings()
     setup_logging(s.log_level)
+    from salesai.envcheck import advisories
+    for note in advisories(s):
+        log.warning("setting not set (optional): %s", note)
     if role == "migrate":
         from salesai.migrate import run_migrations
         done = run_migrations(s.migration_database_url)
@@ -92,19 +95,52 @@ async def run(role: str) -> None:
     await rt.close()
 
 
+def _dispatch(args: list[str]) -> int:
+    """Runs the command; returns the exit code. The role comes from the command (api, worker, migrate ...), so settings are checked for that role."""
+    import os
+    if args[:1] == ["admin-enroll"]:
+        if len(args) != 2:
+            print("Usage: python -m salesai admin-enroll +91XXXXXXXXXX")
+            return 2
+        os.environ["ROLE"] = "admin"
+        asyncio.run(admin_enroll(args[1]))
+        return 0
+    if args[:1] == ["doctor"]:
+        from salesai.doctor import render, run_checks
+        extra = [a for a in args[1:] if not a.startswith("--")]
+        if extra:
+            os.environ["ROLE"] = extra[0]
+        elif "ROLE" not in os.environ:
+            print("Tip: tell the doctor which part to check, e.g.  python -m salesai doctor worker   (api, worker, ingress, admin, scheduler, migrate).\n")
+        text, code = render(asyncio.run(run_checks(get_settings(), send_mail="--send-test-mail" in args)))
+        print(text)
+        return code
+    role = args[0] if args else os.environ.get("ROLE", "all")
+    os.environ["ROLE"] = role
+    asyncio.run(run(role))
+    return 0
+
+
 def main() -> None:
     if sys.platform == "win32":     # psycopg's async mode cannot use Windows' default Proactor event loop
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    if len(sys.argv) == 3 and sys.argv[1] == "admin-enroll":
-        asyncio.run(admin_enroll(sys.argv[2]))
-        sys.exit(0)
-    if len(sys.argv) >= 2 and sys.argv[1] == "doctor":
-        from salesai.doctor import render, run_checks
-        text, code = render(asyncio.run(run_checks(get_settings(), send_mail="--send-test-mail" in sys.argv)))
-        print(text)
-        sys.exit(code)
-    role = sys.argv[1] if len(sys.argv) > 1 else get_settings().role
-    asyncio.run(run(role))
+    import os
+
+    from salesai.envcheck import explain
+    args = sys.argv[1:]
+    try:
+        code = _dispatch(args)
+    except SystemExit:
+        raise
+    except KeyboardInterrupt:
+        code = 130
+    except Exception as e:  # noqa: BLE001 - one place that turns any start-up failure into a plain message and an exit code
+        print(explain(e, os.environ.get("ROLE") or (args[0] if args else "")), file=sys.stderr)
+        if os.environ.get("LOG_LEVEL", "").upper() == "DEBUG":
+            import traceback
+            traceback.print_exc()
+        code = 1
+    sys.exit(code)
 
 
 if __name__ == "__main__":

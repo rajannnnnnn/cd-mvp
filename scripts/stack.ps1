@@ -20,10 +20,41 @@ param(
 $ErrorActionPreference = 'Stop'
 $deploy = Join-Path $PSScriptRoot '..\deploy'
 
+# Before anything starts: which settings of this part are still empty. Mandatory ones are named so you know what to fill in; nothing is blocked here
+# (the part itself prints the exact report if it cannot start, and `python -m salesai doctor <role>` checks everything).
+function Show-EnvReport([string]$part, [string]$envFile) {
+  try {
+    $db = 'DATABASE_URL', 'SYSTEM_DATABASE_URL', 'MIGRATION_DATABASE_URL'
+    $need = @{
+      db = $db
+      web = $db + @('JWT_SECRET', 'OTP_SECRET')
+      gateway = $db + @('META_APP_SECRET', 'META_VERIFY_TOKEN', 'MASTER_KEY')
+      agent = $db + @('PRICING_DATABASE_URL', 'LLM_PROVIDER')
+      admin = $db + @('CONSOLE_DATABASE_URL', 'ADMIN_JWT_SECRET', 'MASTER_KEY', 'JWT_SECRET', 'OTP_SECRET', 'ADMIN_ALLOWED_ORIGINS')
+    }
+    $nice = @{
+      web = 'ALLOWED_ORIGINS', 'INVOICE_SELLER_NAME', 'ALERT_EMAIL_TO', 'SMTP_HOST'
+      gateway = 'META_APP_ID', 'META_CONFIG_ID', 'PLATFORM_SENDER_PHONE_NUMBER_ID', 'PLATFORM_WA_ACCESS_TOKEN'
+      agent = 'OPENAI_COMPAT_API_KEY', 'ANTHROPIC_API_KEY'
+      admin = @(); db = @()
+    }
+    $values = @{}
+    foreach ($line in Get-Content $envFile) { if ($line -match '^\s*([A-Z][A-Z0-9_]*)=(.*)$') { $v = $Matches[2].Trim(); if ($v.StartsWith('#')) { $v = '' }; $values[$Matches[1]] = $v } }
+    $missing = @($need[$part] | Where-Object { -not $values[$_] })
+    $optional = @($nice[$part] | Where-Object { -not $values[$_] })
+    if ($part -eq 'agent' -and $values['LLM_PROVIDER'] -eq 'openai_compat' -and -not $values['OPENAI_COMPAT_API_KEY']) { $missing += 'OPENAI_COMPAT_API_KEY (the model key)' }
+    if ($part -eq 'agent' -and $values['LLM_PROVIDER'] -eq 'anthropic' -and -not $values['ANTHROPIC_API_KEY']) { $missing += 'ANTHROPIC_API_KEY (the model key)' }
+    if ($missing.Count -gt 0) { Write-Host "[$part] MANDATORY and still empty: $($missing -join ', ')" -ForegroundColor Yellow }
+    else { Write-Host "[$part] all mandatory settings are filled in." -ForegroundColor Green }
+    if ($optional.Count -gt 0) { Write-Host "[$part] optional / needed later (not blocking): $($optional -join ', ')" }
+  } catch { Write-Host "[$part] could not read the settings file for the report: $($_.Exception.Message)" }
+}
+
 function Invoke-Part([string]$part) {
   $dir = Join-Path $deploy $part
   $envFile = Join-Path $dir '.env'
   if (-not (Test-Path $envFile)) { throw "Missing $envFile. Copy $dir\.env.example to $dir\.env and fill it in (the demo's deploy\.env is not used)." }
+  Show-EnvReport $part $envFile
   $base = @('compose', '--env-file', $envFile, '-f', (Join-Path $dir 'docker-compose.yml'))
   switch ($Action) {
     'up' {

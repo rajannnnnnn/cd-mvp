@@ -373,4 +373,7 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
     and SMTP specifics now live in `db.py` and `email_sink.py`), and `scripts/export_openapi.py` knows the console URL. **Founder to do:** say "erased within 60 days of your request" in the privacy policy.
   - **`scripts/setup-db.ps1`, 2026-11-03.** One command with superuser credentials: creates the database and the five app roles, writes the five `deploy/<part>/.env` (database URLs and the self-generated secrets), runs the migrations; re-runnable
     (secrets kept, database passwords rotated: `db/bootstrap_roles.sql` now sets the passwords each time). **Untested:** there is no PowerShell in the build environment; the SQL side is covered by the migration tests. A bash twin for Linux is not written.
+  - **Start-up errors are reports, not stack traces (2026-11-03).** Found on the first real run: a container started as `migrate` validated its settings as the everything-in-one role (the command's role was not used), so every part needed every secret.
+    Fixed: the role comes from the command (`python -m salesai <role>`), a missing-settings report lists all of them at once (`salesai/envcheck.py`), any start-up failure (settings, unreachable database, anything else) is one plain message and an exit code,
+    and optional settings that are not set are warnings. `scripts/stack.ps1` prints mandatory-and-empty settings before starting and never blocks. The old deploy tests set the role by hand and hid this; `test_envcheck.py` runs the real command in a clean folder.
 

@@ -57,6 +57,8 @@ function Invoke-Psql([string]$db, [string[]]$psqlArgs, [string]$stdin = '') {
   if ($LASTEXITCODE -ne 0) { throw "psql failed (exit $LASTEXITCODE). Check the Postgres address and the superuser password." }
 }
 
+Write-Host 'What this does: creates the database and roles, writes the five deploy\<part>\.env files, and (without -SkipMigrate) builds the tables.'
+Write-Host 'It needs from you right now: Postgres reachable and its superuser password. The Meta, model, mail and domain values are filled in afterwards and do not block this step.'
 Write-Host '1/4  Checking Postgres ...'
 Invoke-Psql 'postgres' @('-c', 'select 1') | Out-Null
 

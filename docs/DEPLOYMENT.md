@@ -99,6 +99,6 @@ For each machine:
 
 ## 5. Checking it
 
-Run `python -m salesai doctor` with each part's settings loaded (inside a container: `docker compose -f deploy/<part>/docker-compose.yml --env-file deploy/<part>/.env run --rm <service> doctor`; this form is untested until your first run). It checks database logins, migrations, the login separation, the model, mail and the Meta token, and names the setting to fix. Each service also answers `/healthz`.
+Run `python -m salesai doctor` with each part's settings loaded (inside a container: `docker compose -f deploy/<part>/docker-compose.yml --env-file deploy/<part>/.env run --rm <service> doctor <role>`, where the role is the service's command: `agent` -> `worker`, `api` -> `api`, `receive` -> `ingress`, admin `api` -> `admin`; this form is untested until your first run). It checks database logins, migrations, the login separation, the model, mail and the Meta token, and names the setting to fix. Each service also answers `/healthz`. If a part cannot start it prints, in plain words, every mandatory setting that is missing (and exits), never a stack trace; `scripts/stack.ps1 <part>` also prints a warning about empty mandatory settings before it starts anything.
 
 Order for a first go-live: database and roles, `.env` files, `db`, `gateway` (then register the webhook in Meta), `web`, `agent`, `admin` (then enrol your authenticator), `doctor` on each, register your first pilot shop from the console, send a test WhatsApp message. The full checklist is `docs/GO_LIVE_CHECKLIST.md`.
