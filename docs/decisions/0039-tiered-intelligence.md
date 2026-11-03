@@ -35,3 +35,13 @@ can be switched off per stage by configuration, so a disappointing rule is one s
 
 Read the audit's per-stage tier split and per-tier quality. If a rule's wrong-decision rate rises, raise its confidence threshold or retire it; if the
 model share stays high on steps that look simple, write the rule.
+
+## Implementation notes (2026-11-03): the first slice
+
+- **Planner.** `TieredPlanner` sits in front of the language model for the planner stage only. It runs the existing deterministic planner and keeps its answer when the intent is on the allow-list (`TIERING_PLANNER_INTENTS`, default: greetings, thanks, goodbyes, "are you a bot", "I want the owner", complaints, "not interested", photos and voice notes with no text, plain shop facts) and, for an ask about a product (price, availability, "tell me about it"), only when the customer's own words name that product exactly (its name or an alias, whole words, and no other product) or it is the product already being discussed. A category word, a colour, a typo, or no product goes to the model. Discounts, counter-offers, orders, visits, confirmations, small talk, scope calls and anything unclear always go to the model. A rules answer is recorded as provider `local` with zero tokens and zero cost, so the audit shows "rules" for that step.
+- **Safety cases trust the rules because a false alarm is cheap and a miss is not:** a wrongly flagged complaint or request for the owner costs one alert; a missed one costs a customer.
+- **Model check.** The optional model check ("is anything invented?") now runs only when the reply states something: a price, a fact, a product, stock, an order or visit summary. Greetings, thanks, "which product?", hand-off notices and the like skip it; a directive nobody classified is treated as risky. The deterministic checks always run.
+- **Not done, deliberately:** the writer stays on the language model (replies must match the customer's own way of talking, which a template cannot); negotiation and commitments stay on the model until measured; a small model for the middle band is not built.
+- **How to widen it:** run `scripts/benchmark_models.py` with a real key to compare the rules' planner output with the model's on the evaluation scenarios, read the audit's per-step tier split in production, and add an intent to `TIERING_PLANNER_INTENTS` only when the rules agree with the model on it. The first live measure is how often an owner corrects a rules-decided reply.
+- **Cost effect, estimated, not measured:** a typical greeting or thanks turn drops from three model calls to one; a named-product price turn from three to two. The audit's `by_stage` split will show the real figure.
+

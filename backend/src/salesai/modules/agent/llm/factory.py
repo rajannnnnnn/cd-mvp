@@ -19,6 +19,7 @@ from salesai.modules.agent.llm.base import (
 from salesai.modules.agent.llm.chain import ResilientLLM
 from salesai.modules.agent.llm.local import LocalRulesProvider
 from salesai.modules.agent.llm.openai_compat_provider import OpenAICompatProvider
+from salesai.modules.agent.llm.tiered import TieredPlanner
 
 STAGES = ("planner", "writer", "check")
 
@@ -35,7 +36,7 @@ class StageRouter:
     default, which is the check route: both are small structured extractions."""
     name = "router"
 
-    def __init__(self, routes: dict[str, ResilientLLM], *, default: ResilientLLM):
+    def __init__(self, routes: dict[str, LLMProvider], *, default: LLMProvider):
         self.routes, self.default = routes, default
 
     async def generate(self, req: LLMRequest, schema: type[T]) -> LLMResult[T]:
@@ -69,7 +70,9 @@ def make_llm(s: Settings) -> StageRouter:
         return built[name]
 
     fallback = None if s.llm_fallback_provider == "none" else one(s.llm_fallback_provider)
-    routes = {st: ResilientLLM(one(s.llm_stage_provider(st)), fallback, fallback_model=s.llm_fallback_model or None)
-              for st in STAGES}
+    routes: dict[str, LLMProvider] = {st: ResilientLLM(one(s.llm_stage_provider(st)), fallback, fallback_model=s.llm_fallback_model or None)
+                                      for st in STAGES}
+    if s.tiering_enabled and s.llm_stage_provider("planner") != "local":       # rules in front of the model (ADR 0039); nothing to do for the stand-in
+        routes["planner"] = TieredPlanner(routes["planner"], LocalRulesProvider(), intents=s.tiering_intents)
     return StageRouter(routes, default=routes["check"])
 

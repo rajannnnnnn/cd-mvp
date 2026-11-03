@@ -28,6 +28,14 @@ MODEL_QUEUES = {"conversation.turns", "owner.notifications"}
 SENDING_QUEUES = {"outbound.actions"}
 
 
+# The planner's intents (modules/agent/models.py `Intent`; a test keeps this list in step) and the ones the rules may decide alone.
+KNOWN_INTENTS = ("greeting", "product_inquiry", "price_query", "discount_request", "counter_offer", "availability", "business_info", "order_intent",
+                 "visit_intent", "affirmation", "complaint", "human_request", "out_of_scope", "unsupported_media", "not_interested", "identity_question",
+                 "thanks", "goodbye", "smalltalk", "unknown", "nudge")
+DEFAULT_TIERING_INTENTS = ("greeting", "thanks", "goodbye", "identity_question", "human_request", "complaint", "not_interested", "unsupported_media",
+                           "business_info", "price_query", "availability", "product_inquiry")
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
 
@@ -108,6 +116,11 @@ class Settings(BaseSettings):
     # --- LLM (ADR 0034). Which vendor and model run each pipeline stage is configuration: switching a model, a host or
     # a vendor is a settings change and a restart, never a code change. Founder's default: openai/gpt-oss-20b on every
     # stage at medium effort, until the benchmark says a stage needs more. Misconfiguration stops startup.
+    # Rules before models (ADR 0039): the planner tries deterministic rules first and keeps their answer only for the cases below, when they are
+    # sure and it is safe; everything else goes to the language model. Money, negotiation and commitments are never on the list.
+    tiering_enabled: bool = True
+    tiering_planner_intents: str = ""          # comma-separated intents the rules may decide alone; empty = the built-in safe list
+    tiering_skip_check_when_low_risk: bool = True    # skip the optional model check for replies that state nothing risky (greetings, thanks, questions back)
     llm_provider: Literal["local", "anthropic", "openai_compat"] = "local"
     llm_provider_planner: Literal["", "local", "anthropic", "openai_compat"] = ""   # "" = llm_provider
     llm_provider_writer: Literal["", "local", "anthropic", "openai_compat"] = ""
@@ -296,6 +309,9 @@ class Settings(BaseSettings):
             for name in ("jwt_secret", "otp_secret", "admin_jwt_secret", "meta_app_secret", "meta_verify_token"):
                 if any(w in getattr(self, name).lower() for w in weak):
                     raise ValueError(f"{name.upper()} looks like a placeholder; set a real secret")
+        unknown_intents = sorted(set(n.strip() for n in self.tiering_planner_intents.split(",") if n.strip()) - set(KNOWN_INTENTS))
+        if unknown_intents:
+            raise ValueError(f"TIERING_PLANNER_INTENTS names intents that do not exist: {unknown_intents}")
         for e in self.alert_emails:
             if not re.fullmatch(r"[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+", e):
                 raise ValueError(f"ALERT_EMAIL_TO entry {e!r} is not an email address")
@@ -317,6 +333,11 @@ class Settings(BaseSettings):
     @property
     def queues(self) -> list[str]:
         return [q.strip() for q in self.worker_queues.split(",") if q.strip()]
+
+    @property
+    def tiering_intents(self) -> frozenset[str]:
+        names = [n.strip() for n in self.tiering_planner_intents.split(",") if n.strip()]
+        return frozenset(names or DEFAULT_TIERING_INTENTS)
 
     @property
     def admin_origins(self) -> list[str]:

@@ -72,7 +72,8 @@ class Runtime:
         self.agent = AgentService(db, self.llm, self.pricing,
                                   Models(settings.llm_model_planner, settings.llm_model_writer, settings.llm_model_check,
                                          settings.llm_effort_planner, settings.llm_effort_writer, settings.llm_effort_check),
-                                  llm_checks=settings.llm_stage_provider("check") != "local")
+                                  llm_checks=settings.llm_stage_provider("check") != "local",
+                                  skip_check_when_low_risk=settings.tiering_skip_check_when_low_risk)
         self.turns = TurnWorker(db, self.agent, HeuristicEOT(), max_turns_per_10min=settings.max_ai_turns_per_conversation_10min)
         self.sender = OutboundSender(db, self.channels)
         self.otp = OtpSender(db, self.channels)

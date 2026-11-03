@@ -317,4 +317,8 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
     clock (ADR 0038): follow-back and owner take-over timers, rules in `timer_rules.py`, re-planned from the database on every change, fired by the agent
     scheduler every pass, repaired by the recovery sweep. **Open:** rules-before-models tiering (ADR 0039), turn-detection accuracy work and its benchmark
     (ADR 0036), customer-style adaptation, the separate admin console front end, and a full-suite run on all of the above.
+  - **Turn detection and rules-before-models (ADR 0036, 0039), 2026-11-03.** Turn detection measured on a 53-burst labelled corpus: starts before the
+    customer finished 15.1 % to 3.8 %, mean wait 3.27 s to 1.62 s. `TieredPlanner` puts the deterministic planner in front of the language model for a
+    conservative allow-list (safety cases, greetings, thanks, plain shop facts, an exactly named product), and the optional model check is skipped for replies
+    that state nothing risky. Full suite green on the commit before these two (snapshot run, exit 0).
 

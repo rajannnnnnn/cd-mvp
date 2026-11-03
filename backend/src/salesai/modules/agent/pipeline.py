@@ -120,6 +120,16 @@ class TurnOutcome:
     reaction_only: bool = False
 
 
+# Replies that state nothing the deterministic checks cannot see: the optional model check (is anything invented?) is skipped for them. A directive
+# nobody classified here is treated as risky, never as safe (ADR 0039).
+LOW_RISK_DIRECTIVES = frozenset({"greeting", "thanks", "goodbye", "ack", "ask_product", "ask_qualify", "handoff_notice", "decline_out_of_scope",
+                                 "unsupported_media", "not_interested", "identity", "nudge", "clarify", "visit_ask_time", "smalltalk"})
+
+
+def needs_model_check(plan: pol.Plan) -> bool:
+    return any(d["type"] not in LOW_RISK_DIRECTIVES for d in plan.directives)
+
+
 def route_of(plan: pol.Plan, usage: Usage, *, checks: dict[str, Any] | None = None, fallback: str | None = None) -> dict[str, Any]:
     """The routing and decisions of one run, for the audit: names and counts, never words or amounts."""
     failed = sorted({f.split(":", 1)[0] for a in (checks or {}).get("attempts", []) for f in a.get("failures", [])})
@@ -135,9 +145,10 @@ def route_of(plan: pol.Plan, usage: Usage, *, checks: dict[str, Any] | None = No
 
 class AgentService:
     def __init__(self, db: Database, llm: LLMProvider, pricing: PricingService, models: Models, *,
-                 llm_checks: bool = True, rng: random.Random | None = None):
+                 llm_checks: bool = True, skip_check_when_low_risk: bool = True, rng: random.Random | None = None):
         self.db, self.llm, self.pricing, self.models = db, llm, pricing, models
         self.llm_checks = llm_checks
+        self.skip_check_when_low_risk = skip_check_when_low_risk
         self.rng = rng
 
     # ------------------------------------------------------------------ public
@@ -256,7 +267,7 @@ class AgentService:
             usage.add(res, "writer")
             parts = [p.strip() for p in res.output.parts if p and p.strip()]
             result = chk.run_checks(parts, checkctx)
-            if result.ok and self.llm_checks:
+            if result.ok and self.llm_checks and (needs_model_check(plan) or not self.skip_check_when_low_risk):
                 result = await self._llm_check(ctx, plan, parts, usage, prompt_refs, result)
             log["attempts"].append({"ok": result.ok, "failures": [f"{f.check}: {f.detail}" for f in result.failures]})
             if result.ok:
