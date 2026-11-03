@@ -1,0 +1,13 @@
+# Start with:  docker compose --env-file .env up -d --build      (copy .env.example to .env first)
+name: meta-sim
+services:
+  meta-sim:
+    build: .
+    image: meta-sim:local
+    restart: unless-stopped
+    ports: ["${SIM_PORT:-9100}:9100"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    environment:
+      SIM_WEBHOOK_URL: ${SIM_WEBHOOK_URL:-http://host.docker.internal:8001/webhooks/whatsapp}
+      SIM_APP_SECRET: ${SIM_APP_SECRET:?set SIM_APP_SECRET in tools/meta-sim/.env}
+      SIM_VERIFY_TOKEN: ${SIM_VERIFY_TOKEN:?set SIM_VERIFY_TOKEN in tools/meta-sim/.env}

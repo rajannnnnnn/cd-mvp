@@ -37,28 +37,30 @@ label.f{display:flex;flex-direction:column;gap:2px;margin-bottom:8px;font-size:1
 </style>
 </head>
 <body>
-<header><h1>Meta simulator</h1><span id="live" class="pill">connecting…</span><span id="hook" class="pill"></span><span class="hint" id="graph"></span>
+<header><h1>Meta simulator</h1><div class="seg" id="view"><button data-v="phone" class="on" title="You hold a phone: pick any number, see its chats, its sign-in codes">Phone view</button><button data-v="biz" title="Pick a business number and see its customers">Business view</button></div><span id="live" class="pill">connecting…</span><span id="hook" class="pill"></span><span class="hint" id="graph"></span>
   <span style="flex:1"></span><button id="reset">Clear conversation</button></header>
 <main>
   <section>
-    <div class="hd"><select id="biz" style="flex:1"></select></div>
+    <div class="hd"><select id="biz" style="flex:1"></select><b id="phlabel" hidden>Phones</b></div>
     <div class="list" id="contacts"></div>
-    <div class="hd"><input id="newwa" placeholder="new customer number" style="flex:1"><button id="addc">Add</button></div>
+    <div class="hd" id="chathd" hidden><b>Chats on this phone</b></div><div class="list" id="chats" hidden style="max-height:44%;border-top:1px solid var(--line)"></div>
+    <div class="hd"><input id="newwa" placeholder="new phone number, e.g. +91 98765 43210" style="flex:1"><button id="addc">Add</button></div>
   </section>
   <section>
     <div class="hd"><div class="av" id="cav">?</div><div style="flex:1"><div id="cname" style="font-weight:600">Pick a customer</div><div class="hint" id="cstat"></div></div>
       <div class="seg" id="role"><button data-r="customer" class="on" title="You are the customer's phone">Customer</button><button data-r="owner" title="You are the owner using the WhatsApp Business app (coexistence echo)">Owner (Business app)</button></div></div>
+    <div id="otpbar" hidden style="padding:8px 12px;background:var(--code);border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center"><span>Latest sign-in code on this phone:</span><b id="otpcode" style="font-size:18px;letter-spacing:2px"></b><button id="otpcopy">Copy</button><span class="hint" id="otpwhen"></span></div>
     <div id="chat"></div>
     <div class="composer"><input id="msg" placeholder="Type a message" autocomplete="off"><button class="primary" id="send">Send</button>
-      <button id="voice" title="Send a voice note">🎤</button><button id="photo" title="Send a photo">📷</button><button id="frag" title="Send three fragments 2 s apart">3 fragments</button></div>
+      <button id="voice" title="Send a voice note (pick an audio file)">🎤</button><button id="photo" title="Send a photo (pick an image)">📷</button><input type="file" id="pick" hidden><button id="frag" title="Send three fragments 2 s apart">3 fragments</button></div>
   </section>
   <section style="border-right:0">
-    <div class="tabs" id="tabs"><button class="on" data-p="wire">Wire log</button><button data-p="timing">Timing</button><button data-p="set">Settings</button></div>
-    <div class="pane" id="p-wire"></div><div class="pane" id="p-timing" hidden></div><div class="pane" id="p-set" hidden></div>
+    <div class="tabs" id="tabs"><button class="on" data-p="wire">Wire log</button><button data-p="timing">Timing</button><button data-p="audit">Audit</button><button data-p="set">Settings</button></div>
+    <div class="pane" id="p-wire"></div><div class="pane" id="p-audit" hidden></div><div class="pane" id="p-timing" hidden></div><div class="pane" id="p-set" hidden></div>
   </section>
 </main>
 <script>
-const S={biz:[],customers:{},msgs:new Map(),wire:[],settings:{},typing:{},pnid:null,cust:null,role:'customer',tab:'wire'};
+const S={biz:[],customers:{},msgs:new Map(),wire:[],settings:{},typing:{},pnid:null,cust:null,role:'customer',tab:'wire',view:'phone'};
 const $=s=>document.querySelector(s), el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
 const api=(p,b)=>fetch('/sim/api/'+p,b===undefined?{}:{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json());
 const fmt=t=>new Date(t*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
@@ -75,7 +77,7 @@ function connect(){
   es.onopen=()=>{$('#live').textContent='live';$('#live').className='pill ok'};
   es.onerror=()=>{$('#live').textContent='reconnecting…';$('#live').className='pill bad'};
   es.onmessage=e=>{const {type,data}=JSON.parse(e.data);
-    if(type==='message'){S.msgs.set(data.id,data);renderChat();renderContacts();renderTiming()}
+    if(type==='message'){S.msgs.set(data.id,data);renderChat();renderContacts();renderOtp();renderTiming();if(S.tab==='audit')renderAudit()}
     else if(type==='wire'){S.wire.unshift(data);S.wire.length=Math.min(S.wire.length,300);renderWire()}
     else if(type==='customers'){S.customers=data;renderContacts()}
     else if(type==='businesses'){S.biz=data;renderBiz()}
@@ -88,17 +90,33 @@ function renderBiz(){const s=$('#biz');s.innerHTML='';S.biz.forEach(b=>{const o=
 function renderContacts(){
   const box=$('#contacts');box.innerHTML='';
   Object.entries(S.customers).forEach(([wa,name])=>{
-    const ms=[...S.msgs.values()].filter(m=>m.pnid===S.pnid&&m.customer===wa).sort((a,b)=>a.ts-b.ts), last=ms[ms.length-1];
+    const ms=[...S.msgs.values()].filter(m=>(S.view==='phone'||m.pnid===S.pnid)&&m.customer===wa).sort((a,b)=>a.ts-b.ts), last=ms[ms.length-1];
     const c=el('div','contact'+(wa===S.cust?' sel':''));c.appendChild(el('div','av',(name||'?')[0].toUpperCase()));
     const t=el('div','t');t.appendChild(el('div','n',name===wa?'+'+wa:name+'  +'+wa));t.appendChild(el('div','l',last?((last.direction==='in'?'':'↩ ')+last.text):'no messages'));c.appendChild(t);
-    c.onclick=()=>{S.cust=wa;renderContacts();renderChat()};box.appendChild(c)})}
+    c.onclick=()=>{S.cust=wa;renderAll2()};box.appendChild(c)});renderChats()}
+function renderChats(){
+  const on=S.view==='phone';['#chathd','#chats'].forEach(q=>$(q).hidden=!on||!S.cust);$('#biz').hidden=on;$('#phlabel').hidden=!on;
+  if(!on||!S.cust)return;
+  const box=$('#chats');box.innerHTML='';
+  const rows=S.biz.map(b=>{const ms=[...S.msgs.values()].filter(m=>m.pnid===b.pnid&&m.customer===S.cust).sort((a,c)=>a.ts-c.ts);return {b,last:ms[ms.length-1]}}).sort((x,y)=>(y.last?y.last.ts:0)-(x.last?x.last.ts:0));
+  rows.forEach(({b,last})=>{const c=el('div','contact'+(b.pnid===S.pnid?' sel':''));c.appendChild(el('div','av',(b.name||'?')[0].toUpperCase()));
+    const t=el('div','t');t.appendChild(el('div','n',b.name+(b.kind==='platform'?'  (sign-in codes)':'')));t.appendChild(el('div','l',last?((last.direction==='in'?'↩ ':'')+last.text):b.display+' · start a chat'));c.appendChild(t);
+    c.onclick=()=>{S.pnid=b.pnid;renderAll2()};box.appendChild(c)})}
+function otpLatest(){
+  const ms=[...S.msgs.values()].filter(m=>m.customer===S.cust&&m.direction!=='in'&&/\b\d{6}\b/.test(m.text)&&((S.biz.find(b=>b.pnid===m.pnid)||{}).kind==='platform'||(m.template||'').includes('otp'))).sort((a,b)=>b.ts-a.ts)[0];
+  return ms?{code:ms.text.match(/\b\d{6}\b/)[0],ts:ms.ts}:null}
+function renderOtp(){
+  const o=S.view==='phone'&&S.cust?otpLatest():null;$('#otpbar').hidden=!o;if(!o)return;$('#otpcode').textContent=o.code;$('#otpwhen').textContent=fmt(o.ts)}
+function renderAll2(){renderContacts();renderChat();renderOtp();renderTiming();if(S.tab==='audit')renderAudit()}
 function tick(m,customerView){
   if(m.status==='failed')return el('span','fail','✗ '+(m.error||'failed'));
   const x=el('span','tick '+(m.status==='read'?'read':''),['delivered','read'].includes(m.status)?'✓✓':'✓');return x}
 function renderChat(){
   const box=$('#chat');box.innerHTML='';
   if(!S.cust){$('#cname').textContent='Pick a customer';$('#cstat').textContent='';return}
-  const name=S.customers[S.cust];$('#cname').textContent=name+'  +'+S.cust;$('#cav').textContent=(name||'?')[0].toUpperCase();
+  const name=S.customers[S.cust];
+  if(S.view==='phone'){const bz=S.biz.find(b=>b.pnid===S.pnid)||{name:'?',display:''};$('#cname').textContent=bz.name+'  '+bz.display;$('#cav').textContent=(bz.name||'?')[0].toUpperCase()}
+  else{$('#cname').textContent=name+'  +'+S.cust;$('#cav').textContent=(name||'?')[0].toUpperCase()}
   const typing=S.typing[S.pnid+'|'+S.cust];$('#cstat').textContent=(typing&&typing*1000>Date.now())?'business is typing…':'';
   const ms=thread();let lastIn=null,prev=0;
   ms.forEach(m=>{
@@ -111,6 +129,8 @@ function renderChat(){
     if(m.direction!=='in')meta.appendChild(el('span',null,m.status));
     meta.appendChild(el('span',null,fmt(m.ts)));
     if(m.direction==='in'&&S.role==='customer'||m.direction!=='in'&&S.role==='owner')meta.appendChild(tick(m));
+    const code=(m.direction!=='in'&&((S.biz.find(x=>x.pnid===m.pnid)||{}).kind==='platform'||(m.template||'').includes('otp')))?(m.text.match(/\b\d{6}\b/)||[])[0]:null;
+    if(code){const cb=el('button',null,'Copy code '+code);cb.style.marginTop='4px';cb.onclick=()=>navigator.clipboard&&navigator.clipboard.writeText(code);b.appendChild(cb)}
     b.appendChild(meta);box.appendChild(b);
     if(m.direction==='in')lastIn=m;
     else if(lastIn&&m.direction==='out'){box.appendChild(el('div','lat',`reply latency ${sec(lastIn.ts,m.ts)} after the customer's last message`));lastIn=null}
@@ -136,6 +156,11 @@ function range(label,key){const l=el('label','f',label+' (ms, min–max)');const
   [a.value,b.value]=S.settings[key]||[0,0];const go=()=>api('settings',{[key]:[+a.value,+b.value]});a.onchange=b.onchange=go;r.append(a,b);l.appendChild(r);return l}
 function renderSettings(){
   const p=$('#p-set');p.innerHTML='';
+  const o=location.origin, st=S.settings;
+  const lines=['# deploy/gateway/.env (the gateway reaches this simulator from inside Docker: use http://host.docker.internal:'+(location.port||80)+' as META_GRAPH_BASE)','META_GRAPH_BASE='+o,'META_APP_ID=sim-app','META_APP_SECRET='+(st.app_secret||''),'META_VERIFY_TOKEN='+(st.verify_token||''),'META_CONFIG_ID=sim-config',
+    'OTP_CHANNEL=whatsapp_cloud','PLATFORM_SENDER_PHONE_NUMBER_ID=sim-platform','PLATFORM_WA_ACCESS_TOKEN=SIMTOKEN-platform','','# deploy/web/.env (the browser loads these)','META_APP_ID=sim-app','META_CONFIG_ID=sim-config','META_SDK_URL='+o+'/sdk.js','META_SIGNUP_ORIGINS='+o,'','# Meta dashboard equivalent: callback URL = your gateway receive address /webhooks/whatsapp, verify token as above'];
+  p.appendChild(el('h3',null,'Settings for the product (variables only)'));const pre=el('pre',null,lines.join('\n'));pre.style.cssText='background:var(--code);padding:8px;border-radius:8px;font-size:11px;overflow:auto;margin:0 0 6px';p.appendChild(pre);
+  const cp=el('button',null,'Copy these lines');cp.onclick=()=>navigator.clipboard&&navigator.clipboard.writeText(lines.join('\n'));p.appendChild(cp);
   p.appendChild(el('h3',null,'Product connection'));p.appendChild(field('Product webhook URL','webhook_url'));p.appendChild(field('App secret (signs webhooks)','app_secret'));p.appendChild(field('Verify token','verify_token'));
   const v=el('button',null,'Verify webhook (like Meta\'s dashboard)');v.onclick=async()=>{const r=await api('webhook/verify',{});const h=$('#hook');h.textContent=r.ok?'webhook verified':'verify failed: '+(r.status||r.error);h.className='pill '+(r.ok?'ok':'bad')};p.appendChild(v);
   p.appendChild(el('h3',null,'Delivery behaviour'));p.appendChild(check('Customer has read receipts on','read_receipts'));p.appendChild(check('Customer phone is offline (never delivered)','phone_offline'));p.appendChild(check('Enforce the 24-hour window (error 131047)','enforce_window'));
@@ -145,19 +170,38 @@ function renderSettings(){
   const add=el('button',null,'Queue');add.onclick=()=>api('settings',{fail_next:[...(S.settings.fail_next||[]),+sel.value]});row.append(sel,add);p.appendChild(row);p.appendChild(el('div','hint','Queued: '+((S.settings.fail_next||[]).join(', ')||'none')));
   p.appendChild(el('h3',null,'Account events'));const r2=el('div','row');['PARTNER_REMOVED','ACCOUNT_RECONNECTED'].forEach(ev=>{const b=el('button',null,ev);b.onclick=()=>api('account-event',{pnid:S.pnid,event:ev});r2.appendChild(b)});p.appendChild(r2);
   p.appendChild(el('h3',null,'Business numbers'));S.biz.forEach(b=>{const d=el('div','hint',`${b.name} ${b.display}\n  phone_number_id: ${b.pnid}\n  waba_id: ${b.waba_id}\n  access token: ${b.token}`);d.style.whiteSpace='pre-wrap';d.style.marginBottom='8px';p.appendChild(d)})}
-function renderAll(){renderBiz();renderContacts();renderChat();renderWire();renderTiming();renderSettings()}
+let auditFilter='';
+async function renderAudit(){
+  const p=$('#p-audit');if(!S.cust){p.textContent='Pick a phone to see its audit.';return}
+  const q='phone='+encodeURIComponent(S.cust)+(auditFilter?'&pnid='+encodeURIComponent(auditFilter):'');
+  const a=await api('audit?'+q);p.innerHTML='';
+  const row=el('div','row');const sel=el('select');sel.appendChild(Object.assign(el('option',null,'All numbers'),{value:''}));S.biz.forEach(b=>{const o=el('option',null,b.name+' '+b.display);o.value=b.pnid;sel.appendChild(o)});sel.value=auditFilter;sel.onchange=()=>{auditFilter=sel.value;renderAudit()};
+  const j=el('a',null,'Download JSON');j.href='/sim/api/audit?'+q;j.download='meta-sim-audit.json';const c=el('a',null,'Download CSV');c.href='/sim/api/audit.csv?'+q;row.append(sel,j,c);p.appendChild(row);
+  const sm=a.summary,cards=[['Messages',sm.messages],['From phone',sm.from_phone],['To phone',sm.to_phone],['Failed',sm.failed],['Sign-in codes',sm.otp_codes_delivered],['Product ack (avg)',sm.avg_product_ack_ms==null?'—':sm.avg_product_ack_ms+' ms'],['First reply (avg)',sm.avg_first_reply_s==null?'—':sm.avg_first_reply_s+' s'],['Webhook failures',sm.webhook_failures]];
+  const g=el('div');g.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0';cards.forEach(([k,v])=>{const d=el('div');d.style.cssText='border:1px solid var(--line);border-radius:8px;padding:6px';d.appendChild(el('div','hint',k));d.appendChild(Object.assign(el('div',null,String(v)),{style:'font-weight:600'}));g.appendChild(d)});p.appendChild(g);
+  const t=el('table');t.innerHTML='<tr><th>Time</th><th>Path</th><th>What</th><th>Ticks</th><th>Product</th></tr>';
+  a.rows.slice().reverse().forEach(r=>{const tr=el('tr');const t0=r.time,tk=[r.sent_at&&'sent '+(r.sent_at-t0).toFixed(1)+'s',r.delivered_at&&'delivered '+(r.delivered_at-t0).toFixed(1)+'s',r.read_at&&'read '+(r.read_at-t0).toFixed(1)+'s'].filter(Boolean).join(' → ');
+    const prod=r.direction.startsWith('phone')?((r.product_ack_ms!=null?'ack '+r.product_ack_ms+' ms; ':'')+r.webhooks_to_product.map(w=>w.status).join(', ')):'';
+    [fmt(r.time),r.direction+' · '+r.business,(r.otp?'[sign-in code] ':'')+(r.template?'['+r.template+'] ':'')+r.text.slice(0,90),r.error?('✗ '+r.error):(tk||r.status),prod].forEach(x=>tr.appendChild(el('td',null,x)));t.appendChild(tr)});p.appendChild(t)}
+function renderAll(){renderBiz();renderContacts();renderChat();renderOtp();renderWire();renderTiming();renderSettings()}
 async function send(kind){
   if(!S.cust)return;const text=$('#msg').value.trim();if(kind==='text'&&!text)return;$('#msg').value='';
   if(S.role==='owner'){await api('owner/send',{pnid:S.pnid,customer:S.cust,text});return}
   await api('customer/send',{pnid:S.pnid,customer:S.cust,kind,text:kind==='text'?text:(kind==='audio'?'🎤 voice note':'📷 photo')})}
-$('#send').onclick=()=>send('text');$('#msg').onkeydown=e=>{if(e.key==='Enter')send('text')};$('#voice').onclick=()=>send('audio');$('#photo').onclick=()=>send('image');
+$('#send').onclick=()=>send('text');$('#msg').onkeydown=e=>{if(e.key==='Enter')send('text')};let pickKind='audio';
+$('#voice').onclick=()=>{pickKind='audio';$('#pick').accept='audio/*';$('#pick').click()};$('#photo').onclick=()=>{pickKind='image';$('#pick').accept='image/*';$('#pick').click()};
+$('#pick').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f||!S.cust)return;const buf=new Uint8Array(await f.arrayBuffer());let bin='';buf.forEach(b=>bin+=String.fromCharCode(b));
+  await api('customer/send',{pnid:S.pnid,customer:S.cust,kind:pickKind,text:(pickKind==='audio'?'🎤 voice note':'📷 photo')+' '+f.name,media_b64:btoa(bin),mime:f.type||undefined})};
 $('#frag').onclick=()=>{if(S.cust&&S.role==='customer')api('script',{steps:[{pnid:S.pnid,customer:S.cust,text:'red saree',wait_ms:2000},{pnid:S.pnid,customer:S.cust,text:'for my sister wedding',wait_ms:2000},{pnid:S.pnid,customer:S.cust,text:'price?',wait_ms:0}]})};
 $('#biz').onchange=e=>{S.pnid=e.target.value;renderContacts();renderChat();renderTiming()};
 $('#addc').onclick=async()=>{const v=$('#newwa').value.trim();if(v){await api('customers',{wa_id:v});$('#newwa').value=''}};
 $('#reset').onclick=()=>api('reset',{});
+$('#view').onclick=e=>{const v=e.target.dataset.v;if(!v)return;S.view=v;[...$('#view').children].forEach(b=>b.classList.toggle('on',b.dataset.v===v));$('#role').hidden=v==='phone';if(v==='phone')S.role='customer';renderAll2();renderBiz()};
+$('#otpcopy').onclick=()=>{const o=otpLatest();if(o&&navigator.clipboard)navigator.clipboard.writeText(o.code)};
 $('#role').onclick=e=>{const r=e.target.dataset.r;if(!r)return;S.role=r;[...$('#role').children].forEach(b=>b.classList.toggle('on',b.dataset.r===r));renderChat()};
-$('#tabs').onclick=e=>{const p=e.target.dataset.p;if(!p)return;[...$('#tabs').children].forEach(b=>b.classList.toggle('on',b.dataset.p===p));['wire','timing','set'].forEach(x=>$('#p-'+x).hidden=x!==p)};
+$('#tabs').onclick=e=>{const p=e.target.dataset.p;if(!p)return;S.tab=p;if(p==='audit')renderAudit();[...$('#tabs').children].forEach(b=>b.classList.toggle('on',b.dataset.p===p));['wire','timing','audit','set'].forEach(x=>$('#p-'+x).hidden=x!==p)};
 setInterval(()=>{if(S.cust){const t=S.typing[S.pnid+'|'+S.cust];$('#cstat').textContent=(t&&t*1000>Date.now())?'business is typing…':''}},1000);
+$('#role').hidden=true;
 load().then(connect);
 </script>
 </body>

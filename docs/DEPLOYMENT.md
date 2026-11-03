@@ -99,6 +99,13 @@ For each machine:
 - **Optional:** `ALERT_WEBHOOK_URL` (a Slack incoming-webhook URL: Slack > Apps > Incoming Webhooks), `ALERT_WHATSAPP_NUMBERS` (your own number, for Critical only), `REDIS_URL` (a managed Redis, if you use it).
 - **Business details for invoices:** `INVOICE_SELLER_NAME`, `INVOICE_SELLER_ADDRESS`, `INVOICE_SELLER_GSTIN`, `PAYMENT_INSTRUCTIONS` (your UPI id or bank details). They come from your registration and GST certificate.
 
+## 4b. Trying everything before you have Meta credentials
+
+`tools/meta-sim` is a separate stand-in for Meta and for phones (Phone view with sign-in codes, shop numbers, chats; an audit per phone; Meta's sign-up popup). The product is not changed or bound to it:
+you point the product's own Meta settings at it (`META_GRAPH_BASE`, `META_APP_ID`, `META_APP_SECRET`, `META_VERIFY_TOKEN`, `META_SDK_URL`, `META_SIGNUP_ORIGINS`, the platform sender id and token, `OTP_CHANNEL=whatsapp_cloud`),
+and its webhook address is your gateway's `receive`. When you have real credentials, put the real values back; no code changes. Steps and the exact variables: `tools/meta-sim/README.md`. It proves the journey
+(sign-in code on a phone, sign-up, connect a number, customer chat, reply) but not Meta's real behaviour (verification, template approval, rate limits).
+
 ## 5. Checking it
 
 Run `python -m salesai doctor` with each part's settings loaded (inside a container: `docker compose -f deploy/<part>/docker-compose.yml --env-file deploy/<part>/.env run --rm <service> doctor <role>`, where the role is the service's command: `agent` -> `worker`, `api` -> `api`, `receive` -> `ingress`, admin `api` -> `admin`; this form is untested until your first run). It checks database logins, migrations, the login separation, the model, mail and the Meta token, and names the setting to fix. Each service also answers `/healthz`. If a part cannot start it prints, in plain words, every mandatory setting that is missing (and exits), never a stack trace; `scripts/stack.ps1 <part>` also prints a warning about empty mandatory settings before it starts anything.

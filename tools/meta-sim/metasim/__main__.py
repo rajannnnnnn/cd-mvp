@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 
 import uvicorn
 
@@ -10,11 +11,11 @@ from metasim.app import app, sim
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Independent Meta simulator and WhatsApp test frontend")
-    ap.add_argument("--port", type=int, default=9100)
-    ap.add_argument("--host", default="127.0.0.1")
-    ap.add_argument("--webhook-url")
-    ap.add_argument("--app-secret")
-    ap.add_argument("--verify-token")
+    ap.add_argument("--port", type=int, default=int(os.environ.get("SIM_PORT", "9100")))
+    ap.add_argument("--host", default=os.environ.get("SIM_HOST", "127.0.0.1"))
+    ap.add_argument("--webhook-url", default=os.environ.get("SIM_WEBHOOK_URL"))
+    ap.add_argument("--app-secret", default=os.environ.get("SIM_APP_SECRET"))
+    ap.add_argument("--verify-token", default=os.environ.get("SIM_VERIFY_TOKEN"))
     a = ap.parse_args()
     if a.webhook_url:
         sim.settings.webhook_url = a.webhook_url

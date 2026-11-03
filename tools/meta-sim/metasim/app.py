@@ -11,8 +11,11 @@ webhook callback URL set here. Nothing in the product knows this tool exists, an
 from __future__ import annotations
 
 import asyncio
+import base64
+import csv
 import hashlib
 import hmac
+import io
 import json
 import random
 import re
@@ -24,12 +27,27 @@ from typing import Any
 
 import httpx
 from fastapi import FastAPI, Header, Request
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    Response,
+    StreamingResponse,
+)
 from fastapi.staticfiles import StaticFiles
 
 from metasim import payloads as pl
 
 STATIC = Path(__file__).parent / "static"
+# What Meta would hold: the approved templates (name -> language -> body with {{1}} placeholders). Editable data, not product code.
+TEMPLATES: dict[str, dict[str, str]] = json.loads((Path(__file__).parent / "templates.json").read_text(encoding="utf-8"))
+_PH = re.compile(r"\{\{(\d+)\}\}")
+
+
+def render_template(name: str, language: str, params: list[str]) -> str | None:
+    body = (TEMPLATES.get(name) or {}).get(language) or (TEMPLATES.get(name) or {}).get("en")
+    return None if body is None else _PH.sub(lambda m: params[int(m.group(1)) - 1] if int(m.group(1)) <= len(params) else "", body)
 WINDOW_S = 24 * 3600
 
 
@@ -58,6 +76,8 @@ class Msg:
     reply_to: str | None = None
     t_ack_ms: int | None = None     # webhook acknowledgement time (for "in")
     marks: dict[str, float] = field(default_factory=dict)
+    template: str | None = None
+    media_id: str | None = None
 
 
 @dataclass
@@ -86,6 +106,7 @@ class Sim:
         self.subscribers: list[asyncio.Queue[str]] = []
         self.tasks: set[asyncio.Task[Any]] = set()
         self.client = httpx.AsyncClient(timeout=15)
+        self.media: dict[str, tuple[bytes, str]] = {}
 
     # ---------------------------------------------------------------- bus
     def publish(self, kind: str, data: Any) -> None:
@@ -247,10 +268,18 @@ async def graph_send(version: str, pnid: str, request: Request, authorization: s
     elif kind == "reaction":
         text = (body.get("reaction") or {}).get("emoji", "")
     elif kind == "template":
-        text = f"[template {(body.get('template') or {}).get('name')}]"
+        t = body.get("template") or {}
+        params = [str(p.get("text", "")) for c in t.get("components") or [] for p in c.get("parameters") or []]
+        text = render_template(str(t.get("name")), str((t.get("language") or {}).get("code") or "en"), params) or ""
+        if not text:
+            err = {"error": {"message": "(#132001) Template name does not exist in the translation", "type": "OAuthException", "code": 132001,
+                             "error_data": {"messaging_product": "whatsapp", "details": f"template name ({t.get('name')}) does not exist in {(t.get('language') or {}).get('code')}"}, "fbtrace_id": "SIMx"}}
+            sim.log_wire("api_out", status=404, body=err)
+            return JSONResponse(err, status_code=404)
     else:
         text = f"[{kind}]"
-    m = Msg(pl.new_wamid(), pnid, to, "out", kind, text, time.time(), status="accepted", reply_to=(body.get("context") or {}).get("message_id"))
+    m = Msg(pl.new_wamid(), pnid, to, "out", kind, text, time.time(), status="accepted", reply_to=(body.get("context") or {}).get("message_id"),
+            template=(body.get("template") or {}).get("name") if kind == "template" else None)
     sim.msgs.append(m)
     sim.typing_until.pop((pnid, to), None)
     sim.publish("message", sim.msg_out(m))
@@ -278,7 +307,13 @@ async def graph_subscribe(version: str, waba: str, authorization: str | None = H
 
 
 @app.get("/{version}/{pnid}")
-async def graph_number(version: str, pnid: str, fields: str = "", authorization: str | None = Header(default=None)) -> JSONResponse:
+async def graph_number(version: str, pnid: str, request: Request, fields: str = "", authorization: str | None = Header(default=None)) -> JSONResponse:
+    if pnid.startswith("sim-media-"):                                    # the product asks where a voice note or photo can be downloaded
+        sim.log_wire("api_in", method="GET", path=f"/{version}/{pnid}", body={})
+        if pnid not in sim.media:
+            http, err = pl.graph_error(131009)
+            return JSONResponse(err, status_code=http)
+        return JSONResponse({"id": pnid, "url": f"{str(request.base_url).rstrip('/')}/sim/media/{pnid}", "mime_type": sim.media[pnid][1], "file_size": len(sim.media[pnid][0])})
     biz, bad = _auth(authorization, pnid)
     sim.log_wire("api_in", method="GET", path=f"/{version}/{pnid}?fields={fields}", body={}, ok=bad is None)
     if bad is not None:
@@ -331,13 +366,17 @@ async def ui_customer_send(body: dict[str, Any]) -> dict[str, Any]:
     if wa not in sim.customers:
         sim.customers[wa] = body.get("name") or wa
         sim.publish("customers", sim.customers)
-    m = Msg(pl.new_wamid(), pnid, wa, "in", kind, body.get("text") or body.get("emoji") or f"[{kind}]", now, status="sent", reply_to=body.get("reply_to"))
+    media_id = "sim-media-" + uuid.uuid4().hex[:8] if kind in ("audio", "image") else None
+    if media_id:
+        data = base64.b64decode(body["media_b64"]) if body.get("media_b64") else (b"" if kind == "audio" else b"\xff\xd8\xff\xd9")
+        sim.media[media_id] = (data, body.get("mime") or ("audio/ogg; codecs=opus" if kind == "audio" else "image/jpeg"))
+    m = Msg(pl.new_wamid(), pnid, wa, "in", kind, body.get("text") or body.get("emoji") or f"[{kind}]", now, status="sent", reply_to=body.get("reply_to"), media_id=media_id)
     sim.msgs.append(m)
     sim.last_customer_msg[(pnid, wa)] = now
     sim.publish("message", sim.msg_out(m))
     payload = pl.inbound_message(biz.waba_id, biz.display, pnid, from_wa=wa, name=sim.customers.get(wa), wamid=m.id, ts=int(now), kind=kind,
                                  text=body.get("text"), emoji=body.get("emoji"), reaction_to=body.get("reaction_to"),
-                                 media_id="sim-media-" + uuid.uuid4().hex[:8] if kind in ("audio", "image") else None, reply_to=body.get("reply_to"))
+                                 media_id=media_id, reply_to=body.get("reply_to"))
     code, ms = await sim.send_webhook(payload, f"message:{kind}")
     m.t_ack_ms = ms
     if code == 200:
@@ -439,6 +478,156 @@ async def ui_reset() -> dict[str, Any]:
     sim.typing_until.clear()
     sim.publish("reset", {})
     return {"ok": True}
+
+
+# ===================================================================== media the product downloads (voice notes, photos)
+@app.get("/sim/media/{media_id}")
+async def media_download(media_id: str, authorization: str | None = Header(default=None)) -> Response:
+    sim.log_wire("api_in", method="GET", path=f"/sim/media/{media_id}", body={})
+    if media_id not in sim.media or not (authorization or "").removeprefix("Bearer ").strip().startswith("SIMTOKEN"):
+        return JSONResponse({"error": {"message": "Media not found or token invalid", "code": 100}}, status_code=404)
+    data, mime = sim.media[media_id]
+    return Response(data, media_type=mime.split(";")[0])
+
+
+# ===================================================================== a phone: every chat this number has, with the shop and the platform sender
+@app.get("/sim/api/phone/{wa}")
+async def ui_phone(wa: str) -> dict[str, Any]:
+    wa = pl.digits(wa)
+    chats = []
+    for b in sim.biz.values():
+        ms = sorted((m for m in sim.msgs if m.pnid == b.pnid and m.customer == wa), key=lambda m: m.ts)
+        last = ms[-1] if ms else None
+        chats.append({"pnid": b.pnid, "name": b.name, "display": b.display, "kind": b.kind, "messages": len(ms),
+                      "last": {"text": last.text, "ts": last.ts, "direction": last.direction} if last else None})
+    chats.sort(key=lambda c: -(c["last"]["ts"] if c["last"] else 0))
+    return {"wa": wa, "name": sim.customers.get(wa), "chats": chats}
+
+
+# ===================================================================== Meta's sign-up popup, played from outside the product
+# The product loads the browser script from META_SDK_URL and accepts the popup's messages from META_SIGNUP_ORIGINS; pointing both at this
+# server is all it takes. The popup creates the shop's WhatsApp number here, then answers like Meta's Embedded Signup: a WA_EMBEDDED_SIGNUP
+# message with the account and number ids, and an authorization code that the product exchanges at /oauth/access_token.
+SDK_JS = """(function(){
+  var ORIGIN=(document.currentScript&&new URL(document.currentScript.src).origin)||location.origin;
+  window.FB={init:function(o){this._opts=o},
+    login:function(cb,opts){
+      var w=window.open(ORIGIN+'/sim/app/signup','sim-signup','width=480,height=700');
+      function onMsg(e){
+        if(e.origin!==ORIGIN)return; var d=e.data||{};
+        if(d.sim_code){window.removeEventListener('message',onMsg);cb({authResponse:{code:d.sim_code}})}
+        else if(d.sim_cancel){window.removeEventListener('message',onMsg);cb({})}}
+      window.addEventListener('message',onMsg);
+      var t=setInterval(function(){if(w&&w.closed){clearInterval(t)}},800);}};
+  if(window.fbAsyncInit)window.fbAsyncInit();
+})();"""
+
+POPUP = """<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>WhatsApp sign-up (simulated)</title>
+<style>body{font:15px system-ui;margin:0;background:#f0f2f5;color:#111b21}main{max-width:420px;margin:24px auto;background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 4px #0002}
+h1{font-size:18px;margin:0 0 4px}p{color:#667781;margin:0 0 14px}label{display:block;font-size:12px;color:#667781;margin:10px 0 3px}input{width:100%;font:inherit;padding:8px;border:1px solid #d1d7db;border-radius:8px;box-sizing:border-box}
+button{font:inherit;padding:9px 14px;border-radius:8px;border:1px solid #d1d7db;background:#fff;cursor:pointer}button.p{background:#00a884;color:#fff;border-color:#00a884}.r{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+.note{font-size:12px;background:#fff8e1;border-radius:8px;padding:8px;margin-top:12px;color:#665}</style>
+<main><h1>Connect your WhatsApp number</h1><p>Simulated Meta sign-up. This creates the number inside the stand-in, as Meta would for your business.</p>
+<label>Business name shown to customers</label><input id=name value="Sharma Sarees">
+<label>WhatsApp number of the business (any number you like)</label><input id=num value="+91 97000 00002">
+<label><input type=checkbox id=co checked style="width:auto"> This number is also used in the WhatsApp Business app (coexistence)</label>
+<div class=note>Nothing here is real: no verification, no message to your phone. The number only exists in the stand-in.</div>
+<div class=r><button id=cancel>Cancel</button><button class=p id=go>Continue</button></div></main>
+<script>
+const $=id=>document.getElementById(id);
+function post(m){ if(window.opener) window.opener.postMessage(m,'*'); }
+$('cancel').onclick=()=>{post(JSON.stringify({type:'WA_EMBEDDED_SIGNUP',event:'CANCEL',data:{current_step:'start'}}));post({sim_cancel:true});window.close()};
+$('go').onclick=async()=>{
+  const r=await (await fetch('/sim/api/signup/create',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name:$('name').value,display:$('num').value,coexistence:$('co').checked})})).json();
+  post(JSON.stringify({type:'WA_EMBEDDED_SIGNUP',event:r.coexistence?'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING':'FINISH',data:{waba_id:r.waba_id,phone_number_id:r.phone_number_id}}));
+  post({sim_code:r.code}); window.close()};
+</script>"""
+
+
+@app.get("/sdk.js")
+async def sdk_js() -> Response:
+    return Response(SDK_JS, media_type="application/javascript")
+
+
+@app.get("/sim/app/signup")
+async def signup_popup() -> HTMLResponse:
+    return HTMLResponse(POPUP)
+
+
+@app.post("/sim/api/signup/create")
+async def signup_create(body: dict[str, Any]) -> dict[str, Any]:
+    display = body.get("display") or "+919700000099"
+    existing = next((b for b in sim.biz.values() if pl.digits(b.display) == pl.digits(display) and b.kind == "business"), None)
+    if existing is None:
+        pnid = "sim-pn-" + uuid.uuid4().hex[:6]
+        existing = Biz(pnid, "sim-waba-" + uuid.uuid4().hex[:6], display, body.get("name") or display, "SIMTOKEN-" + uuid.uuid4().hex[:12], bool(body.get("coexistence", True)))
+        sim.biz[pnid] = existing
+        sim.publish("businesses", [asdict(b) for b in sim.biz.values()])
+    sim.log_wire("signup", label="embedded signup completed", body={"phone_number_id": existing.pnid, "waba_id": existing.waba_id, "display": existing.display})
+    return {"phone_number_id": existing.pnid, "waba_id": existing.waba_id, "code": "sim-code-" + existing.pnid, "coexistence": existing.coexistence}
+
+
+# ===================================================================== audit: what happened to each message, per phone
+def _webhook_attempts() -> dict[str, list[dict[str, Any]]]:
+    out: dict[str, list[dict[str, Any]]] = {}
+    for e in sim.wire:
+        if e.get("dir") != "webhook_out":
+            continue
+        for en in (e.get("body") or {}).get("entry", []):
+            for ch in en.get("changes", []):
+                v = ch.get("value") or {}
+                for x in [*v.get("messages", []), *v.get("statuses", [])]:
+                    out.setdefault(x.get("id", ""), []).append({"label": e.get("label"), "attempt": e.get("attempt"), "status": e.get("status"), "ms": e.get("ms")})
+    return out
+
+
+def audit_rows(phone: str | None = None, pnid: str | None = None) -> list[dict[str, Any]]:
+    wa = pl.digits(phone) if phone else None
+    hooks = _webhook_attempts()
+    rows = []
+    for m in sorted(sim.msgs, key=lambda x: x.ts):
+        if (wa and m.customer != wa) or (pnid and m.pnid != pnid):
+            continue
+        b = sim.biz.get(m.pnid)
+        who = {"in": "phone -> business", "out": "business -> phone (API)", "echo": "business app -> phone"}.get(m.direction, m.direction)
+        otp = bool(m.template and "otp" in m.template) or (b is not None and b.kind == "platform" and bool(re.search(r"\b\d{6}\b", m.text)) and m.direction == "out")
+        rows.append({"time": m.ts, "phone": "+" + m.customer, "business": b.name if b else m.pnid, "business_number": b.display if b else "", "kind_of_business": b.kind if b else "",
+                     "direction": who, "type": m.kind, "template": m.template, "text": m.text, "otp": otp, "status": m.status, "error": m.error,
+                     "sent_at": m.marks.get("sent"), "delivered_at": m.marks.get("delivered"), "read_at": m.marks.get("read"), "product_ack_ms": m.t_ack_ms,
+                     "webhooks_to_product": hooks.get(m.id, []) if m.direction == "in" else [], "id": m.id})
+    return rows
+
+
+def audit_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    ins = [r for r in rows if r["direction"].startswith("phone")]
+    acks = [r["product_ack_ms"] for r in ins if r["product_ack_ms"] is not None]
+    lat = []
+    for i in ins:
+        nxt = next((r for r in rows if r["direction"].startswith("business") and r["business"] == i["business"] and r["time"] > i["time"]), None)
+        if nxt:
+            lat.append(nxt["time"] - i["time"])
+    return {"messages": len(rows), "from_phone": len(ins), "to_phone": len(rows) - len(ins), "failed": sum(1 for r in rows if r["status"] == "failed"),
+            "otp_codes_delivered": sum(1 for r in rows if r["otp"]), "avg_product_ack_ms": int(sum(acks) / len(acks)) if acks else None,
+            "avg_first_reply_s": round(sum(lat) / len(lat), 1) if lat else None,
+            "webhook_failures": sum(1 for r in ins for w in r["webhooks_to_product"] if w["status"] != 200)}
+
+
+@app.get("/sim/api/audit")
+async def ui_audit(phone: str | None = None, pnid: str | None = None) -> dict[str, Any]:
+    rows = audit_rows(phone, pnid)
+    return {"summary": audit_summary(rows), "rows": rows}
+
+
+@app.get("/sim/api/audit.csv")
+async def ui_audit_csv(phone: str | None = None, pnid: str | None = None) -> PlainTextResponse:
+    rows = audit_rows(phone, pnid)
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    cols = ["time", "phone", "business", "business_number", "direction", "type", "template", "text", "otp", "status", "error", "sent_at", "delivered_at", "read_at", "product_ack_ms", "id"]
+    w.writerow(cols)
+    for r in rows:
+        w.writerow([time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(r[c])) if c in ("time",) else (r[c] if r[c] is not None else "") for c in cols])
+    return PlainTextResponse(buf.getvalue(), media_type="text/csv", headers={"content-disposition": 'attachment; filename="meta-sim-audit.csv"'})
 
 
 @app.get("/")
