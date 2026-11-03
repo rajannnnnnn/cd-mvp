@@ -17,7 +17,6 @@ services:
       ENV: ${APP_ENV:?set APP_ENV in deploy/db/.env}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in deploy/db/.env}
-      PRICING_DATABASE_URL: ${PRICING_DATABASE_URL:?set PRICING_DATABASE_URL in deploy/db/.env}
       SYSTEM_DATABASE_URL: ${SYSTEM_DATABASE_URL:?set SYSTEM_DATABASE_URL in deploy/db/.env}
       MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?set MIGRATION_DATABASE_URL in deploy/db/.env}
       PAYMENT_PROVIDER: manual          # production refuses the test gateway; a migration never takes payments

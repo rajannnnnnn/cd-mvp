@@ -110,7 +110,7 @@ time; a new crossing fails the build, and so does a listed one that no longer oc
   time from the database for owner messages too.
 - **Not yet done:** the web API role still holds the master key, because the operator's manual pilot registration of a
   number (FR-ON-3) encrypts a pasted token itself. That path retires when Tech Provider approval makes Embedded Signup
-  the only route; until then web cannot drop the key. Per-component database roles, and per-component compose files for
+  the only route; until then web cannot drop the key. **Update 2026-11-03 (ADR 0042):** the floor-reading login now goes to the agent's turn worker only. Per-component database roles, and per-component compose files for
   web and the agent, are the next steps of this ADR.
 - **One scheduler per component, not two** (`SCHEDULER_COMPONENT=web|gateway|agent|all`). This revises the "two schedulers"
   line above: the gateway also has timed work (its raw-request log), and a part that cannot tidy its own data would need a

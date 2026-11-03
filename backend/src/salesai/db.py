@@ -22,7 +22,7 @@ def jsonb(value: object) -> Jsonb:
 class Database:
     """Pools: `user` (RLS), `pricing` (floor reader), `system` (BYPASSRLS, platform only)."""
 
-    def __init__(self, user_url: str, pricing_url: str, system_url: str, pool_max: int = 10):
+    def __init__(self, user_url: str, pricing_url: str | None, system_url: str, pool_max: int = 10):
         def mk(url: str, name: str, maxsize: int) -> AsyncConnectionPool[Conn]:
             return AsyncConnectionPool(
                 url, min_size=1, max_size=maxsize, open=False, name=name,
@@ -30,15 +30,18 @@ class Database:
             )
 
         self.user = mk(user_url, "user", pool_max)
-        self.pricing = mk(pricing_url, "pricing", max(2, pool_max // 2))
+        self.pricing = mk(pricing_url, "pricing", max(2, pool_max // 2)) if pricing_url else None      # only the agent's turn worker has this login (INV-1)
         self.system = mk(system_url, "system", max(2, pool_max // 2))
 
+    def _pools(self) -> list[AsyncConnectionPool[Conn]]:
+        return [p for p in (self.user, self.pricing, self.system) if p is not None]
+
     async def open(self) -> None:
-        for p in (self.user, self.pricing, self.system):
+        for p in self._pools():
             await p.open(wait=True, timeout=15)
 
     async def close(self) -> None:
-        for p in (self.user, self.pricing, self.system):
+        for p in self._pools():
             await p.close()
 
     @asynccontextmanager
@@ -51,6 +54,8 @@ class Database:
     @asynccontextmanager
     async def pricing_tenant(self, business_id: uuid.UUID | str) -> AsyncIterator[Conn]:
         """Transaction as app_pricing (the only role that can read price_floors)."""
+        if self.pricing is None:
+            raise RuntimeError("this process has no pricing database login (PRICING_DATABASE_URL): price floors are read only by the agent's turn worker")
         async with self.pricing.connection() as conn, conn.transaction():
             await conn.execute("SELECT set_config('app.business_id', %s, true)", (str(business_id),))
             yield conn
@@ -63,7 +68,7 @@ class Database:
 
     async def ping(self) -> bool:
         try:
-            for p in (self.user, self.pricing, self.system):
+            for p in self._pools():
                 async with p.connection() as c:
                     await c.execute("SELECT 1")
             return True

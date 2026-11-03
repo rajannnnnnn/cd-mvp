@@ -25,7 +25,6 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       TRUST_PROXY: "true"
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in deploy/admin/.env}
-      PRICING_DATABASE_URL: ${PRICING_DATABASE_URL:?set PRICING_DATABASE_URL in deploy/admin/.env}
       SYSTEM_DATABASE_URL: ${SYSTEM_DATABASE_URL:?set SYSTEM_DATABASE_URL in deploy/admin/.env}
       MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?set MIGRATION_DATABASE_URL in deploy/admin/.env}
       QUEUE_BACKEND: ${QUEUE_BACKEND:-postgres}

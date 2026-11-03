@@ -144,3 +144,37 @@ async def test_a_vault_without_a_master_key_cannot_open_tokens():
         await vault.decrypt_token(uuid.uuid4(), b"x")
     with pytest.raises(RuntimeError, match="MASTER_KEY"):
         await vault.encrypt_token(uuid.uuid4(), "token")
+
+
+# ------------------------------------------------------------------ the floor-reading database login (INV-1, ADR 0025, ADR 0042)
+NO_PRICING = {"PRICING_DATABASE_URL": ""}
+
+
+def test_only_the_agents_turn_worker_holds_the_login_that_can_read_floor_prices():
+    # the pricing role is the only one that can read price_floors; the only code that uses it is the agent deciding a turn
+    for queues in ("conversation.turns", "conversation.events,conversation.turns,owner.notifications"):
+        with pytest.raises(ValidationError, match="PRICING_DATABASE_URL"):
+            build("worker", WORKER_QUEUES=queues, **NO_PRICING)
+        build("worker", WORKER_QUEUES=queues)
+    with pytest.raises(ValidationError, match="PRICING_DATABASE_URL"):
+        build("all", keep=tuple(SECRETS), **NO_PRICING)
+    # everything else runs without it, so a breach of the web part, the webhook receiver, the gateway, the scheduler or the console cannot read a floor
+    build("api", keep=("JWT_SECRET", "OTP_SECRET"), **NO_PRICING)
+    build("admin", keep=("MASTER_KEY", "JWT_SECRET", "OTP_SECRET"), ADMIN_JWT_SECRET=ADMIN_SECRET, **NO_PRICING)
+    build("ingress", keep=("META_APP_SECRET", "META_VERIFY_TOKEN"), **NO_PRICING)
+    build("scheduler", **NO_PRICING)
+    build("migrate", **NO_PRICING)
+    build("worker", keep=("MASTER_KEY", "META_APP_SECRET"), WORKER_QUEUES="outbound.actions", **NO_PRICING)
+    build("worker", WORKER_QUEUES="inbound.events,owner.notifications,platform.events", **NO_PRICING)
+
+
+def test_a_part_without_the_login_cannot_reach_floors_even_by_mistake():
+    from salesai.db import Database
+    db = Database("postgresql://u@localhost/x", None, "postgresql://s@localhost/x")
+    assert db.pricing is None
+    with pytest.raises(RuntimeError, match="no pricing database login"):
+        import asyncio
+        async def go():
+            async with db.pricing_tenant("00000000-0000-0000-0000-000000000000"):
+                pass
+        asyncio.run(go())

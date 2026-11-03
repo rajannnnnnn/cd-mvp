@@ -26,6 +26,8 @@ MODEL_QUEUES = {"conversation.turns", "owner.notifications"}
 # Queues whose jobs send to WhatsApp, so the process needs the master key to open the owner's access token.
 # Only the gateway's send queue does (ADR 0025): the owner loop and the platform events no longer send, they ask the gateway.
 SENDING_QUEUES = {"outbound.actions"}
+# The queue whose jobs decide a turn, which is the one place a price floor is read (INV-1): only its worker holds the floor-reading database login.
+TURN_QUEUES = {"conversation.turns"}
 
 
 # The planner's intents (modules/agent/models.py `Intent`; a test keeps this list in step) and the ones the rules may decide alone.
@@ -47,7 +49,7 @@ class Settings(BaseSettings):
 
     # --- database (four roles; see db/bootstrap_roles.sql)
     database_url: str = Field(..., description="app_user: tenant work, RLS applies")
-    pricing_database_url: str = Field(..., description="app_pricing: pricing component only")
+    pricing_database_url: str = Field("", description="app_pricing: the only login that can read price floors; held by the agent's turn worker and nobody else (INV-1)")
     system_database_url: str = Field(..., description="app_system: platform work, BYPASSRLS")
     migration_database_url: str = Field(..., description="app_owner: migrations only")
     db_pool_max: int = 10
@@ -231,6 +233,8 @@ class Settings(BaseSettings):
                 need.add("platform_wa_access_token")   # the platform's own sender: sign-in codes, and alerts when a shop's number is down
         if self.simulator_enabled and self.role not in ("web", "admin", "migrate"):
             need.add("meta_app_secret")                # the simulator signs the webhooks it plays back
+        if self.reads_floors:
+            need.add("pricing_database_url")           # INV-1: the login that can read price_floors goes to the agent's turn worker only
         for name in sorted(need):
             if not getattr(self, name):
                 raise ValueError(f"{name.upper()} is required for role {self.role!r}")
@@ -248,6 +252,11 @@ class Settings(BaseSettings):
             except ValueError as e:
                 raise ValueError(f"ADMIN_ALLOWED_IPS entry {cidr!r} is not an address or range") from e
         return self
+
+    @property
+    def reads_floors(self) -> bool:
+        """Whether this process decides turns and so reads price floors: the agent's turn worker, or everything-in-one."""
+        return self.role == "all" or (self.role == "worker" and bool(set(self.queues) & TURN_QUEUES))
 
     @property
     def uses_model(self) -> bool:

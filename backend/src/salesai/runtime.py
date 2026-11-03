@@ -100,7 +100,7 @@ class Runtime:
     @classmethod
     async def create(cls, settings: Settings | None = None, queue_factory: Callable[[Database, Settings], Queue] | None = None) -> Runtime:
         s = settings or get_settings()
-        db = Database(s.database_url, s.pricing_database_url, s.system_database_url, s.db_pool_max)
+        db = Database(s.database_url, s.pricing_database_url or None, s.system_database_url, s.db_pool_max)
         await db.open()
         queue = queue_factory(db, s) if queue_factory else make_queue(db, s)
         return cls(s, db, queue)

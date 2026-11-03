@@ -98,6 +98,15 @@ def test_every_service_holds_exactly_the_secrets_its_component_needs(sid, svc, p
 
 
 @pytest.mark.parametrize("sid,svc,part", RUNNABLE, ids=[r[0] for r in RUNNABLE])
+def test_only_the_agents_turn_worker_gets_the_login_that_can_read_floor_prices(sid, svc, part):
+    """INV-1: price_floors is readable by one database role. A breach of any other part must not be able to read a floor, so the
+    role's login is given to the one service that decides turns and to none other."""
+    has_it = "PRICING_DATABASE_URL" in (svc.get("environment") or {})
+    assert has_it == (sid == "agent/agent"), f"{sid}: pricing login {'present' if has_it else 'absent'}"
+    assert _settings_for(svc).reads_floors == has_it                              # and the application agrees about who needs it
+
+
+@pytest.mark.parametrize("sid,svc,part", RUNNABLE, ids=[r[0] for r in RUNNABLE])
 def test_every_variable_a_service_passes_is_a_real_setting(sid, svc, part):
     known = {n.upper() for n in Settings.model_fields} | {"WORKER_CONCURRENCY"}
     unknown = {k for k in (svc.get("environment") or {}) if k not in known}

@@ -350,4 +350,7 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
     `owner.spec.ts` "offers can be created, paused and deleted", "catalog: cards and grid views, a confirmed on/off switch…", "products: edit and delete on every item…", "offers work like products…" (per-card on/off switches are gone;
     hide/show is in the card menu), `playground.spec.ts` (the phone panel selector), and the "Saved privately" check in `pricing-safety.spec.ts` (a card click now opens a read-only view first). `operator.spec.ts` targets the old
     console inside the owner app and must be rewritten for the separate console (it needs an enrolled test admin: WhatsApp code plus authenticator code). Not run here: the mobile project.
+  - **The floor-reading database login goes to one process (ADR 0042), 2026-11-03.** `PRICING_DATABASE_URL` is now required only by the worker that decides turns (and the all-in-one dev process) and is optional everywhere else;
+    the deploy files give it to `agent/agent` alone, and a process without it fails loudly if it ever tries to read a floor. A breach of the web API, webhook receiver, gateway, scheduler or console no longer yields it (INV-1).
+    Tests: `test_config_roles.py`, `test_deploy_files.py`. **Still open:** narrowing `app_system` (bypasses row security, shared by several parts) per component.
 
