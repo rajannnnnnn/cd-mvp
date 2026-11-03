@@ -128,7 +128,7 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
 | LLM vendor/model approval and an API key (paid) | Real evaluations, cost per conversation, pricing | Local stand-in only |
 | Meta developer account / test number / Tech Provider path | Real-world verification of the adapter | Simulated network only |
 | Pilot shops and categories (CR-5 excludes prohibited categories) | Seed data, evaluation scenarios | Demo shops |
-| Real plan prices, included conversations and overage rates | Placeholders are live on the pricing page and in invoices | ₹999 / ₹2,499 / ₹5,999 per month + 18% GST |
+| Real plan prices and included conversations (no overage rate: ADR 0032) | Placeholders are live on the pricing page and in invoices | ₹999 / ₹2,499 / ₹5,999 per month + 18% GST |
 | Company name, address and GSTIN for invoices and legal pages; a payment gateway account (Razorpay is the natural fit) | Invoices show bracketed placeholders; payments can only be collected by transfer | Placeholders; manual payments |
 | Default AI negotiation per item (recommended: off, owner opts in) | Product default | Off unless the owner enables |
 
@@ -329,5 +329,9 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
     sign-in with a WhatsApp code and an authenticator code, a session clock with extend and sign-out, the four boards, the agent audit (summary, filterable runs, per-run timeline),
     "Read a chat" (recorded, time-limited), and the existing shops, alerts, support, queues and billing screens moved over. The owner app lost every console route and screen;
     tests enforce the separation (static import test, bundle check, deploy-file tests). Operating guide: `docs/ADMIN_CONSOLE.md`. **Not built:** passkeys; "sign in as a shop" in the UI.
-    **Noticed, not yet fixed:** the public pricing page and `plans.json` still show an "each extra conversation" overage column, which contradicts ADR 0032 (caps, no overage).
+    **Noticed, since fixed:** the pricing page and `plans.json` showed an "each extra conversation" column that contradicted ADR 0032.
+  - **Overage charging removed (ADR 0032), 2026-11-03.** Founder decision: plans are caps, never a per-conversation charge. Renewal invoices now carry the plan line only (a test puts 520
+    conversations on a 500 plan and checks the invoice); `overage_paise` is gone from the plan catalogue, `plans.json`, the usage API (`extra_conversations`, `overage_estimate_paise`) and the generated client;
+    the pricing page shows "conversations each month" with no extra-conversation price; the billing screen says there is no extra charge and shows a plain note from 80% of the count
+    (at the count: the assistant keeps answering, upgrade for room). **Still to build (ADR 0032):** the early WhatsApp warning to the owner and the short grace period at the cap.
 

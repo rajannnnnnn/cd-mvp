@@ -128,7 +128,7 @@ export default function BillingPage() {
               <Meter label={tr('WhatsApp numbers')} used={d.usage.numbers} cap={d.limits.numbers ?? null} />
               <Meter label={tr('Team members')} used={d.usage.team} cap={d.limits.team ?? null} />
             </div>
-            {d.usage.extra_conversations > 0 && <p className="mt-4 rounded-xl bg-accent-soft px-3 py-2 text-[13px] text-[rgb(150_92_0)]">{tr('{n} conversations beyond your plan so far: about {amount} extra on your next invoice.', { n: d.usage.extra_conversations, amount: rupees(d.usage.overage_estimate_paise) })}</p>}
+            {d.usage.included_conversations != null && d.usage.conversations >= 0.8 * d.usage.included_conversations && <p className="mt-4 rounded-xl bg-accent-soft px-3 py-2 text-[13px] text-[rgb(150_92_0)]">{d.usage.conversations >= d.usage.included_conversations ? tr('You have reached the {cap} conversations in your plan this month. Your assistant keeps answering, and there is no extra charge. Upgrade to make room for next month.', { cap: d.usage.included_conversations }) : tr('{n} of your {cap} conversations are used this month. There is no extra charge; upgrade any time for more room.', { n: d.usage.conversations, cap: d.usage.included_conversations })}</p>}
             <div className="mt-5 flex flex-wrap gap-2">
               {(d.status === 'active' || d.status === 'past_due' || d.status === 'trialing') && !d.cancel_at_period_end && <button className="btn btn-ghost text-danger" onClick={() => setCancel(true)}>{d.status === 'trialing' ? tr('End my trial') : tr('Cancel plan')}</button>}
               {d.cancel_at_period_end && <button className="btn btn-outline" onClick={() => resume.mutate()}>{tr('Keep my plan')}</button>}
@@ -137,7 +137,7 @@ export default function BillingPage() {
           <section className="card card-pad">
             <div className="text-xs font-bold uppercase tracking-wide text-muted">{tr('What’s included')}</div>
             <ul className="mt-3 space-y-2 text-sm">{plans.find((p) => p.code === d.plan)?.features.map((f) => <li key={f} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-brand" />{f}</li>) ?? <li>{tr('Everything, during the pilot.')}</li>}</ul>
-            <p className="mt-4 text-xs text-muted">{tr('Prices exclude 18% GST. Extra conversations beyond your plan are billed on the next invoice.')}</p>
+            <p className="mt-4 text-xs text-muted">{tr('Prices exclude 18% GST. There is no charge per conversation: your plan has a monthly count, and we will tell you well before you reach it.')}</p>
           </section>
         </div>)}
 

@@ -1,4 +1,4 @@
-"""Billing: trial, plans, GST invoices, payment, proration, renewal with overage, lapse and recovery, limits, tenant isolation."""
+"""Billing: trial, plans, GST invoices, payment, proration, renewal (no overage: ADR 0032), lapse and recovery, limits, tenant isolation."""
 from __future__ import annotations
 
 import json
@@ -86,7 +86,7 @@ async def test_upgrade_credits_unused_time_and_downgrade_waits_for_the_period_en
     assert b["plan"] == "scale" and b["pending_plan"] == "starter"
 
 
-async def test_renewal_bills_the_next_period_plus_overage_and_applies_a_scheduled_downgrade(world, client):
+async def test_renewal_bills_only_the_plan_even_past_the_cap_and_applies_a_scheduled_downgrade(world, client):
     owner = await new_shop(world, client)
     bid = uuid.UUID(owner["business_id"])
     inv = (await client.post(f"{V1}/billing/subscribe", headers=hdr(owner), json={"plan": "starter", "interval": "month"})).json()["invoice"]
@@ -98,7 +98,8 @@ async def test_renewal_bills_the_next_period_plus_overage_and_applies_a_schedule
             cv = (await (await c.execute("INSERT INTO conversations (business_id, customer_id, whatsapp_number_id) VALUES (%s,%s,%s) RETURNING id", (bid, cust, num))).fetchone())["id"]
             await c.execute("INSERT INTO turns (business_id, conversation_id, conversation_version, status) VALUES (%s,%s,1,'sent')", (bid, cv))
     b = (await client.get(f"{V1}/billing", headers=hdr(owner))).json()
-    assert b["usage"]["conversations"] == 520 and b["usage"]["extra_conversations"] == 20 and b["usage"]["overage_estimate_paise"] == 20 * 300
+    assert b["usage"]["conversations"] == 520 and b["usage"]["included_conversations"] == 500
+    assert not ({"extra_conversations", "overage_estimate_paise"} & set(b["usage"]))          # ADR 0032: caps, never a per-conversation charge
     await client.post(f"{V1}/billing/subscribe", headers=hdr(owner), json={"plan": "starter", "interval": "year"})      # same plan, other interval: scheduled
     end = datetime.fromisoformat(b["current_period_end"])
     clock(world, end + timedelta(hours=1))
@@ -108,8 +109,8 @@ async def test_renewal_bills_the_next_period_plus_overage_and_applies_a_schedule
     renewal = invs[0]
     assert renewal["status"] == "open" and renewal["billing_interval"] == "year"
     descs = [x["description"] for x in renewal["lines"]]
-    assert any("Starter plan, yearly" in d for d in descs) and any("20 extra AI conversations" in d for d in descs)
-    assert renewal["subtotal_paise"] == 999_000 + 20 * 300
+    assert descs == ["Starter plan, yearly"]                                                  # 20 conversations past the cap add nothing to the bill
+    assert renewal["subtotal_paise"] == 999_000
     await world.rt.billing.run_cycle()
     assert len((await client.get(f"{V1}/billing/invoices", headers=hdr(owner))).json()) == len(invs)                      # running again issues nothing new
 
@@ -214,3 +215,9 @@ async def test_one_shop_cannot_see_or_pay_another_shops_invoices(world, client, 
     assert (await client.get(f"{V1}/billing/invoices", headers=hdr(b))).json() == []
     async with db.tenant(uuid.UUID(b["business_id"])) as c:                                   # and the database agrees (RLS), even for a direct query
         assert await (await c.execute("SELECT * FROM invoices")).fetchall() == []
+
+
+def test_no_plan_carries_a_per_conversation_price():
+    from salesai.modules.billing.plans import PLANS, catalogue
+    assert not any("overage" in k for p in catalogue()["plans"] for k in p)
+    assert not any(hasattr(p, "overage_paise") for p in PLANS.values())

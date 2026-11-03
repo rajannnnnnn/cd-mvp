@@ -27,10 +27,10 @@ function plansHtml(): string {
   return `<div class="grid gap-6 lg:grid-cols-3">${cards}</div>`
 }
 
-function overageHtml(): string {
+function includedHtml(): string {
   const cat = JSON.parse(readFileSync(resolve(__dirname, 'src/site/plans.json'), 'utf8'))
-  const rows = cat.plans.map((p: any) => `<tr class="border-t border-line/60"><td class="py-3 pr-4 font-semibold">${p.name}</td><td class="tnum py-3 pr-4">${p.included_conversations?.toLocaleString('en-IN') ?? 'Unlimited'}</td><td class="tnum py-3">₹${(p.overage_paise / 100).toLocaleString('en-IN', { minimumFractionDigits: p.overage_paise % 100 ? 2 : 0 })}</td></tr>`).join('')
-  return `<table class="w-full text-left text-[15px]"><thead><tr class="text-[13px] text-muted"><th class="pb-2 pr-4 font-semibold">Plan</th><th class="pb-2 pr-4 font-semibold">Included each month</th><th class="pb-2 font-semibold">Each extra conversation</th></tr></thead><tbody>${rows}</tbody></table>`
+  const rows = cat.plans.map((p: any) => `<tr class="border-t border-line/60"><td class="py-3 pr-4 font-semibold">${p.name}</td><td class="tnum py-3">${p.included_conversations?.toLocaleString('en-IN') ?? 'Unlimited'}</td></tr>`).join('')
+  return `<table class="w-full text-left text-[15px]"><thead><tr class="text-[13px] text-muted"><th class="pb-2 pr-4 font-semibold">Plan</th><th class="pb-2 font-semibold">Conversations each month</th></tr></thead><tbody>${rows}</tbody></table>`
 }
 
 function sitePartials(): Plugin {
@@ -39,7 +39,7 @@ function sitePartials(): Plugin {
   const read = (f: string) => readFileSync(resolve(__dirname, 'src/site/partials', f), 'utf8')
   return {
     name: 'site-partials', enforce: 'pre',
-    transformIndexHtml: { order: 'pre', handler: (html) => html.replaceAll('<!--@plans-->', plansHtml()).replaceAll('<!--@overage-->', overageHtml()).replaceAll('<!--@header-->', read('header.html')).replaceAll('<!--@footer-->', read('footer.html')).replaceAll('{{brand}}', brand).replaceAll('{{contact}}', contact) },
+    transformIndexHtml: { order: 'pre', handler: (html) => html.replaceAll('<!--@plans-->', plansHtml()).replaceAll('<!--@included-->', includedHtml()).replaceAll('<!--@header-->', read('header.html')).replaceAll('<!--@footer-->', read('footer.html')).replaceAll('{{brand}}', brand).replaceAll('{{contact}}', contact) },
   }
 }
 

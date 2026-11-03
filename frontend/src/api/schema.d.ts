@@ -4153,14 +4153,10 @@ export interface components {
         Usage: {
             /** Conversations */
             conversations: number;
-            /** Extra Conversations */
-            extra_conversations: number;
             /** Included Conversations */
             included_conversations: number | null;
             /** Numbers */
             numbers: number;
-            /** Overage Estimate Paise */
-            overage_estimate_paise: number;
             /** Period End */
             period_end: string | null;
             /** Period Start */

@@ -92,7 +92,6 @@ class BillingService:
             start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             end = now + timedelta(seconds=1)
         use = await self.usage(business_id, start or now, end or now)
-        extra = max(0, use["conversations"] - plan.included_conversations) if plan.included_conversations is not None else 0
         trial_days_left = max(0, (sub["trial_ends_at"] - now).days + (1 if (sub["trial_ends_at"] - now).seconds else 0)) if sub["status"] == "trialing" and sub["trial_ends_at"] else None
         state = sub["status"]
         if state == "canceled":
@@ -102,7 +101,7 @@ class BillingService:
             "trial_ends_at": sub["trial_ends_at"], "trial_days_left": trial_days_left,
             "current_period_start": sub["current_period_start"], "current_period_end": sub["current_period_end"],
             "cancel_at_period_end": sub["cancel_at_period_end"], "pending_plan": sub["pending_plan"], "pending_interval": sub["pending_interval"],
-            "usage": {**use, "included_conversations": plan.included_conversations, "extra_conversations": extra, "overage_estimate_paise": extra * plan.overage_paise,
+            "usage": {**use, "included_conversations": plan.included_conversations,
                       "period_start": start, "period_end": end},
             "limits": {"numbers": plan.max_numbers, "products": plan.max_products, "team": plan.max_team},
             "open_invoice": dict(open_inv) if open_inv else None,
@@ -321,16 +320,8 @@ class BillingService:
         plan = PLANS[plan_code]
         start = sub["current_period_end"]
         end = period_end(start, interval)
-        old = PLANS[sub["plan"]]
+        # ADR 0032: a package is a cap on conversations, never a per-conversation charge; a renewal bills the plan and nothing else
         lines = [{"description": f"{plan.name} plan, {'yearly' if interval == 'year' else 'monthly'}", "quantity": 1, "unit_paise": price_for(plan, interval), "amount_paise": price_for(plan, interval)}]
-        if old.included_conversations is not None:
-            used = (await (await c.execute(
-                "SELECT count(DISTINCT conversation_id) AS n FROM turns WHERE business_id=%s AND created_at >= %s AND created_at < %s AND status IN ('planned','sent')",
-                (bid, sub["current_period_start"], sub["current_period_end"]))).fetchone())["n"]
-            extra = max(0, used - old.included_conversations)
-            if extra and old.overage_paise:
-                lines.append({"description": f"{extra} extra AI conversations beyond {old.included_conversations} included", "quantity": extra,
-                              "unit_paise": old.overage_paise, "amount_paise": extra * old.overage_paise})
         dup = await (await c.execute("SELECT 1 FROM invoices WHERE business_id=%s AND period_start=%s AND status <> 'void'", (bid, start))).fetchone()
         if not dup:
             await self._create_invoice(c, bid, plan_code, interval, start, end, lines)

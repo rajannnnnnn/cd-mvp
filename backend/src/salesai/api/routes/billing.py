@@ -68,8 +68,6 @@ class Usage(BaseModel):
     numbers: int
     team: int
     included_conversations: int | None
-    extra_conversations: int
-    overage_estimate_paise: int
     period_start: datetime | None
     period_end: datetime | None
 

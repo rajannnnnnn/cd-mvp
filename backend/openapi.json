@@ -6083,10 +6083,6 @@
             "title": "Conversations",
             "type": "integer"
           },
-          "extra_conversations": {
-            "title": "Extra Conversations",
-            "type": "integer"
-          },
           "included_conversations": {
             "anyOf": [
               {
@@ -6100,10 +6096,6 @@
           },
           "numbers": {
             "title": "Numbers",
-            "type": "integer"
-          },
-          "overage_estimate_paise": {
-            "title": "Overage Estimate Paise",
             "type": "integer"
           },
           "period_end": {
@@ -6145,8 +6137,6 @@
           "numbers",
           "team",
           "included_conversations",
-          "extra_conversations",
-          "overage_estimate_paise",
           "period_start",
           "period_end"
         ],
@@ -10191,7 +10181,7 @@
             "schema": {
               "anyOf": [
                 {
-                  "pattern": "^(turn_detection|scheduler_nudge)$",
+                  "pattern": "^(turn_detection|follow_back|takeover)$",
                   "type": "string"
                 },
                 {

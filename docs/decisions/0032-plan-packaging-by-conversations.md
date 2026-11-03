@@ -34,7 +34,7 @@ prices by conversation or resolution. The founder's instinct lands between the t
 Option 2, **as a package limit and not as per-unit billing** (founder: "we are not charging per things
 we give in packages and just restrict the counts per package"). The shop buys a package; the count is
 capped; reaching the cap prompts an upgrade. **No overage charge.** The metering ADR 0019 built is reused;
-its overage rate is left unused rather than removed.
+its overage rate was first left unused; on 2026-11-03 it was removed from the plan catalogue, invoices and the pricing page, because an unused rate still showed up as an "each extra conversation" price and a renewal charge.
 
 Why a cap beats billing the excess: a non-technical owner cannot be sent a bill they did not expect and
 did not choose. Bill shock is one of the fastest ways to lose a small shop, and it arrives exactly when
