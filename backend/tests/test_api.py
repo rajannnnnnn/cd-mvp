@@ -487,3 +487,11 @@ async def test_owner_can_teach_the_assistant_when_to_hand_over(world, client):
     assert r.status_code == 200, r.text
     assert r.json()["sales_settings"]["handover_instructions"].startswith("Hand over anything")
     assert (await client.patch(f"{V1}/business", headers=hdr(tok), json={"sales_settings": {"handover_instructions": "x" * 1001}})).status_code == 422
+
+
+async def test_the_shop_default_for_discounts_is_no_or_a_little_and_nothing_else(world, client):
+    """ADR 0033: asked once at onboarding; a shop-wide default cannot be 'down to a number', that is a per-product price."""
+    shop, tok = await owner(world, client)
+    ok = await client.patch(f"{V1}/business", headers=hdr(tok), json={"sales_settings": {"discount_default": "little"}})
+    assert ok.status_code == 200 and ok.json()["sales_settings"]["discount_default"] == "little"
+    assert (await client.patch(f"{V1}/business", headers=hdr(tok), json={"sales_settings": {"discount_default": "down_to"}})).status_code == 422

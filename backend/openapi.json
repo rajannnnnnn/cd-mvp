@@ -4670,6 +4670,21 @@
       "SalesSettingsIn": {
         "additionalProperties": false,
         "properties": {
+          "discount_default": {
+            "anyOf": [
+              {
+                "enum": [
+                  "no",
+                  "little"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discount Default"
+          },
           "handoff_value_threshold": {
             "anyOf": [
               {

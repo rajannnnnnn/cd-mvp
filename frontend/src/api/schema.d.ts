@@ -3648,6 +3648,8 @@ export interface components {
         };
         /** SalesSettingsIn */
         SalesSettingsIn: {
+            /** Discount Default */
+            discount_default?: ("no" | "little") | null;
             /** Handoff Value Threshold */
             handoff_value_threshold?: number | string | null;
             /** Handover Instructions */

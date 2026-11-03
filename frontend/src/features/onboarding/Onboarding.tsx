@@ -242,10 +242,11 @@ function AssistantStep({ onDone, onBack }: { onDone: () => void; onBack: () => v
   const s = (biz.data?.sales_settings ?? {}) as Record<string, any>
   const [lang, setLang] = useState<'en' | 'hi' | 'hinglish'>('hinglish'); const [pro, setPro] = useState<'low' | 'medium' | 'high'>('medium')
   const [offers, setOffers] = useState(true); const [honorific, setHonorific] = useState('ji'); const [seeded, setSeeded] = useState(false)
-  useEffect(() => { if (biz.data && !seeded) { setLang(s.language_default ?? 'hinglish'); setPro(s.proactiveness ?? 'medium'); setOffers(s.may_mention_offers ?? true); setHonorific(s.honorific ?? 'ji'); setSeeded(true) } }, [biz.data])   // eslint-disable-line react-hooks/exhaustive-deps
+  const [disc, setDisc] = useState<'no' | 'little'>('no')
+  useEffect(() => { if (biz.data && !seeded) { setLang(s.language_default ?? 'hinglish'); setPro(s.proactiveness ?? 'medium'); setOffers(s.may_mention_offers ?? true); setHonorific(s.honorific ?? 'ji'); setDisc(s.discount_default ?? 'no'); setSeeded(true) } }, [biz.data])   // eslint-disable-line react-hooks/exhaustive-deps
   const save = useMutation({
     mutationFn: async () => {
-      await ok(api.PATCH('/api/v1/business', { body: { sales_settings: { language_default: lang, proactiveness: pro, may_mention_offers: offers, honorific: honorific.trim() || null } } }))
+      await ok(api.PATCH('/api/v1/business', { body: { sales_settings: { language_default: lang, proactiveness: pro, may_mention_offers: offers, honorific: honorific.trim() || null, discount_default: disc } } }))
       await ok(api.POST('/api/v1/onboarding/steps', { body: { step: 'assistant', action: 'done' } }))
       await qc.invalidateQueries({ queryKey: ['onboarding'] }); await qc.invalidateQueries({ queryKey: ['business'] })
     },
@@ -258,6 +259,9 @@ function AssistantStep({ onDone, onBack }: { onDone: () => void; onBack: () => v
       <div className="mt-6 space-y-5">
         <Field label={tr('Default language')} hint={tr('The assistant still follows the customer’s own language.')}>
           <Segmented value={lang} onChange={setLang} options={[{ value: 'hinglish', label: 'Hinglish' }, { value: 'hi', label: 'हिन्दी' }, { value: 'en', label: 'English' }]} />
+        </Field>
+        <Field label={tr('Can you usually give a discount?')} hint={tr('New products start with this answer. You can change it for any product.')}>
+          <Segmented value={disc} onChange={setDisc} options={[{ value: 'no', label: tr('No') }, { value: 'little', label: tr('Yes, a little') }]} />
         </Field>
         <Field label={tr('How proactive should it be?')}>
           <Segmented value={pro} onChange={setPro} options={[{ value: 'low', label: tr('Answer only') }, { value: 'medium', label: tr('Balanced') }, { value: 'high', label: tr('Go for the sale') }]} />

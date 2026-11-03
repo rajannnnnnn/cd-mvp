@@ -36,6 +36,7 @@ class SalesSettingsIn(BaseModel):
     handoff_value_threshold: Decimal | None = Field(default=None, ge=0, le=Decimal("100000000"))
     handover_instructions: str | None = Field(default=None, max_length=1000)     # the owner's own words: when the assistant must hand the chat over
     language_default: Literal["en", "hi", "hinglish"] | None = None
+    discount_default: Literal["no", "little"] | None = None        # ADR 0033: what a new product starts with; each product can still be set on its own
 
 
 class ConversationSettingsIn(BaseModel):

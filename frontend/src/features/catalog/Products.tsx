@@ -81,13 +81,14 @@ FloorInput.fieldControl = true
 
 /** The two questions (ADR 0033): "What is the price?" typed the way you would say it, and "Can the assistant give a discount?". Everything else is derived;
  *  the old fields stay in the full editor behind "More options". */
-function SimplePricing({ d, set, setKind, errors, onParseError, showAll }: {
+function SimplePricing({ d, set, setKind, errors, onParseError, showAll, startChoice }: {
+  startChoice?: Choice
   d: Draft; set: (p: Partial<Draft>) => void; setKind: (k: Disclosure) => void; errors: Partial<Record<DraftField, string>>
   onParseError: (e: string | null) => void; showAll: () => void
 }) {
   const [text, setText] = useState(() => formatPrice(d))
   const [parseErr, setParseErr] = useState<string | null>(null)
-  const [choice, setChoice] = useState<Choice>(() => discountChoice(d))
+  const [choice, setChoice] = useState<Choice>(() => startChoice ?? discountChoice(d))
   const quotes = d.disclosure === 'range' || d.disclosure === 'on_request'               // bargaining from a price needs a price to start from
   const pick = (raw: string) => {
     setText(raw)
@@ -136,7 +137,7 @@ function SimplePricing({ d, set, setKind, errors, onParseError, showAll }: {
   )
 }
 
-function VariantEditor({ d, kind, set, onRemove, canRemove, single, errors, simple }: { simple?: { setKind: (k: Disclosure) => void; onParseError: (e: string | null) => void; showAll: () => void }; d: Draft; kind: Disclosure; set: (p: Partial<Draft>) => void; onRemove?: () => void; canRemove: boolean; single: boolean; errors: Partial<Record<DraftField, string>> }) {
+function VariantEditor({ d, kind, set, onRemove, canRemove, single, errors, simple }: { simple?: { setKind: (k: Disclosure) => void; onParseError: (e: string | null) => void; showAll: () => void; startChoice?: Choice }; d: Draft; kind: Disclosure; set: (p: Partial<Draft>) => void; onRemove?: () => void; canRemove: boolean; single: boolean; errors: Partial<Record<DraftField, string>> }) {
   const avail = d.availability === 'out_of_stock' ? [...AVAIL, { value: 'out_of_stock', label: 'Out of stock' }] : AVAIL
   return (
     <div className="rounded-2xl border border-line/80 bg-surface p-4">
@@ -149,7 +150,7 @@ function VariantEditor({ d, kind, set, onRemove, canRemove, single, errors, simp
         <Field label={tr('Stock count')} hint={tr('Optional')}><WholeInput value={d.stock_qty} onChange={(v) => set({ stock_qty: v })} placeholder={tr('Number in stock')} /></Field>
       </div>
 
-      {simple ? <SimplePricing d={d} set={set} errors={errors} setKind={simple.setKind} onParseError={simple.onParseError} showAll={simple.showAll} /> : <>
+      {simple ? <SimplePricing d={d} set={set} errors={errors} setKind={simple.setKind} onParseError={simple.onParseError} showAll={simple.showAll} startChoice={simple.startChoice} /> : <>
       {kind !== 'on_request' && (
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {kind === 'range' && <>
@@ -204,11 +205,13 @@ const noFloor = (a: Draft[]) => a.map((v) => ({ ...v, floor_price: '' }))
 function ProductPanel({ product, categories, onClose }: { product: Product | 'new'; categories: string[]; onClose: () => void }) {
   const toast = useToast(); const qc = useQueryClient()
   const isNew = product === 'new'
+  const biz = useQuery({ queryKey: ['business'], queryFn: () => ok(api.GET('/api/v1/business')) })
+  const shopDefault: 'no' | 'little' = ((biz.data?.sales_settings ?? {}) as Record<string, any>).discount_default === 'little' ? 'little' : 'no'   // asked once at onboarding (ADR 0033)
   const [name, setName] = useDraft(isNew ? 'product.name' : null, isNew ? '' : product.name)
   const [category, setCategory] = useDraft(isNew ? 'product.category' : null, isNew ? '' : product.category ?? '')
   const [description, setDescription] = useDraft(isNew ? 'product.description' : null, isNew ? '' : product.description ?? '')
   const [active, setActiveFlag] = useState(isNew ? true : product.active)   // on or off lives in the editor; bulk on/off is in Select mode
-  const [vs, setVs] = useDraft<Draft[]>(isNew ? 'product.variants' : null, isNew ? [blank(true)] : product.variants.filter((v) => v.active).map(fromVariant), noFloor)   // the private lowest price is never kept as a draft
+  const [vs, setVs] = useDraft<Draft[]>(isNew ? 'product.variants' : null, isNew ? [shopDefault === 'little' ? applyDiscount(blank(true), 'little') : blank(true)] : product.variants.filter((v) => v.active).map(fromVariant), noFloor)   // the private lowest price is never kept as a draft
   const [kind, setKindState] = useState<Disclosure>(vs.find((v) => v.is_default)?.disclosure ?? vs[0]?.disclosure ?? 'fixed')   // one way of showing the price per product
   const setKind = (k: Disclosure) => { setKindState(k); setVs((a) => a.map((x) => ({ ...x, disclosure: k }))) }
   const [removed, setRemoved] = useState<string[]>([])
@@ -300,7 +303,7 @@ function ProductPanel({ product, categories, onClose }: { product: Product | 'ne
         {multi && <div className="flex items-center justify-between"><h3 className="font-display text-base font-bold">{tr('Variants')}</h3></div>}
         {vs.map((v, i) => (
           <VariantEditor key={v.id ?? `n${i}`} d={v} kind={kind} single={!multi} set={(p) => setV(i, p)} canRemove={multi} errors={varErr(i)}
-            simple={simple ? { setKind, onParseError: setTextErr, showAll: () => setClassic(true) } : undefined}
+            simple={simple ? { setKind, onParseError: setTextErr, showAll: () => setClassic(true), startChoice: isNew ? shopDefault : undefined } : undefined}
             onRemove={() => { if (v.id) setRemoved((r) => [...r, v.id!]); setVs((a) => a.filter((_, j) => j !== i)) }} />
         ))}
         <button type="button" className="btn btn-soft btn-sm" onClick={() => setVs((a) => [...a, { ...blank(false), disclosure: kind }])}><Plus className="h-3.5 w-3.5" /> {tr('Add a variant (size, colour…)')}</button>
