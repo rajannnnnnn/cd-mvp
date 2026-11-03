@@ -4,7 +4,9 @@
 # It writes tools\meta-sim\.env and the Meta lines of deploy\gateway\.env and deploy\web\.env. Secrets are generated here and are not printed.
 # Safe to run again: it keeps the secrets it made before. To go back to real Meta later, delete these lines and put your real values in (docs\DEPLOYMENT.md).
 #   -BrowserHost  the address your BROWSER uses to reach the stand-in (default localhost; use this PC's LAN address to open the phones from another device)
-param([string]$BrowserHost = 'localhost', [int]$Port = 9100)
+#   -SimBind      who may open the stand-in: 127.0.0.1 = this PC only (default; it has no sign-in). Give this PC's LAN address to open it from your LAN, e.g.
+#                 powershell -ExecutionPolicy Bypass -File scripts\connect-meta-sim.ps1 -BrowserHost 192.168.1.178 -SimBind 192.168.1.178
+param([string]$BrowserHost = 'localhost', [int]$Port = 9100, [string]$SimBind = '127.0.0.1')
 $ErrorActionPreference = 'Stop'
 $root = Join-Path $PSScriptRoot '..'
 $gw = Join-Path $root 'deploy\gateway\.env'
@@ -37,6 +39,7 @@ $verify = Get-EnvValue $gw 'META_VERIFY_TOKEN'; if (-not $verify) { $verify = Ge
 
 if (-not (Test-Path $sim)) { Copy-Item (Join-Path $root 'tools\meta-sim\.env.example') $sim }
 Set-EnvValue $sim 'SIM_PORT' "$Port"
+Set-EnvValue $sim 'SIM_BIND' $SimBind
 Set-EnvValue $sim 'SIM_WEBHOOK_URL' 'http://host.docker.internal:8001/webhooks/whatsapp'
 Set-EnvValue $sim 'SIM_APP_SECRET' $appSecret
 Set-EnvValue $sim 'SIM_VERIFY_TOKEN' $verify
@@ -65,6 +68,6 @@ Write-Host 'Done. The stand-in and the product now share one app secret and one 
 Write-Host '  wrote tools\meta-sim\.env, and the Meta lines of deploy\gateway\.env and deploy\web\.env'
 Write-Host ''
 Write-Host 'Next:'
-Write-Host '  1. start the stand-in:   cd tools\meta-sim ; ..\..\scripts\nocreds.ps1 docker compose --env-file .env up -d --build ; cd ..\..'
+Write-Host '  1. start the stand-in:   cd tools\meta-sim ; ..\..\scripts\nocreds.ps1 docker compose --env-file .env up -d --build ; cd ..\..   (already running? the same command applies a changed setting)'
 Write-Host '  2. restart the product:  .\scripts\nocreds.ps1 .\scripts\stack.ps1 gateway   then   web'
 Write-Host "  3. open the phones:      http://${BrowserHost}:$Port/"
