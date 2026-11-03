@@ -2,6 +2,8 @@
 
 **Status:** accepted · 2026-11-02
 
+> **Update 2026-11-03:** there is no daily summary any more ([ADR 0040](0040-daily-summary-removed.md)); that message, and its cost, are gone.
+
 ## Context
 
 Meta changed how our traffic is billed, twice, and the product was designed before both changes:

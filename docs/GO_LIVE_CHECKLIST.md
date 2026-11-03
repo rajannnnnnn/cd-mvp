@@ -32,7 +32,7 @@ can only be made against the real services. Built up as the work goes; each item
       the right shop (the router falls back from phone-number id to display phone to business account).
 - [ ] **Embedded Signup v4 with coexistence**, end to end, from Settings → Numbers; pin `graph_version`.
 - [ ] **Alert email set up (you only; never shops).** Pick any SMTP provider, verify a sender address on your own domain (SPF/DKIM so alerts do not land in spam), then set `ALERT_EMAIL_TO`, `ALERT_EMAIL_FROM`, `SMTP_HOST`, `SMTP_USERNAME` and `SMTP_PASSWORD` in `deploy/web/.env` (the password as an environment secret, never in chat). Send yourself a test: raise a High alert in the operator console and confirm it arrives within a minute, then resolve it and confirm the recovery email.
-- [ ] **Message templates approved** for owner alerts, the disconnect alert, the daily summary and sign-in codes.
+- [ ] **Message templates approved** for owner alerts, the disconnect alert and sign-in codes.
 - [ ] **Tech Provider approval** — gates self-serve onboarding for real shops.
 
 ## AI (needs the LLM key)

@@ -153,7 +153,7 @@ Phase 2 of this work; the contract is fixed now so the registry supports it. Own
 | `close_deal` | mark won or lost (**only the owner marks won**) | `POST /api/v1/deals/{id}/close` |
 | `pause_conversation` / `resume_conversation` | take over / hand back one chat | `POST /api/v1/conversations/{id}/pause` · `/resume` |
 | `update_stock` | in/out of stock for a variant | `PATCH /api/v1/variants/{id}` |
-| `get_daily_summary` | the day's numbers | analytics/metrics routes + `owner.daily_summary` |
+| `get_metrics` | the day's numbers, on request (the owner asks "status"); there is no scheduled summary (ADR 0040) | analytics/metrics routes |
 | `stop_selling` / `start_selling` | the owner's `stop` / `start` commands (FR-CV-10) | existing owner-command handler (no public route today) |
 
 The floor price is **write-only and never an owner-assistant read tool** either (set in the app, `PUT /variants/{id}/policy`).

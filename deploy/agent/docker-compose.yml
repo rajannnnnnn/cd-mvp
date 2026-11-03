@@ -1,5 +1,5 @@
 # AGENT (ADR 0025): the ChatDeal AI. Turn detection, the planner, the pricing engine, the writer and the reply checks, plus
-# what it does for the owner (alerts, daily summary, follow-ups, learning from their answers). It receives clean events from the
+# what it does for the owner (alerts, follow-ups, learning from their answers). It receives clean events from the
 # gateway and asks the gateway to send; it never talks to Meta and never calls the web part. It reads shop settings and writes
 # notifications through the database.
 #
@@ -66,4 +66,4 @@ services:
     command: ["scheduler"]
     environment:
       <<: *agent-env
-      SCHEDULER_COMPONENT: agent         # daily summaries, follow-ups, conversation data, moving events along. Never calls a model
+      SCHEDULER_COMPONENT: agent         # follow-ups, conversation data, moving events along. Never calls a model

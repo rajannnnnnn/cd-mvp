@@ -76,7 +76,7 @@ class OwnerMessageReceived(_P):
 
 
 class OwnerNotificationRequested(_P):
-    purpose: str   # handoff_alert | deal_alert | daily_summary | disconnect_alert | setup | otp
+    purpose: str   # handoff_alert | deal_alert | disconnect_alert | setup | otp
     business_user_id: uuid.UUID | None = None   # None = all notify-enabled users
     data: dict[str, Any] = {}
 

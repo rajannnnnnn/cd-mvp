@@ -1,4 +1,4 @@
-"""Scheduler role: outbox relay, lease reaper, queue gauges, daily summaries, nudges, billing cycle, alert delivery and
+"""Scheduler role: outbox relay, lease reaper, queue gauges, nudges, billing cycle, alert delivery and
 retention. One scheduler per COMPONENT (ADR 0025): `SCHEDULER_COMPONENT` picks the duties, so the web, gateway and agent
 parts each keep their own timer and can be deployed, restarted and scaled on their own. Within a component exactly one
 instance is active (a Postgres advisory lock per component); others stand by and take over if it dies (HLD: leader-elected).
@@ -8,8 +8,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from datetime import UTC, datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import timedelta
 
 import psycopg
 
@@ -17,7 +16,6 @@ from salesai.alerts import raise_alert
 from salesai.config import ALL_QUEUES
 from salesai.events.outbox import emit
 from salesai.obs import QUEUE_DEAD, QUEUE_DEPTH, QUEUE_OLDEST_AGE
-from salesai.queue.base import JobSpec
 from salesai.runtime import Runtime
 
 log = logging.getLogger("salesai.scheduler")
@@ -28,7 +26,7 @@ LEADER_LOCKS = {"all": LEADER_LOCK, "web": LEADER_LOCK + 1, "gateway": LEADER_LO
 # What each component's scheduler does. Moving events along (the relay) and expiring queue leases are shared plumbing that
 # every scheduler does; the rest belongs to one component. `all` is the development combination and does everything.
 _WEB = frozenset({"gauges", "alerts", "billing", "retention"})            # billing, trials, platform alerts, sign-in data
-_AGENT = frozenset({"gauges", "daily_summaries", "nudges", "recovery", "retention"})  # daily summaries, follow-ups, the recovery sweep, conversation data
+_AGENT = frozenset({"gauges", "nudges", "recovery", "retention"})  # follow-ups, the recovery sweep, conversation data
 _GATEWAY = frozenset({"gauges", "retention"})                             # its raw-request log
 DUTIES: dict[str, frozenset[str]] = {"web": _WEB, "agent": _AGENT, "gateway": _GATEWAY, "all": _WEB | _AGENT | _GATEWAY}
 
@@ -70,19 +68,6 @@ class Scheduler:
         self.leader = LeaderLock(rt.settings.system_database_url, self.lock_id)
 
     # ------------------------------------------------------------------ ticks (each returns how many things it did)
-    async def tick_daily_summaries(self, now: datetime | None = None) -> int:
-        now = now or datetime.now(UTC)
-        n = 0
-        async with self.rt.db.system_tx() as c:
-            rows = await (await c.execute("SELECT id, timezone, conversation_settings FROM businesses WHERE status IN ('active','onboarding') AND ai_enabled")).fetchall()
-        for b in rows:
-            local = now.astimezone(ZoneInfo(b["timezone"]))
-            due = local.hour >= int((b["conversation_settings"] or {}).get("daily_summary_hour", 21))
-            if due and await self.rt.queue.publish(JobSpec("owner.notifications", "daily_summary", {}, business_id=b["id"], ordering_key=f"biz:{b['id']}",
-                                                           dedupe_key=f"summary:{b['id']}:{local.date().isoformat()}")):
-                n += 1
-        return n
-
     async def tick_nudges(self) -> int:
         """FR-SL-8: at most one in-window nudge after a customer who showed interest goes quiet."""
         async with self.rt.db.system_tx() as c:
@@ -187,8 +172,6 @@ class Scheduler:
     async def tick_slow(self, *, tidy: bool) -> None:
         """The work done every half minute (and the hourly tidy-up when `tidy`), limited to this component's duties."""
         d = self.duties
-        if "daily_summaries" in d:
-            await self.tick_daily_summaries()
         if "nudges" in d:
             await self.tick_nudges()
         if "gauges" in d:

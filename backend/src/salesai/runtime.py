@@ -125,7 +125,6 @@ class Runtime:
         self.registry.add("outbound.actions", "send_owner_message", self.owner_sender.send)   # ...and sends the agent's owner alerts
         self.registry.add("owner.notifications", "notify", self.owner.notify)
         self.registry.add("owner.notifications", "owner_chat", self.owner.owner_chat)
-        self.registry.add("owner.notifications", "daily_summary", self.owner.daily_summary)
         self.registry.add("platform.events", "account_update", self.owner.account_update)
         self.registry.add("platform.events", "number_status", self.owner.number_status)
 

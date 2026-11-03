@@ -17,10 +17,6 @@ TEMPLATES: dict[str, dict[str, str]] = {
         "en": "🛍️ {{1}}: new {{2}} captured.\nCustomer: {{3}}\nDetails: {{4}}\nPlease confirm it in the dashboard or reply 'won {{5}}'.",
         "hi": "🛍️ {{1}}: नया {{2}} मिला।\nग्राहक: {{3}}\nविवरण: {{4}}\nकृपया डैशबोर्ड में पुष्टि करें या 'won {{5}}' भेजें।",
     },
-    "daily_summary": {
-        "en": "📊 {{1}} — daily summary\n{{2}}",
-        "hi": "📊 {{1}} — दैनिक सारांश\n{{2}}",
-    },
     "operator_alert": {          # platform team only (alert routing); the parameter is one line of text
         "en": "Sales AI platform alert: {{1}}",
         "hi": "Sales AI प्लेटफ़ॉर्म अलर्ट: {{1}}",

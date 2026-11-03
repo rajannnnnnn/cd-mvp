@@ -31,7 +31,7 @@ Requests only touch the API or ingress, which persist and enqueue; every LLM cal
 | Webhook ingress | Signature check, raw event store, enqueue | Instances on request rate |
 | Event router | Meta payloads to domain events, tenant resolution | Workers on `inbound.events` depth |
 | Turn worker | State machine, end-of-turn, agent pipeline, pricing engine | Workers on `conversation.turns` depth |
-| Media and alerts | Transcription, owner alerts, daily summaries | Workers on their queue depth |
+| Media and alerts | Transcription, owner alerts | Workers on their queue depth |
 | Outbound sender | Read receipts, typing, sends, Meta rate limits | Workers, partitioned by number |
 | Scheduler and outbox relay | Release delayed jobs; publish outbox rows | One active instance each |
 
@@ -76,7 +76,7 @@ All work after the webhook acknowledgment flows through named queues behind one 
 | `conversation.turns` | Agent intake, scheduler | Conversation worker | `conversation_id` | Serialized per conversation; carries `conversation_version` |
 | `outbound.actions` | Conversation worker, owner loop, web requests | Gateway send | `conversation_id`, `owner:<id>` | Mark read, typing, send; rate-limited per number. Also the gateway's answers to web requests: sign-in codes, number connect (ADR 0025) |
 | `media.transcribe` | Event router | Media worker | None | Downloads audio, stores in blob storage, transcribes |
-| `owner.notifications` | Conversation worker, scheduler | Notifications worker | `business_id` | Handoff alerts, daily summary, setup interview |
+| `owner.notifications` | Conversation worker, scheduler | Notifications worker | `business_id` | Handoff alerts, setup interview |
 | `platform.events` | Event router | Platform worker | `business_id` | Account updates, quality changes, disconnections |
 | `*.dlq` | Any consumer after max retries | Operator tooling | — | Dead-letter queue per queue for inspection and replay |
 

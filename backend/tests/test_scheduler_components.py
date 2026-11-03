@@ -1,5 +1,5 @@
 """One scheduler per component (ADR 0025): each part keeps its own timer, so a part can be deployed, restarted or scaled on
-its own. The web part runs billing and alert delivery; the agent runs daily summaries and follow-ups; the gateway keeps its
+its own. The web part runs billing and alert delivery; the agent runs follow-ups and the recovery sweep; the gateway keeps its
 own raw-request log tidy. All three move the outbox along (safe to run in parallel: they skip rows another has locked).
 `all` is the development combination and does everything. Each component holds its own leader lock, and cleans up only the
 data it owns, so a component never needs rights over another's tables."""
@@ -19,9 +19,9 @@ OLD = datetime.now(UTC) - timedelta(days=400)
 
 def test_each_component_has_only_its_own_duties():
     assert set(DUTIES) == {"all", "web", "gateway", "agent"}
-    assert {"billing", "alerts"} <= DUTIES["web"] and not ({"daily_summaries", "nudges"} & DUTIES["web"])
-    assert {"daily_summaries", "nudges"} <= DUTIES["agent"] and not ({"billing", "alerts"} & DUTIES["agent"])
-    assert not ({"billing", "alerts", "daily_summaries", "nudges"} & DUTIES["gateway"])
+    assert {"billing", "alerts"} <= DUTIES["web"] and not ({"nudges", "recovery"} & DUTIES["web"])
+    assert {"nudges", "recovery"} <= DUTIES["agent"] and not ({"billing", "alerts"} & DUTIES["agent"])
+    assert not ({"billing", "alerts", "nudges", "recovery"} & DUTIES["gateway"])
     assert DUTIES["all"] == DUTIES["web"] | DUTIES["agent"] | DUTIES["gateway"]              # the development combination loses nothing
     for d in DUTIES.values():
         assert {"gauges", "retention"} <= d                                                  # every component watches its queues and tidies up
@@ -38,7 +38,7 @@ async def test_a_scheduler_runs_exactly_its_components_duties(rt, monkeypatch, c
         return _go
 
     sch = Scheduler(rt, component)
-    for tick, name in (("tick_daily_summaries", "daily_summaries"), ("tick_nudges", "nudges"), ("tick_gauges", "gauges"),
+    for tick, name in (("tick_nudges", "nudges"), ("tick_gauges", "gauges"),
                        ("tick_retention", "retention")):
         monkeypatch.setattr(sch, tick, spy(name))
     monkeypatch.setattr(rt.billing, "run_cycle", spy("billing"))                              # these would act on every shop in the database

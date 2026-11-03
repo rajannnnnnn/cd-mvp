@@ -18,7 +18,7 @@ Where things live, and which automated tests prove each invariant. Keep this cur
 | `conversations` | inbound router, end-of-turn predictor, turn worker | agent, channels, handoffs |
 | `billing` | plans catalogue, trial, subscriptions, usage and plan limits, GST invoices, payment provider port (test, manual), renewal cycle (ADR 0019) | – |
 | `alerting` | pushes operator alerts to the platform team: JSON webhook and WhatsApp sinks, reminders, retries (ADR 0017) | channels |
-| `notifications` | owner loop: alerts, WhatsApp commands, config-by-chat with read-back, daily summary | agent, catalog, channels, handoffs, sales |
+| `notifications` | owner loop: alerts, WhatsApp commands, config-by-chat with read-back | agent, catalog, channels, handoffs, sales |
 
 Other packages: `api/` (FastAPI routes under `/api/v1`, SSE hub, error format), `queue/` (interface, Postgres and Redis
 backends, worker), `events/` (versioned catalog, outbox, relay), `scheduler.py`, `runtime.py` (composition root),

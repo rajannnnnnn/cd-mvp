@@ -791,6 +791,43 @@
         "title": "CloudNumberIn",
         "type": "object"
       },
+      "CodeRequest": {
+        "properties": {
+          "phone": {
+            "maxLength": 24,
+            "minLength": 5,
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone"
+        ],
+        "title": "CodeRequest",
+        "type": "object"
+      },
+      "CodeVerify": {
+        "properties": {
+          "code": {
+            "maxLength": 12,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "phone": {
+            "maxLength": 24,
+            "minLength": 5,
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "code"
+        ],
+        "title": "CodeVerify",
+        "type": "object"
+      },
       "ConnectIn": {
         "description": "What the browser hands back after Meta's Embedded Signup popup finishes.",
         "properties": {
@@ -1112,19 +1149,6 @@
               }
             ],
             "title": "Business Hours Behavior"
-          },
-          "daily_summary_hour": {
-            "anyOf": [
-              {
-                "maximum": 23.0,
-                "minimum": 0.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Daily Summary Hour"
           },
           "default_gap_ms": {
             "anyOf": [
@@ -1935,6 +1959,21 @@
         "title": "Dist",
         "type": "object"
       },
+      "ExtendIn": {
+        "properties": {
+          "code": {
+            "maxLength": 12,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "ExtendIn",
+        "type": "object"
+      },
       "GapOut": {
         "properties": {
           "answer": {
@@ -1993,6 +2032,29 @@
           "created_at"
         ],
         "title": "GapOut",
+        "type": "object"
+      },
+      "GrantIn": {
+        "properties": {
+          "minutes": {
+            "default": 15,
+            "maximum": 60.0,
+            "minimum": 1.0,
+            "title": "Minutes",
+            "type": "integer"
+          },
+          "reason": {
+            "description": "Why you need this. The shop's owner can read it; do not put a customer's name here.",
+            "maxLength": 300,
+            "minLength": 10,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "GrantIn",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -3802,6 +3864,46 @@
         "title": "PersonalIn",
         "type": "object"
       },
+      "PlatformAccessOut": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At"
+          },
+          "detail": {
+            "additionalProperties": true,
+            "title": "Detail",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "id",
+          "action",
+          "created_at",
+          "reason",
+          "detail"
+        ],
+        "title": "PlatformAccessOut",
+        "type": "object"
+      },
       "Point": {
         "properties": {
           "ai_replies": {
@@ -4487,6 +4589,22 @@
           "oldest_due_age_s"
         ],
         "title": "QueueOut",
+        "type": "object"
+      },
+      "Reason": {
+        "properties": {
+          "reason": {
+            "description": "Why you need this. The shop's owner can read it; do not put a customer's name here.",
+            "maxLength": 300,
+            "minLength": 10,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "Reason",
         "type": "object"
       },
       "RefreshIn": {
@@ -5829,6 +5947,28 @@
         "title": "Tokens",
         "type": "object"
       },
+      "TotpIn": {
+        "properties": {
+          "code": {
+            "maxLength": 12,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "ticket": {
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Ticket",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticket",
+          "code"
+        ],
+        "title": "TotpIn",
+        "type": "object"
+      },
       "TurnRow": {
         "properties": {
           "business_name": {
@@ -6347,6 +6487,289 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/admin/v1/auth/code/request": {
+      "post": {
+        "operationId": "request_code_admin_v1_auth_code_request_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Request Code Admin V1 Auth Code Request Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send a sign-in code to an enrolled platform operator (the answer is the same for everyone)",
+        "tags": [
+          "admin-auth"
+        ]
+      }
+    },
+    "/admin/v1/auth/code/verify": {
+      "post": {
+        "operationId": "verify_code_admin_v1_auth_code_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CodeVerify"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Verify Code Admin V1 Auth Code Verify Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Step 1: the WhatsApp code. Returns a five-minute ticket, which is not a session",
+        "tags": [
+          "admin-auth"
+        ]
+      }
+    },
+    "/admin/v1/auth/extend": {
+      "post": {
+        "operationId": "extend_admin_v1_auth_extend_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtendIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Extend Admin V1 Auth Extend Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Extend the session with a fresh authenticator code",
+        "tags": [
+          "admin-auth"
+        ]
+      }
+    },
+    "/admin/v1/auth/logout": {
+      "post": {
+        "operationId": "logout_admin_v1_auth_logout_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End the session now",
+        "tags": [
+          "admin-auth"
+        ]
+      }
+    },
+    "/admin/v1/auth/me": {
+      "get": {
+        "operationId": "me_admin_v1_auth_me_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Me Admin V1 Auth Me Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Who is signed in and until when",
+        "tags": [
+          "admin-auth"
+        ]
+      }
+    },
+    "/admin/v1/auth/totp": {
+      "post": {
+        "operationId": "verify_totp_admin_v1_auth_totp_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TotpIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Verify Totp Admin V1 Auth Totp Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Step 2: the authenticator code. Returns the console session",
+        "tags": [
+          "admin-auth"
+        ]
+      }
+    },
     "/api/v1/analytics": {
       "get": {
         "operationId": "analytics_api_v1_analytics_get",
@@ -7419,6 +7842,59 @@
           }
         },
         "summary": "Download all of your shop's data as JSON (never includes lowest prices, tokens or secrets)",
+        "tags": [
+          "business"
+        ]
+      }
+    },
+    "/api/v1/business/platform-access": {
+      "get": {
+        "operationId": "platform_access_api_v1_business_platform_access_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformAccessOut"
+                  },
+                  "title": "Response Platform Access Api V1 Business Platform Access Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Who from the platform team looked at your shop's data, when, and why (ADR 0028)",
         "tags": [
           "business"
         ]
@@ -9675,6 +10151,259 @@
         ]
       }
     },
+    "/api/v1/operator/audit/agent/runs": {
+      "get": {
+        "operationId": "runs_api_v1_operator_audit_agent_runs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "outcome",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(replied|reaction_only|no_reply|blocked|superseded|failed)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Outcome"
+            }
+          },
+          {
+            "in": "query",
+            "name": "trigger",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^(turn_detection|scheduler_nudge)$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Trigger"
+            }
+          },
+          {
+            "in": "query",
+            "name": "business_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Business Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Runs Api V1 Operator Audit Agent Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent runs, newest first, filterable",
+        "tags": [
+          "admin-audit"
+        ]
+      }
+    },
+    "/api/v1/operator/audit/agent/runs/{run_id}": {
+      "get": {
+        "operationId": "run_api_v1_operator_audit_agent_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Run Api V1 Operator Audit Agent Runs  Run Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One run: what woke it, each model call, the decision, the replies, and the time at each step",
+        "tags": [
+          "admin-audit"
+        ]
+      }
+    },
+    "/api/v1/operator/audit/agent/summary": {
+      "get": {
+        "operationId": "summary_api_v1_operator_audit_agent_summary_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Summary Api V1 Operator Audit Agent Summary Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Agent audit: runs by outcome and trigger, total model cost, latency, how well turn detection waited",
+        "tags": [
+          "admin-audit"
+        ]
+      }
+    },
     "/api/v1/operator/billing": {
       "get": {
         "operationId": "billing_summary_api_v1_operator_billing_get",
@@ -9721,6 +10450,318 @@
           }
         },
         "summary": "Platform billing summary: subscriptions by status, MRR, collections, outstanding",
+        "tags": [
+          "operator"
+        ]
+      }
+    },
+    "/api/v1/operator/boards/growth": {
+      "get": {
+        "operationId": "growth_api_v1_operator_boards_growth_get",
+        "parameters": [
+          {
+            "description": "Look back this many days",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "description": "Look back this many days",
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Growth Api V1 Operator Boards Growth Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Growth: signed up, number connected, first AI reply, first commitment, paid; trials, churn, support load",
+        "tags": [
+          "admin-boards"
+        ]
+      }
+    },
+    "/api/v1/operator/boards/health": {
+      "get": {
+        "operationId": "health_api_v1_operator_boards_health_get",
+        "parameters": [
+          {
+            "description": "Look back this many days",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "Look back this many days",
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Health Api V1 Operator Boards Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Health: queues, dead letters, alerts, numbers needing attention, model and send failure rates",
+        "tags": [
+          "admin-boards"
+        ]
+      }
+    },
+    "/api/v1/operator/boards/money": {
+      "get": {
+        "operationId": "money_api_v1_operator_boards_money_get",
+        "parameters": [
+          {
+            "description": "Look back this many days",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "description": "Look back this many days",
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Money Api V1 Operator Boards Money Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Money: MRR, ARPU, variable cost per shop split model and channel, margin per shop",
+        "tags": [
+          "admin-boards"
+        ]
+      }
+    },
+    "/api/v1/operator/boards/sales": {
+      "get": {
+        "operationId": "sales_api_v1_operator_boards_sales_get",
+        "parameters": [
+          {
+            "description": "Look back this many days",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "description": "Look back this many days",
+              "maximum": 90,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sales Api V1 Operator Boards Sales Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sales outcome: autonomy, lead to commitment, owner-confirmed wins, what the reply checks stopped",
+        "tags": [
+          "admin-boards"
+        ]
+      }
+    },
+    "/api/v1/operator/break-glass/{grant_id}": {
+      "delete": {
+        "operationId": "end_break_glass_api_v1_operator_break_glass__grant_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End a grant now",
         "tags": [
           "operator"
         ]
@@ -9967,6 +11008,249 @@
         ]
       }
     },
+    "/api/v1/operator/businesses/{business_id}/break-glass": {
+      "post": {
+        "operationId": "open_break_glass_api_v1_operator_businesses__business_id__break_glass_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Open Break Glass Api V1 Operator Businesses  Business Id  Break Glass Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open a time-boxed grant to read this shop's conversations (needs a reason; audited; the shop can see it)",
+        "tags": [
+          "operator"
+        ]
+      }
+    },
+    "/api/v1/operator/businesses/{business_id}/conversations": {
+      "get": {
+        "operationId": "break_glass_conversations_api_v1_operator_businesses__business_id__conversations_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "grant",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Grant"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Break Glass Conversations Api V1 Operator Businesses  Business Id  Conversations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "A shop's conversations (break-glass: needs ?grant=)",
+        "tags": [
+          "operator"
+        ]
+      }
+    },
+    "/api/v1/operator/businesses/{business_id}/conversations/{conversation_id}/messages": {
+      "get": {
+        "operationId": "break_glass_messages_api_v1_operator_businesses__business_id__conversations__conversation_id__messages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "business_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Business Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "grant",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Grant"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Break Glass Messages Api V1 Operator Businesses  Business Id  Conversations  Conversation Id  Messages Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "One conversation's messages (break-glass: needs ?grant=)",
+        "tags": [
+          "operator"
+        ]
+      }
+    },
     "/api/v1/operator/businesses/{business_id}/export": {
       "get": {
         "operationId": "export_api_v1_operator_businesses__business_id__export_get",
@@ -10059,6 +11343,16 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Reason"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -10083,7 +11377,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Short-lived owner access for support (audited)",
+        "summary": "Short-lived owner access for support: needs a stated reason, which the shop can see (audited)",
         "tags": [
           "operator"
         ]

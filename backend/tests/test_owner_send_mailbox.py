@@ -167,7 +167,7 @@ async def test_with_no_connected_number_the_platform_sender_is_used(world):
     assert [r["body"] for r in await _delivered(world, shop, platform=True)] == ["Your number was disconnected"]
 
 
-@pytest.mark.parametrize("purpose", ["handoff_alert", "deal_alert", "daily_summary", "disconnect_alert"])
+@pytest.mark.parametrize("purpose", ["handoff_alert", "deal_alert", "disconnect_alert"])
 async def test_every_alert_kind_reaches_the_owner_end_to_end(world, purpose):
     shop, _ = await shop_with_catalog(world)
     await world.rt.owner.send_to_owner(shop.business_id, await _user(world, shop), purpose, f"{purpose} text")

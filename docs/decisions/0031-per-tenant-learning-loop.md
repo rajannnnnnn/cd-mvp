@@ -2,6 +2,8 @@
 
 **Status:** accepted · 2026-11-02 · founder request, with scope limits the founder set in the same breath
 
+> **Update 2026-11-03:** there is no daily summary ([ADR 0040](0040-daily-summary-removed.md)), so proposals are not carried by one: they are asked on their own, at most a few a day, and the answer rate is measured the same way.
+
 ## Context
 
 When the AI hands a conversation to the owner and the owner answers it, the answer is knowledge the AI

@@ -235,10 +235,9 @@ function AssistantTab({ b, canEdit, goTo }: { b: Schemas['BusinessOut']; canEdit
   const [hb, setHb] = useState<string>(c.business_hours_behavior ?? 'reply_normally')
   const [pause, setPause] = useState<string>(String(c.owner_pause_minutes ?? 120))
   const [nudge, setNudge] = useState<string>(String(c.nudge_after_minutes ?? 240))
-  const [hour, setHour] = useState<string>(String(c.daily_summary_hour ?? 21))
   const [editSell, setEditSell] = useState(false); const [editHand, setEditHand] = useState(false); const [editStep, setEditStep] = useState(false)
   const save = useSaveBusiness()
-  const sellBl = useBaseline({ honorific, lang, pro, offers }); const handBl = useBaseline({ thr, handover }); const stepBl = useBaseline({ hb, pause, nudge, hour })
+  const sellBl = useBaseline({ honorific, lang, pro, offers }); const handBl = useBaseline({ thr, handover }); const stepBl = useBaseline({ hb, pause, nudge })
   const pauseErr = +pause >= 1 && +pause <= 1440 ? undefined : tr('Enter 1 to 1440 minutes')
   const nudgeErr = +nudge >= 30 && +nudge <= 1380 ? undefined : tr('Enter 30 to 1380 minutes')
   const menu = (on: boolean, start: () => void, what: string) => (canEdit && !on ? <KebabMenu label={tr('More actions for {what}', { what })} items={[{ label: tr('Edit'), icon: <Pencil className="h-4 w-4" />, onClick: start }]} /> : undefined)
@@ -288,21 +287,19 @@ function AssistantTab({ b, canEdit, goTo }: { b: Schemas['BusinessOut']; canEdit
       </Section>
 
       <Section title={tr('Timing')} action={menu(editStep, () => setEditStep(true), tr('timing'))}
-        footer={canEdit && editStep && bar(reset(() => { setHb(c.business_hours_behavior ?? 'reply_normally'); setPause(String(c.owner_pause_minutes ?? 120)); setNudge(String(c.nudge_after_minutes ?? 240)); setHour(String(c.daily_summary_hour ?? 21)) }, setEditStep), stepBl,
-          () => save.mutate({ conversation_settings: { business_hours_behavior: hb as any, owner_pause_minutes: +pause, nudge_after_minutes: +nudge, daily_summary_hour: +hour } }, { onSuccess: () => { stepBl.commit(); setEditStep(false) } }), !!pauseErr || !!nudgeErr)}>
+        footer={canEdit && editStep && bar(reset(() => { setHb(c.business_hours_behavior ?? 'reply_normally'); setPause(String(c.owner_pause_minutes ?? 120)); setNudge(String(c.nudge_after_minutes ?? 240)) }, setEditStep), stepBl,
+          () => save.mutate({ conversation_settings: { business_hours_behavior: hb as any, owner_pause_minutes: +pause, nudge_after_minutes: +nudge } }, { onSuccess: () => { stepBl.commit(); setEditStep(false) } }), !!pauseErr || !!nudgeErr)}>
         {!editStep ? (
           <dl className="-my-2 divide-y divide-line/60">
             <Row label={tr('Outside opening hours')}>{tr(HOURS_NAME[hb] ?? hb)}</Row>
             <Row label={tr('Pause after I reply')} tip={tr('So the assistant and you never talk over each other.')}>{minutesText(pause)}</Row>
             <Row label={tr('Follow up silent customers after')}>{minutesText(nudge)}</Row>
-            <Row label={tr('Daily summary at')}>{String(hour).padStart(2, '0')}:00</Row>
           </dl>
         ) : (<>
           <Field label={tr('Outside opening hours')}><select className="select sm:max-w-sm" value={hb} onChange={(e) => setHb(e.target.value)}><option value="reply_normally">{tr('Reply normally')}</option><option value="slower">{tr('Reply a little slower')}</option><option value="wait_for_open">{tr('Wait until we open')}</option></select></Field>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label={tr('Pause the AI after I reply (minutes)')} hint={tr('So the assistant and you never talk over each other.')} error={pauseErr}><input className="input" inputMode="numeric" value={pause} onChange={(e) => setPause(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 4))} /></Field>
             <Field label={tr('Follow up silent customers after (minutes)')} hint={tr('30 minutes to 23 hours')} error={nudgeErr}><input className="input" inputMode="numeric" value={nudge} onChange={(e) => setNudge(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 5))} /></Field>
-            <Field label={tr('Daily summary at')}><select className="select" value={hour} onChange={(e) => setHour(e.target.value)}>{Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>)}</select></Field>
           </div>
         </>)}
       </Section>

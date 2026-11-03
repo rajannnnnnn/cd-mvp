@@ -1,4 +1,4 @@
-"""Owner loop: alerts, commands, configuration by chat with read-back, daily summary, disconnections."""
+"""Owner loop: alerts, commands, configuration by chat with read-back, disconnections."""
 from __future__ import annotations
 
 import re

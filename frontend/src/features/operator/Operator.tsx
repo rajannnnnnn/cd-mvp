@@ -62,9 +62,12 @@ function Tenants() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['op-tenants'] }); setDel(null); setTyped(''); toast('Tenant and all its data deleted') }, onError: (e) => toast((e as Error).message, 'error'),
   })
   const impersonate = async (t: Schemas['TenantRow']) => {
+    // Signing in as a shop needs a reason the shop's owner can read (ADR 0028). A proper dialog comes with the separate admin console.
+    const reason = (window.prompt(`Why do you need to sign in as ${t.name}? The owner will be able to see this.`) ?? '').trim()
+    if (reason.length < 10) { toast('Please give a reason of at least 10 characters.', 'error'); return }
     try {
       const cur = tokens.get(); if (cur) sessionStorage.setItem(STASH_KEY, JSON.stringify(cur))
-      const r = await ok(api.POST('/api/v1/operator/businesses/{business_id}/impersonate', { params: { path: { business_id: t.id } } }))
+      const r = await ok(api.POST('/api/v1/operator/businesses/{business_id}/impersonate', { params: { path: { business_id: t.id } }, body: { reason } }))
       await adopt(r); nav('/home')
     } catch (e) { toast((e as Error).message, 'error') }
   }

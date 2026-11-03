@@ -50,7 +50,7 @@ v1 sells through inbound conversations only: the AI never starts a conversation 
 | Sales | Lead stages, qualification, quoting, negotiation within rules, commitment capture | Payment links, order tracking | In-chat payment processing by the platform |
 | Handoff | Alerts to owner, AI pause on owner reply, stop/start commands | Staff routing and assignment | — |
 | Outbound | None | Template follow-ups with opt-in, reminders | Bulk marketing broadcasts |
-| Owner reporting | Daily summary on WhatsApp; minimal web dashboard | Full pipeline analytics | — |
+| Owner reporting | Minimal web dashboard and analytics; no daily summary (ADR 0040) | Full pipeline analytics | — |
 | Learning | Signals captured (timings, outcomes) | Learned end-of-turn, timing and style models; bandit tuning | — |
 | Billing | Manual for pilots | Razorpay or Cashfree subscriptions with UPI Autopay | — |
 
@@ -116,7 +116,7 @@ Requirement IDs are stable so code, tests and the build prompt can reference the
 |---|---|
 | FR-HO-1 | Handoffs are created with a reason (unknown answer, on-request price, below floor, customer asked for a human, complaint, high value) and alerted to the owner on WhatsApp. |
 | FR-HO-2 | Questions the AI could not answer are logged as knowledge gaps; owner answers become business facts after confirmation. |
-| FR-RP-1 | A daily summary goes to the owner: conversations, new customers, buying interest, commitments, complaints, open handoffs, knowledge gaps. Text by default, voice when configured. |
+| FR-RP-1 | ~~A daily summary goes to the owner.~~ **Removed by the founder, 2026-11-03 ([ADR 0040](decisions/0040-daily-summary-removed.md)).** The owner reads the same numbers in the app's analytics and gets immediate alerts for hand-offs and deals. |
 | FR-RP-2 | A web dashboard shows the same metrics, the conversation list with filters, lead pipeline and knowledge gaps. |
 
 ### Platform operations

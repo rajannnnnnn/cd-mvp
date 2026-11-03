@@ -10,7 +10,9 @@ for k, v in {"DATABASE_URL": "postgresql://x", "PRICING_DATABASE_URL": "postgres
 
 from salesai.api.app import create_app  # noqa: E402
 
-spec = create_app(None, "web").openapi()
+# "all" until the admin console is its own front end (ADR 0028): the owner app still carries the operator screens, and only the
+# admin application serves their routes, so the shop-only spec ("web") would leave the client without them.
+spec = create_app(None, "all").openapi()
 out = pathlib.Path(__file__).resolve().parents[1] / "openapi.json"
 out.write_text(json.dumps(spec, indent=2, sort_keys=True) + "\n")
 print(f"wrote {out} ({len(spec['paths'])} paths)")

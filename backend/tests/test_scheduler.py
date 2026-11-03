@@ -1,11 +1,11 @@
-"""Scheduler: leader election, daily summaries, nudges (at most one), retention."""
+"""Scheduler: leader election, nudges (at most one), retention."""
 from __future__ import annotations
 
 import re
 
 from salesai.scheduler import LeaderLock, Scheduler
 from tests.test_conversation_flow import shop_with_catalog
-from tests.world import configure_fast, settle, sim_texts
+from tests.world import settle, sim_texts
 
 
 async def test_only_one_scheduler_is_leader_at_a_time(rt):
@@ -15,21 +15,6 @@ async def test_only_one_scheduler_is_leader_at_a_time(rt):
     await a.release()
     assert await b.try_acquire() is True             # failover
     await b.release()
-
-
-async def test_daily_summary_goes_to_the_owner_once_per_day(world):
-    shop, _ = await shop_with_catalog(world)
-    await configure_fast(world, shop, conv={"daily_summary_hour": 0})
-    await world.customer_says(shop, "+919500000001", "silk saree price?")
-    await settle(world, shop, "+919500000001")
-    sch = Scheduler(world.rt)
-    assert await sch.tick_daily_summaries() >= 1
-    await world.drain_for(1.0)
-    rows = [r for r in await world.sim_thread(shop.owner_phone, shop.business_phone) if r["template_name"] == "daily_summary"]
-    assert len(rows) == 1 and "Conversations: 1" in rows[0]["body"]
-    await sch.tick_daily_summaries()
-    await world.drain_for(0.5)
-    assert len([r for r in await world.sim_thread(shop.owner_phone, shop.business_phone) if r["template_name"] == "daily_summary"]) == 1   # deduped
 
 
 async def test_a_quiet_interested_customer_gets_exactly_one_in_window_nudge(world):

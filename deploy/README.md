@@ -9,7 +9,7 @@ nothing else: no part calls another, and a rule in CI fails the build if the cod
 | **db** | `deploy/db` | the database migrations, a one-off job | the schema-owner credential | nothing |
 | **web** | `deploy/web` | the site, its REST API, and its own timer (billing, trials, alerts, sign-in data) | `MASTER_KEY`, `JWT_SECRET`, `OTP_SECRET` | the site, `:8080` |
 | **gateway** | `deploy/gateway` | the only part that talks to Meta: `receive`, `inbound`, `send`, its own timer | `META_APP_SECRET`, `META_VERIFY_TOKEN`, `MASTER_KEY`, the platform's WhatsApp token | `receive`, `:8001` |
-| **agent** | `deploy/agent` | the ChatDeal AI: turns, pricing, the writer, owner alerts, daily summaries, follow-ups | the model key | nothing |
+| **agent** | `deploy/agent` | the ChatDeal AI: turns, pricing, the writer, owner alerts, follow-ups | the model key | nothing |
 
 Two things to notice. The web part holds no Meta secret and the agent holds no WhatsApp token, so a break-in on either cannot
 reach WhatsApp. And the database is **external**: it is never part of a compose file. Point all four `.env` files at it.

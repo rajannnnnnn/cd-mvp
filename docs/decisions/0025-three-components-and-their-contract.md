@@ -2,6 +2,8 @@
 
 **Status:** accepted · 2026-11-02 · supersedes the component sketch in ADR 0020 by extending it to the whole system
 
+> **Update 2026-11-03:** the daily summary named here was removed by the founder ([ADR 0040](0040-daily-summary-removed.md)); owner alerts stand.
+
 ## Context
 
 ADR 0002 made the backend a modular monolith: one image, one codebase, roles selected by configuration.

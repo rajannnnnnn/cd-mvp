@@ -138,8 +138,8 @@ export default function Playground() {
             </div>
             <div className="space-y-3">
               <div className="flex items-center justify-center gap-2 text-sm font-bold"><Eye className="h-4 w-4 text-brand" /> {tr('The owner’s phone ({name})', { name: me?.name?.split(' ')[0] ?? tr('you') })}</div>
-              <Handset title={tr('ChatDeal')} subtitle={tr('alerts for the owner')} phone={me?.phone ?? ''} business={bizPhone} tone="plain" onSend={sendOwner} placeholder={tr('Try "stop", "start" or "summary"')} />
-              <p className="mx-auto max-w-[330px] text-center text-[12.5px] text-muted">{tr('Alerts, handoffs and daily summaries arrive here, and you can steer the assistant by replying.')}</p>
+              <Handset title={tr('ChatDeal')} subtitle={tr('alerts for the owner')} phone={me?.phone ?? ''} business={bizPhone} tone="plain" onSend={sendOwner} placeholder={tr('Try "stop" or "start"')} />
+              <p className="mx-auto max-w-[330px] text-center text-[12.5px] text-muted">{tr('Alerts and handoffs arrive here, and you can steer the assistant by replying.')}</p>
             </div>
           </div>
           <div className="card card-pad">

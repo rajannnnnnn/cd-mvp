@@ -1,5 +1,5 @@
 """Owner loop (M9): alerts to the owner's WhatsApp, owner commands, configuration by chat with read-back
-confirmation, daily summary, number disconnection. The owner talks to the platform from their own number; the
+confirmation, number disconnection. The owner talks to the platform from their own number; the
 24-hour window applies to them too: inside it we send free-form text, outside it an approved template."""
 from __future__ import annotations
 
@@ -108,9 +108,6 @@ class OwnerLoop:
             elif built["purpose"] == "disconnect_alert":
                 data = built["data"]
                 body, params = M.disconnect_alert(lang, biz["name"], data.get("number", ""), data.get("reason", ""))
-            elif built["purpose"] == "daily_summary":
-                body = f"📊 {biz['name']}\n" + built["data"]["text"]
-                params = [biz["name"], built["data"]["text"]]
             else:
                 body, params = built["data"].get("text", ""), []
             await self.send_to_owner(bid, u, built["purpose"], body, built["template"], params)
@@ -289,18 +286,6 @@ class OwnerLoop:
                 await answer_gap(c, bid, uuid.UUID(o["gap_id"]), o["answer"], actor, confirmed=True)
                 done.append("answer saved")
         return ", ".join(done) if done else "no changes"
-
-    # ------------------------------------------------------------------ daily summary
-    async def daily_summary(self, job: Job) -> None:
-        bid = job.spec.business_id
-        assert bid is not None
-        m = await self.metrics(bid)
-        async with self.db.tenant(bid) as c:
-            users = await self._targets(c, bid, None)
-            biz = await (await c.execute("SELECT name FROM businesses WHERE id=%s", (bid,))).fetchone()
-        for u in users:
-            text = M.summary_body(u["language"], m)
-            await self.send_to_owner(bid, u, "daily_summary", f"📊 {biz['name']} — {M.pick(u['language'], 'daily summary', 'दैनिक सारांश')}\n{text}", "daily_summary", [biz["name"], text])
 
     # ------------------------------------------------------------------ platform events: account / number status
     async def account_update(self, job: Job) -> None:

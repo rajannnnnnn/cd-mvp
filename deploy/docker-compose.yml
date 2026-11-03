@@ -7,7 +7,7 @@
 #   api        REST API + live updates (role=api)
 #   ingress    WhatsApp webhook receiver, isolated from the API so webhook latency never depends on it (role=ingress)
 #   worker     async pipeline: inbound routing, AI turns, delivery, owner notifications (role=worker)
-#   scheduler  leader-elected timers: daily summaries, nudges, retention (role=scheduler)
+#   scheduler  leader-elected timers: follow-ups, retention (role=scheduler)
 #   web        static frontend + reverse proxy (Caddy)
 #   seed       (profile "demo") loads demo shops and real conversations played through the system
 # Optional:  --profile redis   starts Redis for QUEUE_BACKEND=redis

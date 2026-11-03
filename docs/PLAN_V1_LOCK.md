@@ -112,8 +112,8 @@ Three deployable components plus a migration job, as drawn in the component map.
 
 Decisions I made on the three questions left open in the component map:
 
-- **Owner alerts and the daily summary go to WhatsApp as well as the app.** FR-HO-1 and FR-RP-1 require
-  it; it is not mine to drop. They are template messages, so they are billed and need Meta approval —
+- **Owner alerts go to WhatsApp as well as the app.** FR-HO-1 requires it (the daily summary FR-RP-1 was removed by the founder, ADR 0040);
+  it is not mine to drop. They are template messages, so they are billed and need Meta approval —
   batch handoff alerts and cap them per hour so a busy shop does not get spammed or billed hard.
 - **web never calls the gateway directly.** It writes a request row and the gateway acts on it. The
   earlier draft allowed a direct call for sign-in codes, number connect and owner replies; a database
@@ -280,14 +280,14 @@ Three rules follow, and they bind every feature in this plan:
 
 1. **WhatsApp is the primary interface; the web app is optional.** Any task an owner must do can be done
    from the chat they are already in. Already true and kept: coexistence means they keep using their normal
-   WhatsApp Business app; setup by voice or text with read-back confirmation (FR-CF-8); daily summary on
+   WhatsApp Business app; setup by voice or text with read-back confirmation (FR-CF-8); on
    WhatsApp; the web app is required for no core task.
 2. **Ask in plain words with numbered choices, never with a form.** The learning loop (ADR 0031) is the
    worked example: one message, one question, answerable with a single digit — "Should I tell other
    customers the same? 1 no refunds on anything, 2 only on sarees, 3 just that one order, 4 don't save
    this." No settings screen, no jargon, no concept the owner has to learn.
 3. **Interruptions have a budget.** An owner who is asked something after every handoff stops answering.
-   Proposals and non-urgent questions ride the daily summary, rate-limited per tenant; only the most
+   Proposals and non-urgent questions are asked on their own, rate-limited per tenant (there is no daily summary, ADR 0040); only the most
    urgent thing interrupts.
 
 The frontend is **not** being redesigned. It gets validated and hardened:
