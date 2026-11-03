@@ -106,6 +106,7 @@ async def test_new_message_after_planning_discards_the_stale_reply(world):
     """INV-7: the first reply was planned and scheduled; a new customer message arrives before it is sent."""
     shop, _ = await shop_with_catalog(world)
     await configure_fast(world, shop, timing={"read_delay": {"mu": 7.0, "sigma": 0.01, "min_ms": 900, "max_ms": 1000},
+                                              "typing_ms_per_char": {"mu": 3.9, "sigma": 0.01, "min_ms": 40, "max_ms": 60},   # the first send stays seconds away (the model's time counts as typing time)
                                               "max_total_delay_ms": 5000})
     phone = "+919700000006"
     await world.customer_says(shop, phone, "silk saree price?")
@@ -127,6 +128,7 @@ async def test_ai_reply_is_never_sent_after_the_24h_window_closes(world):
     end, is not sent; it becomes a handoff plus an operator alert instead of silence (INV-12)."""
     shop, _ = await shop_with_catalog(world)
     await configure_fast(world, shop, timing={"read_delay": {"mu": 7.0, "sigma": 0.01, "min_ms": 900, "max_ms": 1000},
+                                              "typing_ms_per_char": {"mu": 3.9, "sigma": 0.01, "min_ms": 40, "max_ms": 60},   # the first send stays seconds away (the model's time counts as typing time)
                                               "max_total_delay_ms": 5000})
     phone = "+919700000031"
     await world.customer_says(shop, phone, "silk saree price?")

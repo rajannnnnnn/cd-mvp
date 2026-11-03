@@ -37,7 +37,7 @@ def _clean(monkeypatch):
 
 
 def settings(**over: str) -> Settings:
-    env = {**DB, **SECRETS, "ROLE": "all", "SIMULATOR_ENABLED": "false", **over}
+    env = {**DB, **SECRETS, "ADMIN_JWT_SECRET": "a" * 40, "ROLE": "all", "SIMULATOR_ENABLED": "false", **over}   # the suite exports a test-looking admin secret: set one
     return Settings(_env_file=None, **{k.lower(): v for k, v in env.items()})  # type: ignore[arg-type]
 
 

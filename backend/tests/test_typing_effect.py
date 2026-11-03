@@ -7,10 +7,20 @@ import math
 import random
 from dataclasses import replace
 
+import pytest
+
 from salesai.modules.agent.llm.local import LocalRulesProvider
 from salesai.modules.delivery.planner import plan_delivery
 from tests.test_conversation_flow import shop_with_catalog
 from tests.world import install_llm, settle
+
+
+@pytest.fixture(autouse=True)
+def _restore_llm(world):
+    old = world.rt.agent.llm
+    yield
+    world.rt.agent.llm = old
+
 
 STEADY = {"read_delay": {"mu": math.log(1000), "sigma": 0, "min_ms": 1000, "max_ms": 1000},
           "typing_ms_per_char": {"mu": math.log(50), "sigma": 0, "min_ms": 50, "max_ms": 50},       # exactly 50 ms a character
