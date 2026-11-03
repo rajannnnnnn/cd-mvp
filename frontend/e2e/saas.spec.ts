@@ -28,7 +28,7 @@ test.describe('marketing to a live shop', () => {
     await expect(page).toHaveURL(/\/app\/onboarding/)
     await expect(page.getByRole('heading', { name: 'Tell us about your business' })).toBeVisible()
 
-    await page.getByLabel('Business name').fill(shop)
+    await page.getByRole('textbox', { name: 'Business name' }).fill(shop)
     await page.getByLabel('Your name').fill('Meera')
     await page.getByLabel('City').fill('Pune')
     await expect(page.getByText('Available')).toBeVisible()
@@ -108,7 +108,7 @@ test.describe('paying for a plan', () => {
   test('a new shop on its trial chooses a plan and pays in test mode', async ({ page }) => {
     await login(page, freshPhone())
     const tag = String(Date.now() % 1e7)
-    await page.getByLabel('Business name').fill(`Pay Test ${tag}`)
+    await page.getByRole('textbox', { name: 'Business name' }).fill(`Pay Test ${tag}`)
     await page.getByLabel('Your name').fill('Payer')
     await page.getByRole('button', { name: 'Create my shop' }).click()
     await expect(page).toHaveURL(new RegExp(`/app/pay-test-${tag}/onboarding`))

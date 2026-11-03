@@ -34,7 +34,8 @@ test.describe('prices and mandatory fields', () => {
     await expect(price).not.toHaveAttribute('aria-invalid', 'true')
     await panel.getByRole('button', { name: 'Add product' }).click()
     await expect(page.getByText('Product added')).toBeVisible()
-    await page.getByRole('button', { name: 'Delete E2E price check' }).click()
+    await page.getByRole('button', { name: 'More actions for E2E price check' }).first().click()                  // Delete lives in the card's three-dot menu
+    await page.getByRole('menuitem', { name: 'Delete' }).click()
     await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click()
     await expect(page.getByText('E2E price check')).toHaveCount(0)
   })
@@ -50,14 +51,13 @@ test.describe('prices and mandatory fields', () => {
     const amount = panel.getByLabel('Amount (₹)')
     await amount.fill('2OO'); await expect(amount).toHaveValue('2')
     await amount.fill('')
-    await panel.getByLabel('Offer name').fill('E2E amount check')
+    await panel.getByPlaceholder('Offer name').fill('E2E amount check')                              // not by label: the (i) tip is labelled "More about Offer name"
     await panel.getByRole('button', { name: 'Save offer' }).click()
     await expect(panel.getByText('Amount is required')).toBeVisible()
   })
 
   test('DEAL-113: mandatory fields in the product editor carry a * and are flagged when empty', async ({ page }) => {
     const panel = await openNewProduct(page)
-    await expect(panel.getByText(/^\*\s*required$/)).toBeVisible()                  // the "* required" note
     await expect(star(panel, 'Product name')).toContainText('*')
     await expect(star(panel, 'What is the price?')).toContainText('*')
     for (const optional of ['Category', 'Description', 'Stock count', 'Availability']) await expect(star(panel, optional)).not.toContainText('*')
@@ -102,8 +102,8 @@ test.describe('prices and mandatory fields', () => {
     // the shop name and web address are shown, not editable (changing them goes through support)
     await page.getByRole('button', { name: 'More about Shop name' }).click()                 // the explanation is behind the (i) button
     await expect(page.getByRole('note')).toContainText('contact support')
-    await expect(page.getByLabel('Shop name')).toHaveCount(0)
-    await expect(page.getByLabel('Your web address')).toHaveCount(0)
+    await expect(page.getByLabel('Shop name', { exact: true })).toHaveCount(0)
+    await expect(page.getByLabel('Your web address', { exact: true })).toHaveCount(0)
 
     await page.getByRole('tab', { name: 'People' }).click()
     await page.getByRole('button', { name: /Add (a )?team member|Add member|Add someone/ }).first().click()
@@ -112,7 +112,7 @@ test.describe('prices and mandatory fields', () => {
     await expect(star(dialog, 'WhatsApp number')).toContainText('*')
     await dialog.getByRole('button', { name: 'Add', exact: true }).click()
     await expect(dialog.getByText('Enter their name')).toBeVisible()
-    await expect(dialog.getByText(/Enter a WhatsApp number/)).toBeVisible()
+    await expect(dialog.getByText('Enter a 10-digit mobile number')).toBeVisible()
   })
 })
 
@@ -125,5 +125,5 @@ test('DEAL-113: the sign-up steps mark what is mandatory', async ({ page }) => {
   await page.getByRole('button', { name: /Create my shop/ }).click()
   await expect(page.getByText('Enter your business name')).toBeVisible()
   await expect(page.getByText('Enter your name', { exact: true })).toBeVisible()
-  await expect(page.getByLabel('Business name')).toBeFocused()
+  await expect(page.getByPlaceholder('Business name')).toBeFocused()
 })

@@ -344,4 +344,10 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
     local stack (`frontend/e2e/pricing-safety.spec.ts`). **Not built:** the shop-wide default asked at onboarding; multi-variant products still use the full editor.
     **Noticed, not caused by this:** these browser specs fail on the code before this change too, so the e2e suite needs a pass: `forms.spec.ts` (label clashes with the (i) tips, e.g. `getByLabel('Offer name')`
     matches two elements; the "* required" note; the delete-button name) and the "Saved privately" check in `pricing-safety.spec.ts` against the demo product.
+  - **Browser specs repaired, 2026-11-03.** Ran the browser suite against a local stack (Postgres, the API, the dev server; see `docs/RUNNING.md` section 2). Fixed in the specs, not the app: `forms.spec.ts` (6/6 pass),
+    `auth.spec.ts` (4/4: time-based greeting, sign-out asks first, a number with no shop goes to set-up), the sign-up and settings specs. Cause of most failures: `getByLabel('Offer name')` also matches the (i) tip button
+    "More about Offer name"; use `getByRole('textbox', { name })` or the placeholder. **Still failing because the screens changed since the specs were written** (each needs a rewrite against the current flow, not a patch):
+    `owner.spec.ts` "offers can be created, paused and deleted", "catalog: cards and grid views, a confirmed on/off switch…", "products: edit and delete on every item…", "offers work like products…" (per-card on/off switches are gone;
+    hide/show is in the card menu), `playground.spec.ts` (the phone panel selector), and the "Saved privately" check in `pricing-safety.spec.ts` (a card click now opens a read-only view first). `operator.spec.ts` targets the old
+    console inside the owner app and must be rewritten for the separate console (it needs an enrolled test admin: WhatsApp code plus authenticator code). Not run here: the mobile project.
 

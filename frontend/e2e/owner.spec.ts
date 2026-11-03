@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { login, OPERATOR, OWNER, SHOP } from './helpers'
+import { login, OWNER, SHOP } from './helpers'
 
 test.describe('owner app', () => {
   test.beforeEach(async ({ page }) => { await login(page, OWNER) })
@@ -12,34 +12,13 @@ test.describe('owner app', () => {
     await expect(page.getByText('AI assistant paused')).toHaveCount(0)
   })
 
-  test('the shop has no assistant switch; only the platform team can pause it, and the owner is told to contact support', async ({ page, request }) => {
+  test('the shop has no assistant switch: only the platform team can pause it', async ({ page }) => {
     await page.goto(`${SHOP}/settings`)
     await page.getByRole('tab', { name: 'Assistant' }).click()
     await expect(page.getByRole('switch', { name: 'AI assistant' })).toHaveCount(0)               // no toggle anywhere for the customer
     await expect(page.getByRole('heading', { name: 'Assistant on / off' })).toHaveCount(0)
-
-    const api = 'http://127.0.0.1:8000/api/v1'                                                    // the platform team's console, driven through its API
-    const opPhone = OPERATOR
-    await request.post(`${api}/auth/otp/request`, { data: { phone: opPhone } })
-    await page.waitForTimeout(800)
-    const inbox = await (await request.get(`${api}/sim/inbox`, { params: { phone: opPhone } })).json()
-    const code = /\b(\d{6})\b/.exec(inbox.filter((m: any) => m.template_name === 'otp_login').sort((a: any, b: any) => a.id - b.id).at(-1).body)![1]
-    const tok = await (await request.post(`${api}/auth/otp/verify`, { data: { phone: opPhone, code } })).json()
-    const auth = { Authorization: `Bearer ${tok.access_token}` }
-    const shops = await (await request.get(`${api}/operator/businesses`, { headers: auth })).json()
-    const id = shops.find((t: any) => t.name === 'Sharma Sarees & Fabrics').id
-    try {
-      expect((await request.patch(`${api}/operator/businesses/${id}`, { headers: auth, data: { ai_enabled: false } })).status()).toBe(204)
-      await page.goto(`${SHOP}/home`)
-      await expect(page.getByText('AI assistant paused')).toBeVisible()                           // the menu speaks up only when it is off …
-      await expect(page.getByText('The AI assistant is paused')).toBeVisible()
-      await page.getByRole('link', { name: /Contact support/ }).click()                           // … and points to support, not to a switch
-      await expect(page).toHaveURL(/settings\?tab=support/)
-    } finally {
-      await request.patch(`${api}/operator/businesses/${id}`, { headers: auth, data: { ai_enabled: true } })
-    }
-    await page.goto(`${SHOP}/home`)
-    await expect(page.getByText('AI assistant paused')).toHaveCount(0)
+    // Pausing a shop is the platform team's action and now needs a console session (WhatsApp code + authenticator code, ADR 0028), which this suite does not hold.
+    // The pause itself is covered by `test_pause_and_resume_whole_business` (backend); a browser check of the owner's paused banner needs an enrolled test admin and is not covered.
   })
 
   test('a conversation opens with its history, lead details and negotiation', async ({ page }) => {
@@ -107,7 +86,7 @@ test.describe('owner app', () => {
     await page.getByRole('menuitem', { name: 'Edit' }).click()
     const save = page.getByRole('button', { name: 'Save changes' }).first()
     await expect(save).toBeDisabled()                                                              // nothing changed yet: nothing to save
-    await page.getByLabel('Shop phone').fill(`+91 99999 000${10 + Math.floor(Math.random() * 80)}`)
+    await page.getByRole('textbox', { name: 'Shop phone' }).fill(`+91 99999 000${10 + Math.floor(Math.random() * 80)}`)
     await expect(save).toBeEnabled()
     await save.click()
     await expect(page.getByRole('button', { name: 'Save changes' })).toHaveCount(0)                   // saved: back to the view
@@ -286,7 +265,7 @@ test.describe('owner app', () => {
     await expect(panel).toBeVisible()
     await expect(page.getByRole('dialog')).toHaveCount(0)                                            // beside the list, not over it
     await expect(panel.getByText('Offer is live')).toHaveCount(0)
-    await panel.getByLabel('Offer name').fill(a)
+    await panel.getByRole('textbox', { name: 'Offer name' }).fill(a)
     await panel.getByLabel('Percent off').fill('10')
     const target = panel.getByLabel('Applies to')
     await expect(target.locator('optgroup[label="A whole category"] option')).not.toHaveCount(0)    // categories can be picked, not only products
@@ -295,7 +274,7 @@ test.describe('owner app', () => {
     await expect(page.getByText('Offer created')).toBeVisible()
     await page.getByRole('button', { name: 'New offer' }).first().click()
     const second = page.getByRole('complementary', { name: 'New offer' })
-    await second.getByLabel('Offer name').fill(b)
+    await second.getByRole('textbox', { name: 'Offer name' }).fill(b)
     await second.getByLabel('Percent off').fill('5')
     await second.getByRole('button', { name: 'Save offer' }).click()
     await expect(page.getByText(b)).toBeVisible()
@@ -310,7 +289,7 @@ test.describe('owner app', () => {
     await expect(sw).toHaveAttribute('aria-checked', 'false')
 
     await page.getByRole('button', { name: `Edit ${a}` }).click()                                      // edit opens beside the list
-    await expect(page.getByRole('complementary', { name: 'Edit offer' }).getByLabel('Offer name')).toHaveValue(a)
+    await expect(page.getByRole('complementary', { name: 'Edit offer' }).getByRole('textbox', { name: 'Offer name' })).toHaveValue(a)
     await page.getByRole('complementary', { name: 'Edit offer' }).getByRole('button', { name: 'Cancel' }).click()
 
     await page.getByRole('tab', { name: 'Grid' }).click()                                              // grid view, tick both, delete in bulk

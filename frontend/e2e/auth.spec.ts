@@ -5,15 +5,16 @@ test.describe('number-centric authentication', () => {
   test('an owner signs in with a code sent to their WhatsApp number and stays signed in across reloads', async ({ page }) => {
     await login(page, OWNER)
     await expect(page).toHaveURL(/\/app\/sharma-sarees-fabrics\/home/)
-    await expect(page.getByRole('heading', { name: /Namaste/ })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Good (morning|afternoon|evening)|Hello/ })).toBeVisible()
     await page.reload()
-    await expect(page.getByRole('heading', { name: /Namaste/ })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Good (morning|afternoon|evening)|Hello/ })).toBeVisible()
   })
 
   test('signing out ends the session', async ({ page }) => {
     await login(page, OWNER)
     await page.getByRole('button', { name: /Rakesh/ }).first().click()
     await page.getByRole('button', { name: /sign out|log out/i }).click()
+    await page.getByRole('dialog').getByRole('button', { name: /sign out/i }).click()                   // asked first, so a stray tap does nothing
     await expect(page).toHaveURL(/login/)
     await page.goto(`${SHOP}/home`)
     await expect(page).toHaveURL(/login/)
@@ -42,7 +43,7 @@ test.describe('number-centric authentication', () => {
   test('the console is not part of the owner app: its address does not exist here', async ({ page }) => {
     await login(page, OPERATOR)
     await page.goto('/app/operator')
-    await expect(page).not.toHaveURL(/\/app\/operator/)                         // it falls back to the shop's own screens, never a console
+    await expect(page).toHaveURL(/onboarding|\/home/)                           // a number with no shop is taken to set one up; there is no console here
     await expect(page.getByRole('heading', { name: /operator console/i })).toHaveCount(0)
   })
 })

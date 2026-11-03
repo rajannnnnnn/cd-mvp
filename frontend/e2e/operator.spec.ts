@@ -18,7 +18,7 @@ test.describe('operator console', () => {
     const name = `E2E Shop ${Date.now() % 100000}`
     const phone = `9${String(Date.now()).slice(-9)}`
     await page.getByRole('button', { name: 'Onboard business' }).click()
-    await page.getByLabel('Business name').fill(name)
+    await page.getByRole('textbox', { name: 'Business name' }).fill(name)
     await page.getByLabel('Owner’s name').fill('Test Owner')
     await page.getByLabel(/Owner’s WhatsApp number/).fill(`+91${phone}`)
     await page.getByRole('button', { name: 'Create business' }).click()
