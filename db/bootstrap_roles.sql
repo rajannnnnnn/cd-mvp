@@ -10,6 +10,12 @@ SELECT format('CREATE ROLE app_user    LOGIN PASSWORD %L', :'user_pw')    WHERE 
 SELECT format('CREATE ROLE app_pricing LOGIN PASSWORD %L', :'pricing_pw') WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='app_pricing') \gexec
 SELECT format('CREATE ROLE app_system  LOGIN PASSWORD %L BYPASSRLS', :'system_pw') WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='app_system') \gexec
 
+-- Re-running this script sets the passwords again (rotation), so the passwords you pass are always the ones in force.
+SELECT format('ALTER ROLE app_owner PASSWORD %L', :'owner_pw') \gexec
+SELECT format('ALTER ROLE app_user PASSWORD %L', :'user_pw') \gexec
+SELECT format('ALTER ROLE app_pricing PASSWORD %L', :'pricing_pw') \gexec
+SELECT format('ALTER ROLE app_system PASSWORD %L', :'system_pw') \gexec
+
 -- app_console: the founder's console ONLY (ADR 0043). It holds everything app_system holds (it is a member of that role) plus the console's own
 -- tables (admin sign-in secrets and sessions, break-glass grants), which no other part can read. Pass -v console_pw=... to give it a login;
 -- without it the role exists but cannot log in, and `ALTER ROLE app_console LOGIN PASSWORD '...'` enables it later.

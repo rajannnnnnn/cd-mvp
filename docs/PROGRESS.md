@@ -371,4 +371,6 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
   - **Deletion has a 60-day grace period (ADR 0044), 2026-11-03.** `DELETE /business` schedules; the assistant pauses and renewals stop; the owner can cancel from Settings; the web scheduler erases shops whose date has passed and records it
     in the platform audit trail. The console's own erase stays immediate for legal requests. `DELETION_GRACE_DAYS` (default 60). Migration 0031. Also fixed: `doctor` is a composition root (it had broken the boundary rules; the floor
     and SMTP specifics now live in `db.py` and `email_sink.py`), and `scripts/export_openapi.py` knows the console URL. **Founder to do:** say "erased within 60 days of your request" in the privacy policy.
+  - **`scripts/setup-db.ps1`, 2026-11-03.** One command with superuser credentials: creates the database and the five app roles, writes the five `deploy/<part>/.env` (database URLs and the self-generated secrets), runs the migrations; re-runnable
+    (secrets kept, database passwords rotated: `db/bootstrap_roles.sql` now sets the passwords each time). **Untested:** there is no PowerShell in the build environment; the SQL side is covered by the migration tests. A bash twin for Linux is not written.
 

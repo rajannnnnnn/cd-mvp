@@ -24,6 +24,14 @@ Five parts, each its own folder under `deploy/` with its own `.env` and its own 
 
 ## 2. One machine (what you have now)
 
+**Windows, shortest path** (with a Postgres container named `chatdeal-pg`, or any Postgres you have superuser access to): `scripts\setup-db.ps1` takes the superuser login once, creates the database and the five app roles with fresh passwords, writes the five `deploy\<part>\.env` files (database URLs plus the secrets you generate yourself: JWT, OTP, admin, master key, webhook token), and runs the migrations. The superuser login is used there and stored nowhere. Safe to run again: existing secrets are kept, database passwords are renewed. It is untested until your first run.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup-db.ps1 -PgContainer chatdeal-pg -SuperPassword devpass
+```
+
+The manual steps below are what it does, and what to do on Linux.
+
 ```bash
 # 1. database (Postgres 16, outside Docker) and its roles
 psql -f db/bootstrap_roles.sql -v owner_pw=... -v user_pw=... -v pricing_pw=... -v system_pw=... -v console_pw=... <your db>
