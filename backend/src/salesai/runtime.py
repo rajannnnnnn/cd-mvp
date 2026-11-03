@@ -18,6 +18,7 @@ from salesai.modules.alerting.router import WhatsAppSink
 from salesai.modules.alerting.webhook_sink import WebhookSink
 from salesai.modules.auth import AdminAuth, AuthService
 from salesai.modules.billing import BillingService, ManualProvider, MetaUsage, TestGateway
+from salesai.modules.boards import Boards
 from salesai.modules.channels import ChannelRegistry
 from salesai.modules.channels.connect import NumberConnector
 from salesai.modules.channels.otp import OtpSender
@@ -82,6 +83,7 @@ class Runtime:
         self.alerts = build_alert_router(db, self.channels, settings)
         self.billing = BillingService(db, ManualProvider(settings.payment_instructions) if settings.payment_provider == "manual" else TestGateway(), seller={"name": settings.invoice_seller_name, "address": settings.invoice_seller_address, "gstin": settings.invoice_seller_gstin})
         self.meta_usage = MetaUsage(db, rates_inr=settings.meta_rates, free_service_per_number=settings.meta_free_service_per_number)
+        self.boards = Boards(db, queue, self.meta_usage)       # the founder's four boards (ADR 0028)
         self.pump: Callable[[], Awaitable[None]] = self._wait_a_moment
         self.hub: Any = None
         self.extra: dict[str, Any] = {}

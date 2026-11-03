@@ -171,7 +171,7 @@ async def test_platform_tables_unreachable_by_tenant_role(db):
                 await c.execute(f"SELECT 1 FROM {t}")  # noqa: S608
             # a failed statement aborts the txn; open a fresh one for the next table
             break
-    for t in ["jobs", "webhook_events", "auth_sessions", "otp_challenges", "business_keys", "sim_messages", "operator_alerts", "platform_audit_log", "otp_deliveries"]:
+    for t in ["jobs", "webhook_events", "auth_sessions", "otp_challenges", "business_keys", "sim_messages", "operator_alerts", "platform_audit_log", "otp_deliveries", "break_glass_grants", "admin_credentials", "admin_sessions"]:
         async with db.tenant(uuid.uuid4()) as c:
             with pytest.raises(psycopg.errors.InsufficientPrivilege):
                 await c.execute(f"SELECT 1 FROM {t}")  # noqa: S608
@@ -244,6 +244,7 @@ PLATFORM_ONLY: dict[str, str] = {   # no grant at all to the shop role (test_pla
     "operator_alerts": "platform alerts about a shop, for the platform team only",
     "platform_audit_log": "the platform's own trail of actions on a shop; outlives the shop (ADR 0030)",
     "otp_deliveries": "sign-in code requests between the web and gateway components (ADR 0025); no shop is involved",
+    "break_glass_grants": "platform staff's time-boxed permission to read a shop's conversations (ADR 0028); the shop sees the audit line, never this table",
 }
 
 

@@ -361,7 +361,7 @@ async def test_operator_console_onboarding_support_and_guards(world, client):
     assert owner_login["role"] == "owner"
     rows = (await client.get(f"{V1}/operator/businesses", headers=hdr(op))).json()
     assert {x["name"] for x in rows} >= {"New Kirana", "Sharma Sarees"}
-    imp = (await client.post(f"{V1}/operator/businesses/{r.json()['id']}/impersonate", headers=hdr(op))).json()
+    imp = (await client.post(f"{V1}/operator/businesses/{r.json()['id']}/impersonate", headers=hdr(op), json={"reason": "Onboarding call with the new owner"})).json()
     assert (await client.get(f"{V1}/business", headers=hdr(imp))).json()["name"] == "New Kirana"
     me = (await client.get(f"{V1}/auth/me", headers=hdr(imp))).json()
     assert me["impersonated"] is True
@@ -444,7 +444,7 @@ async def test_owner_can_export_and_delete_their_own_data(world, client, pg_urls
 async def test_support_sessions_cannot_delete_a_business(world, client):
     op = await operator_token(world, client)
     shop, _ = await owner(world, client, "Protected Shop")
-    imp = (await client.post(f"{V1}/operator/businesses/{shop.business_id}/impersonate", headers=hdr(op))).json()
+    imp = (await client.post(f"{V1}/operator/businesses/{shop.business_id}/impersonate", headers=hdr(op), json={"reason": "Checking delete protection for support"})).json()
     r = await client.delete(f"{V1}/business", headers=hdr(imp), params={"confirm_name": "Protected Shop"})
     assert r.status_code == 403
     assert (await client.get(f"{V1}/business/export", headers=hdr(imp))).status_code == 200      # support may view; it cannot erase

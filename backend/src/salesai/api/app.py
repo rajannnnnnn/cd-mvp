@@ -21,6 +21,7 @@ from salesai.api.routes import (
     analytics,
     auth,
     billing,
+    boards,
     business,
     catalog,
     contacts,
@@ -103,4 +104,5 @@ def create_app(rt: Runtime | None = None, role: str = "web", *, owns_runtime: bo
     if role in ("admin", "all"):
         app.include_router(admin_auth.router, dependencies=[Depends(admin_gate)])
         app.include_router(operator.router, prefix="/api/v1", dependencies=[Depends(admin_gate)])
+        app.include_router(boards.router, prefix="/api/v1", dependencies=[Depends(admin_gate)])
     return app

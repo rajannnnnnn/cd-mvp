@@ -38,6 +38,7 @@ ALLOWED_DEPS: dict[str, set[str]] = {
     "handoffs": set(),
     "channels": {"tenants"},
     "auth": {"channels", "tenants"},        # the admin sign-in writes the platform audit trail
+    "boards": {"billing"},                  # the founder's boards read plan prices and the Meta usage estimate
     "delivery": {"channels", "handoffs"},
     "agent": {"catalog", "delivery", "handoffs", "pricing", "sales"},
     "conversations": {"agent", "channels", "handoffs"},
@@ -46,7 +47,7 @@ ALLOWED_DEPS: dict[str, set[str]] = {
     "billing": set(),
 }
 # api is the HTTP layer: it may use these module interfaces (never the reverse).
-API_MAY_USE = {"auth", "billing", "catalog", "channels", "handoffs", "pricing", "sales", "tenants"}
+API_MAY_USE = {"auth", "billing", "boards", "catalog", "channels", "handoffs", "pricing", "sales", "tenants"}
 
 # B2: submodules that are part of a module's public interface (everything else is internal)
 PUBLIC_SUBMODULES: dict[str, set[str]] = {
@@ -56,12 +57,13 @@ PUBLIC_SUBMODULES: dict[str, set[str]] = {
     "channels": {"base", "ingress"},
     "alerting": set(),
     "billing": set(),
+    "boards": set(),
 }
 
 # B9: which component each unit belongs to. Foundation units (config, db, obs, events, queue...) are shared.
 # Composition roots (runtime, scheduler, __main__, seed) wire components together and belong to none.
 COMPONENT_OF_UNIT: dict[str, str] = {
-    "api": "web", "modules.auth": "web", "modules.billing": "web",
+    "api": "web", "modules.auth": "web", "modules.billing": "web", "modules.boards": "web",
     "modules.channels": "gateway", "modules.alerting": "gateway",
     "modules.agent": "agent", "modules.conversations": "agent", "modules.notifications": "agent", "modules.delivery": "agent",
     "modules.tenants": "shared", "modules.catalog": "shared", "modules.pricing": "shared", "modules.sales": "shared",

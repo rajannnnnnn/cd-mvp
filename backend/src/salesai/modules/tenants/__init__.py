@@ -1,4 +1,13 @@
 """Tenants module public interface."""
+from salesai.modules.tenants.access import (  # noqa: F401,E402
+    MIN_REASON,
+    active_grant,
+    end_grant,
+    list_conversations,
+    open_grant,
+    read_messages,
+    shop_audit,
+)
 from salesai.modules.tenants.audit import platform_audit  # noqa: F401,E402
 from salesai.modules.tenants.lifecycle import delete_tenant, export_tenant  # noqa: F401
 from salesai.modules.tenants.service import (  # noqa: F401

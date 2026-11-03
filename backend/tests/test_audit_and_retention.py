@@ -68,7 +68,7 @@ async def test_platform_actions_on_a_shop_are_recorded_on_the_platform_trail(wor
     shop, _ = await shop_with_catalog(world)
     ops = await operator_token(world, client)
     await client.patch(f"{V1}/operator/businesses/{shop.business_id}", headers=hdr(ops), json={"ai_enabled": False})
-    await client.post(f"{V1}/operator/businesses/{shop.business_id}/impersonate", headers=hdr(ops))
+    await client.post(f"{V1}/operator/businesses/{shop.business_id}/impersonate", headers=hdr(ops), json={"reason": "Helping the owner set up pricing"})
     actions = [a["action"] for a in await _platform_audit(world, shop.business_id)]
     assert "operator.updated" in actions and "operator.impersonation" in actions
 

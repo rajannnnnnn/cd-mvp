@@ -338,3 +338,20 @@ async def delete_my_business(rt: RT, p: Owner, confirm_name: Annotated[str, Quer
     if row["name"] != confirm_name:
         raise ApiError(422, "confirmation_mismatch", "Type the shop name exactly to confirm deletion.")
     return {"deleted": await delete_tenant(rt.db, p.bid, rt.queue)}
+
+
+class PlatformAccessOut(BaseModel):
+    id: int
+    action: str
+    created_at: Any
+    reason: str | None
+    detail: dict[str, Any]
+
+
+@router.get("/business/platform-access", response_model=list[PlatformAccessOut],
+            summary="Who from the platform team looked at your shop's data, when, and why (ADR 0028)")
+async def platform_access(rt: RT, p: Owner) -> Any:
+    async with tx(rt, p) as c:
+        rows = await (await c.execute(
+            "SELECT id, action, created_at, detail->>'reason' AS reason, detail FROM audit_log WHERE action LIKE 'platform.%%' ORDER BY id DESC LIMIT 100")).fetchall()
+    return [dict(r) for r in rows]

@@ -13,12 +13,19 @@ from salesai.config import ALL_QUEUES
 from salesai.db import jsonb
 from salesai.events.outbox import emit
 from salesai.modules.tenants import (
+    MIN_REASON,
+    active_grant,
     add_cloud_number,
     add_simulated_number,
     create_business,
     delete_tenant,
+    end_grant,
     export_tenant,
+    list_conversations,
+    open_grant,
     platform_audit,
+    read_messages,
+    shop_audit,
 )
 from salesai.phone import normalize_phone
 
@@ -146,13 +153,52 @@ async def patch_business(business_id: uuid.UUID, body: TenantPatch, rt: RT, p: O
                              business_id=business_id, detail={"fields": sorted(d), **({"ai_enabled": d["ai_enabled"]} if "ai_enabled" in d else {})})
 
 
-@router.post("/businesses/{business_id}/impersonate", summary="Short-lived owner access for support (audited)")
-async def impersonate(business_id: uuid.UUID, rt: RT, p: Operator) -> dict[str, Any]:
+class Reason(BaseModel):
+    reason: str = Field(min_length=MIN_REASON, max_length=300, description="Why you need this. The shop's owner can read it; do not put a customer's name here.")
+
+
+class GrantIn(Reason):
+    minutes: int = Field(15, ge=1, le=60)
+
+
+@router.post("/businesses/{business_id}/impersonate", summary="Short-lived owner access for support: needs a stated reason, which the shop can see (audited)")
+async def impersonate(business_id: uuid.UUID, body: Reason, rt: RT, p: Operator) -> dict[str, Any]:
     pair = await rt.auth.impersonate(p, business_id, None)
+    reason = body.reason.strip()
     async with rt.db.system_tx() as s:
         await platform_audit(s, actor_account_id=p.account_id, actor_label="operator", action="operator.impersonation",
-                             business_id=business_id, detail={"expires_in": pair.expires_in})
+                             business_id=business_id, detail={"expires_in": pair.expires_in, "reason": reason})
+    await shop_audit(rt.db, business_id, p.account_id, "platform.impersonated", {"reason": reason, "minutes": pair.expires_in // 60})
     return {"access_token": pair.access_token, "refresh_token": pair.refresh_token, "expires_in": pair.expires_in, "business_id": str(business_id), "role": "owner"}
+
+
+# ---------------------------------------------------------------- break-glass: reading a shop's conversations (ADR 0028)
+@router.post("/businesses/{business_id}/break-glass", status_code=201, summary="Open a time-boxed grant to read this shop's conversations (needs a reason; audited; the shop can see it)")
+async def open_break_glass(business_id: uuid.UUID, body: GrantIn, rt: RT, p: Operator) -> dict[str, Any]:
+    return await open_grant(rt.db, p.account_id, business_id, body.reason, body.minutes)
+
+
+async def _grant(rt: Any, p: Any, business_id: uuid.UUID, grant: uuid.UUID | None) -> dict[str, Any]:
+    g = await active_grant(rt.db, p.account_id, business_id, grant)
+    if g is None:
+        raise ApiError(403, "break_glass_required", "Reading a shop's conversations needs an open break-glass grant for that shop. Open one with a reason first.")
+    return g
+
+
+@router.get("/businesses/{business_id}/conversations", summary="A shop's conversations (break-glass: needs ?grant=)")
+async def break_glass_conversations(business_id: uuid.UUID, rt: RT, p: Operator, grant: uuid.UUID | None = None) -> list[dict[str, Any]]:
+    return await list_conversations(rt.db, await _grant(rt, p, business_id, grant))
+
+
+@router.get("/businesses/{business_id}/conversations/{conversation_id}/messages", summary="One conversation's messages (break-glass: needs ?grant=)")
+async def break_glass_messages(business_id: uuid.UUID, conversation_id: uuid.UUID, rt: RT, p: Operator, grant: uuid.UUID | None = None) -> list[dict[str, Any]]:
+    return await read_messages(rt.db, await _grant(rt, p, business_id, grant), conversation_id)
+
+
+@router.delete("/break-glass/{grant_id}", status_code=204, summary="End a grant now")
+async def end_break_glass(grant_id: uuid.UUID, rt: RT, p: Operator) -> None:
+    if not await end_grant(rt.db, p.account_id, grant_id):
+        raise ApiError(404, "not_found", "That grant is not open.")
 
 
 @router.get("/businesses/{business_id}/meta-usage", summary="Estimated Meta message charges for a shop's month (ADR 0026)")

@@ -67,3 +67,6 @@ GRANT SELECT, DELETE ON channel_events TO app_system;           -- retention rem
 
 -- ---------------------------------------------------------------- admin plane (app_system only; ADR 0028)
 GRANT SELECT, INSERT, UPDATE, DELETE ON admin_credentials, admin_sessions TO app_system;
+GRANT SELECT, INSERT, UPDATE ON break_glass_grants TO app_system;
+-- the boards count deals and sum their value; the customer's order details never leave the shop's own role
+GRANT SELECT (id, business_id, conversation_id, kind, value, status, created_at, closed_at) ON deals TO app_system;
