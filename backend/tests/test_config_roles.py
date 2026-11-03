@@ -26,7 +26,7 @@ def _clean_environment(monkeypatch):
 
 def build(role: str, *, keep: tuple[str, ...] = (), **over: str) -> Settings:
     """Settings for `role` carrying only the named secrets (plus any override)."""
-    env = {**DB, "ROLE": role, "SIMULATOR_ENABLED": "false", **{k: v for k, v in SECRETS.items() if k in keep}, **over}
+    env = {**DB, "ROLE": role, "SIMULATOR_ENABLED": "false", "OTP_CHANNEL": "simulator", **{k: v for k, v in SECRETS.items() if k in keep}, **over}   # these tests are about secrets; the channel is stated, not defaulted
     return Settings(_env_file=None, **{k.lower(): v for k, v in env.items()})  # type: ignore[arg-type]
 
 
@@ -205,3 +205,11 @@ def test_a_part_without_the_console_login_cannot_open_a_console_transaction():
             pass
     with pytest.raises(RuntimeError, match="no console database login"):
         asyncio.run(go())
+
+
+def test_the_products_defaults_are_the_real_services_not_stand_ins():
+    """ADR 0045: nothing mock is on by default; a stand-in has to be asked for."""
+    s = Settings(_env_file=None, role="migrate", database_url="x", system_database_url="x", migration_database_url="x")      # type: ignore[arg-type]
+    assert s.simulator_enabled is False and s.otp_channel == "whatsapp_cloud"
+    assert s.meta_graph_base == "https://graph.facebook.com" and s.meta_sdk_url == "https://connect.facebook.net/en_US/sdk.js"
+    assert s.meta_signup_origins == "https://www.facebook.com,https://web.facebook.com"

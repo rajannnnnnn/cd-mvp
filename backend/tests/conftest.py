@@ -75,6 +75,8 @@ def env(pg_urls: dict[str, str]) -> dict[str, str]:
         "SYSTEM_DATABASE_URL": pg_urls["system"],
         "CONSOLE_DATABASE_URL": pg_urls["console"],
         "MIGRATION_DATABASE_URL": pg_urls["owner"],
+        "SIMULATOR_ENABLED": "true",       # the test world plays customers through the product's in-process stand-in network; the product itself defaults to the real thing
+        "OTP_CHANNEL": "simulator",
         "MASTER_KEY": base64.b64encode(b"k" * 32).decode(),
         "JWT_SECRET": "test-jwt-secret-0123456789abcdefghij",
         "OTP_SECRET": "test-otp-secret-0123456789abcdefghij",

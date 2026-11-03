@@ -111,8 +111,8 @@ class Settings(BaseSettings):
     admin_allowed_ips: str = ""               # optional: comma-separated addresses or ranges that may reach the console (empty = anyone who can sign in)
 
     # --- channels
-    simulator_enabled: bool = True
-    otp_channel: Literal["simulator", "whatsapp_cloud"] = "simulator"   # how login codes reach a number
+    simulator_enabled: bool = False   # the product's own in-process stand-in network: development and tests only, never by default (ADR 0045)
+    otp_channel: Literal["simulator", "whatsapp_cloud"] = "whatsapp_cloud"   # how login codes reach a number
     platform_wa_access_token: str = ""      # platform sender (login codes) when otp_channel=whatsapp_cloud
     # Business number the platform uses to send owner login codes / alerts when a business
     # has no number yet (e.g. operator onboarding).
