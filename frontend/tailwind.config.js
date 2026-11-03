@@ -1,7 +1,7 @@
 const c = (v) => `rgb(var(--${v}) / <alpha-value>)`
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ['./*.html', './app/index.html', './admin/index.html', './src/**/*.{ts,tsx,html}', './admin/src/**/*.{ts,tsx}'],
+  content: ['./*.html', './vite.config.ts', './app/index.html', './admin/index.html', './src/**/*.{ts,tsx,html}', './admin/src/**/*.{ts,tsx}'],
   darkMode: ['class', '[data-theme="dark"]'],
   theme: {
     extend: {
