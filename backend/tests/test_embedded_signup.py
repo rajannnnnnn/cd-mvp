@@ -69,5 +69,6 @@ async def test_only_the_owner_can_connect_and_it_is_off_until_configured(world, 
 
 async def test_public_config_advertises_signup_when_configured(client, signup_on):
     cfg = (await client.get(f"{V1}/public/config")).json()["embedded_signup"]
-    assert cfg == {"app_id": "123456789", "config_id": "cfg-1", "graph_version": "v21.0"}
+    assert cfg == {"app_id": "123456789", "config_id": "cfg-1", "graph_version": "v21.0", "sdk_url": "https://connect.facebook.net/en_US/sdk.js",
+                   "popup_origins": ["https://www.facebook.com", "https://web.facebook.com"]}          # Meta's own addresses unless the settings say otherwise
     assert "secret" not in str(cfg).lower()

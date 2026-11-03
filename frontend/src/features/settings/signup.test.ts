@@ -5,6 +5,11 @@ const FB = 'https://www.facebook.com'
 const finish = (event: string, data: object = { waba_id: 'w1', phone_number_id: 'p1' }) => ({ type: 'WA_EMBEDDED_SIGNUP', event, data })
 
 describe('Embedded Signup popup messages', () => {
+  it('accepts messages only from the configured popup origins (Meta by default)', () => {
+    expect(parseSignupMessage('https://evil.example', finish('FINISH'))).toBeNull()
+    expect(parseSignupMessage('http://localhost:9100', finish('FINISH'))).toBeNull()
+    expect(parseSignupMessage('http://localhost:9100', finish('FINISH'), ['http://localhost:9100'])).toMatchObject({ kind: 'finish' })
+  })
   it('reads the account and number ids when the flow finishes', () => {
     expect(parseSignupMessage(FB, JSON.stringify(finish('FINISH')))).toEqual({ kind: 'finish', value: { waba_id: 'w1', phone_number_id: 'p1', coexistence: false } })
   })

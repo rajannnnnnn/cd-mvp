@@ -54,6 +54,8 @@ services:
       # public values the sign-up button needs (the secret stays with the gateway)
       META_APP_ID: ${META_APP_ID:-}
       META_CONFIG_ID: ${META_CONFIG_ID:-}
+      META_SDK_URL: ${META_SDK_URL:-https://connect.facebook.net/en_US/sdk.js}
+      META_SIGNUP_ORIGINS: ${META_SIGNUP_ORIGINS:-https://www.facebook.com,https://web.facebook.com}
       META_GRAPH_VERSION: ${META_GRAPH_VERSION:?set META_GRAPH_VERSION in deploy/web/.env}
     expose: ["8000"]
 

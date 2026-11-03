@@ -59,5 +59,6 @@ async def metrics(rt: RT) -> Response:
 async def public_config(rt: RT) -> dict[str, Any]:
     return {"environment": rt.settings.env, "simulator_enabled": rt.settings.simulator_enabled, "otp_channel": rt.settings.otp_channel,
             "languages": ["en", "hi"], "version": __version__, "otp_accept_any": rt.settings.otp_accept_any, "payment_mode": rt.billing.provider.mode,
-            "embedded_signup": ({"app_id": rt.settings.meta_app_id, "config_id": rt.settings.meta_config_id, "graph_version": rt.settings.meta_graph_version}
+            "embedded_signup": ({"app_id": rt.settings.meta_app_id, "config_id": rt.settings.meta_config_id, "graph_version": rt.settings.meta_graph_version,
+                                 "sdk_url": rt.settings.meta_sdk_url, "popup_origins": [o.strip() for o in rt.settings.meta_signup_origins.split(",") if o.strip()]}
                                 if rt.settings.meta_app_id and rt.settings.meta_config_id else None)}

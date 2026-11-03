@@ -85,6 +85,8 @@ class Settings(BaseSettings):
     meta_verify_token: str = Field("", description="at least 8 characters. Receive and API")
     meta_app_id: str = ""                  # Embedded Signup: the Meta app id (public) and its configuration id
     meta_config_id: str = ""
+    meta_sdk_url: str = "https://connect.facebook.net/en_US/sdk.js"      # the browser script that opens Meta's sign-up popup; an address like META_GRAPH_BASE
+    meta_signup_origins: str = "https://www.facebook.com,https://web.facebook.com"   # origins the sign-up popup's messages are accepted from
     meta_graph_version: str = "v21.0"
     meta_graph_base: str = "https://graph.facebook.com"
 

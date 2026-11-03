@@ -2,13 +2,15 @@
  *  a window message, the WhatsApp Business Account and phone number ids. We hand all three to our backend, which finishes
  *  the sign-up with the app secret (never present in the browser). Written from Meta's documentation; it has not been run
  *  against a real Meta app yet (see docs/PROGRESS.md). */
-export interface SignupConfig { app_id: string; config_id: string; graph_version: string }
+export interface SignupConfig { app_id: string; config_id: string; graph_version: string; sdk_url?: string; popup_origins?: string[] }
+const META_SDK = 'https://connect.facebook.net/en_US/sdk.js'
+const META_ORIGINS = ['https://www.facebook.com', 'https://web.facebook.com']
 export interface SignupFinish { waba_id: string; phone_number_id: string; coexistence: boolean }
 export type SignupMessage = { kind: 'finish'; value: SignupFinish } | { kind: 'cancel' } | { kind: 'error'; message: string } | null
 
 /** Interprets one `message` event from Meta's popup. Anything that is not an Embedded Signup message yields null. */
-export function parseSignupMessage(origin: string, data: unknown): SignupMessage {
-  if (!/^https:\/\/(www|web)\.facebook\.com$/.test(origin)) return null
+export function parseSignupMessage(origin: string, data: unknown, allowed: string[] = META_ORIGINS): SignupMessage {
+  if (!allowed.includes(origin)) return null
   let msg: any = data
   if (typeof data === 'string') { try { msg = JSON.parse(data) } catch { return null } }
   if (!msg || msg.type !== 'WA_EMBEDDED_SIGNUP') return null
@@ -30,7 +32,7 @@ function loadSdk(cfg: SignupConfig): Promise<void> {
     const w = window as any
     w.fbAsyncInit = () => { w.FB.init({ appId: cfg.app_id, autoLogAppEvents: false, xfbml: false, version: cfg.graph_version }); resolve() }
     const s = document.createElement('script')
-    s.src = 'https://connect.facebook.net/en_US/sdk.js'; s.async = true; s.defer = true; s.crossOrigin = 'anonymous'
+    s.src = cfg.sdk_url || META_SDK; s.async = true; s.defer = true; s.crossOrigin = 'anonymous'
     s.onerror = () => { sdk = null; reject(new Error('Could not load WhatsApp sign-up. Check your connection and try again.')) }
     document.body.appendChild(s)
   })
@@ -45,7 +47,7 @@ export async function startEmbeddedSignup(cfg: SignupConfig): Promise<SignupFini
     let code: string | null = null
     const done = () => { if (finish && code) { cleanup(); resolve({ ...finish, code }) } }
     const onMessage = (e: MessageEvent) => {
-      const m = parseSignupMessage(e.origin, e.data)
+      const m = parseSignupMessage(e.origin, e.data, cfg.popup_origins?.length ? cfg.popup_origins : META_ORIGINS)
       if (!m) return
       if (m.kind === 'finish') { finish = m.value; done() }
       else if (m.kind === 'cancel') { cleanup(); reject(new Error('Sign-up was cancelled.')) }
