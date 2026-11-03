@@ -137,6 +137,16 @@ def test_no_two_parts_publish_the_same_host_port():
             seen[host] = sid
 
 
+@pytest.mark.parametrize("part", ["web", "gateway", "agent", "admin"])
+def test_every_setting_a_part_documents_actually_reaches_its_containers(part):
+    """The reverse of the test above. A compose file hands each container only the settings it lists, so a setting that is documented in .env.example
+    but missing from the file is silently ignored (the operator edits it and nothing changes). Optional lines (`# KEY=`) are exempt."""
+    text = (DEPLOY / part / "docker-compose.yml").read_text()
+    documented = set(re.findall(r"^([A-Z0-9_]+)=", (DEPLOY / part / ".env.example").read_text(), re.M))
+    unused = sorted(k for k in documented if "${" + k not in text)
+    assert not unused, f"{part}: documented in .env.example but never passed to a container: {unused}"
+
+
 def test_the_only_services_that_publish_a_port_are_the_ones_meant_to():
     published = {sid for sid, svc, _ in _services() if svc.get("ports")}
     assert published == {"web/site", "gateway/receive", "admin/site"}             # the website, Meta's webhook and the founder's console, nothing else
