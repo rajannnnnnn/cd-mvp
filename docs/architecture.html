@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ChatDeal Architecture</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* layout: four rows (exposed, outside services, our services, database); arrows run from the calling component to the called one */
+:root {
+  --bg:#EEF2F4; --panel:#FBFCFD; --ink:#16222C; --muted:#5F6F7E; --soft:#8B99A6; --line:#CBD5DD;
+  --accent:#0E6478; --frame:#F1F6F8; --ours:#F7FAFB; --card:#FFFFFF;
+  --ext:#6B7885; --ext-fill:#EDF0F3;
+  --mock:#C2410C; --mock-fill:#FFF3EA;
+  --callc:#3D5466; --s:#7A4FD6; --d:#A3AFBA; --spark:#7A4FD6; --wa:#1FA855; --bellc:#B7791F;
+  --sans:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg:#0D1318; --panel:#121A21; --ink:#E3EAF0; --muted:#97A6B3; --soft:#6E7D8A; --line:#2C3843;
+  --accent:#5FC0D6; --frame:#141F27; --ours:#111920; --card:#18232C;
+  --ext:#93A1AE; --ext-fill:#1B252E; --mock:#F49A5C; --mock-fill:#2C1D13;
+  --callc:#A9BCCB; --s:#AE92F2; --d:#5E6C79; --spark:#B79CFF; --wa:#3DD47C; --bellc:#E5B04A; color-scheme:dark; } }
+:root[data-theme="dark"] {
+  --bg:#0D1318; --panel:#121A21; --ink:#E3EAF0; --muted:#97A6B3; --soft:#6E7D8A; --line:#2C3843;
+  --accent:#5FC0D6; --frame:#141F27; --ours:#111920; --card:#18232C;
+  --ext:#93A1AE; --ext-fill:#1B252E; --mock:#F49A5C; --mock-fill:#2C1D13;
+  --callc:#A9BCCB; --s:#AE92F2; --d:#5E6C79; --spark:#B79CFF; --wa:#3DD47C; --bellc:#E5B04A; color-scheme:dark; }
+body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:15px; line-height:1.55;
+  padding-block:32px 64px; padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); }
+main { max-width:1600px; margin:0 auto; }
+header { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:6px 24px; margin-bottom:18px; }
+h1 { font-size:28px; font-weight:600; letter-spacing:-0.02em; margin:0; }
+.meta { font-family:var(--mono); font-size:12px; color:var(--muted); }
+h2 { font-size:13px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin:40px 0 12px; }
+.sub { color:var(--muted); margin:0 0 18px; max-width:92ch; font-size:14.5px; }
+code { font-family:var(--mono); font-size:0.86em; }
+.legend { display:flex; flex-wrap:wrap; gap:10px 24px; margin:0 0 14px; font-size:12.5px; color:var(--muted); align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px 16px; }
+.legend span { display:inline-flex; align-items:center; gap:8px; min-width:0; }
+.ln { width:26px; height:0; border-top:2px solid; flex:none; }
+.ln.dash { border-top-style:dashed; }
+.sw { width:22px; height:14px; border-radius:4px; border:1.2px solid; flex:none; }
+.sw.p { background:var(--card); border-color:var(--accent); }
+.sw.x { background:var(--ext-fill); border-color:var(--ext); }
+.sw.m { background:var(--mock-fill); border-color:var(--mock); border-style:dashed; }
+.pillsw { font-family:var(--mono); font-size:10px; border:1px solid var(--accent); border-radius:8px; padding:0 6px; color:var(--ink); background:var(--panel); }
+.legend svg { min-width:0; width:16px; height:16px; display:inline; }
+.scroll { overflow-x:auto; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:14px; }
+.scroll > svg { display:block; min-width:1500px; width:100%; height:auto; }
+svg text { fill:var(--ink); font-family:var(--sans); }
+.t { font-size:12px; fill:var(--muted); }
+.tn { font-family:var(--mono); font-size:10.5px; fill:var(--muted); }
+.h { font-size:14px; font-weight:600; }
+.mh { font-size:12.5px; font-weight:600; fill:var(--mock); }
+.mt { font-family:var(--mono); font-size:10.5px; fill:var(--mock); }
+.pe { font-family:var(--mono); font-size:11px; font-weight:600; fill:var(--accent); }
+.pn { font-family:var(--mono); font-size:11px; fill:var(--soft); }
+.cap { font-family:var(--mono); font-size:10.5px; letter-spacing:0.12em; fill:var(--soft); }
+.ph, .oursl { font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:0.14em; fill:var(--accent); }
+.pgh { font-size:16px; font-weight:600; }
+.gh { font-size:12.5px; font-weight:600; }
+.gn { font-family:var(--mono); font-size:12px; font-weight:600; fill:var(--accent); }
+.rn { font-family:var(--mono); font-size:12px; font-weight:600; fill:var(--accent); }
+.rw { font-size:12px; font-weight:500; }
+.pt { font-family:var(--mono); font-size:9.5px; fill:var(--muted); }
+.tbd { font-family:var(--mono); font-size:8px; fill:var(--soft); opacity:0.7; }
+.stag { fill:none; stroke:var(--soft); stroke-width:0.8; }
+.skey { fill:none; stroke:var(--soft); stroke-width:1.1; stroke-linecap:round; }
+.stt { font-family:var(--mono); font-size:8.5px; fill:var(--soft); }
+.stagsw { font-family:var(--mono); font-size:10px; font-weight:400; border:1px solid var(--soft); border-radius:8px; padding:0 6px; color:var(--soft); }
+.devt { font-family:var(--mono); font-size:10px; fill:var(--mock); }
+.bn { font-family:var(--mono); font-size:8.5px; font-weight:600; fill:var(--muted); }
+.f { stroke-width:1.35; stroke-linecap:round; stroke-linejoin:round; }
+.c { stroke:var(--callc); } .s { stroke:var(--s); } .d { stroke:var(--d); stroke-width:1.2; }
+.mk { stroke:var(--mock); stroke-dasharray:5 4; }
+.bdg { fill:var(--frame); stroke:var(--line); stroke-width:0.8; }
+.pill { fill:var(--panel); stroke:var(--accent); stroke-width:0.9; }
+.pilldb { fill:var(--panel); stroke:var(--d); stroke-width:0.9; }
+.ic { fill:none; stroke:var(--soft); stroke-width:1.3; stroke-linecap:round; stroke-linejoin:round; }
+.ics { fill:none; stroke:var(--s); stroke-width:1.3; stroke-linecap:round; stroke-linejoin:round; }
+.icb { fill:none; stroke:var(--bellc); stroke-width:1.3; stroke-linecap:round; stroke-linejoin:round; }
+.ige { fill:none; stroke:var(--accent); stroke-width:1.3; }
+.ign { fill:none; stroke:var(--soft); stroke-width:1.2; }
+.icbig { fill:none; stroke:var(--accent); stroke-width:1.6; }
+.spk { fill:var(--spark); }
+.wa { fill:var(--wa); } .wat { fill:none; stroke:#fff; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.mdl { fill:none; stroke:var(--spark); stroke-width:1.6; } .mdl2 { fill:var(--spark); } .mdlp { stroke:var(--spark); stroke-width:1.4; stroke-linecap:round; }
+.ext { fill:var(--ext-fill); stroke:var(--ext); stroke-width:1; stroke-opacity:0.6; filter:drop-shadow(0 1px 1.5px rgba(16,34,44,0.06)); }
+.mockcard { fill:var(--mock-fill); stroke:var(--mock); stroke-width:1.1; stroke-dasharray:5 4; }
+.ours { fill:var(--ours); stroke:var(--accent); stroke-width:1.4; stroke-opacity:0.55; }
+rect.part { fill:var(--frame); stroke:var(--accent); stroke-width:1; stroke-opacity:0.22; }
+.comp { fill:var(--card); stroke:var(--line); stroke-width:1; filter:drop-shadow(0 1px 1.5px rgba(16,34,44,0.07)); }
+.sched { fill:var(--card); stroke:var(--s); stroke-width:1.1; stroke-opacity:0.7; filter:drop-shadow(0 1px 1.5px rgba(16,34,44,0.07)); }
+.pg { fill:var(--ours); stroke:var(--accent); stroke-width:1.3; }
+.role { fill:var(--card); stroke:var(--line); stroke-width:1; }
+.grp { fill:var(--card); stroke:var(--line); stroke-width:1; }
+.dev { fill:var(--mock-fill); stroke:var(--mock); stroke-width:1; stroke-dasharray:4 3; }
+.halo { stroke:var(--ours); stroke-width:7; }
+.table-wrap { overflow-x:auto; border:1px solid var(--line); border-radius:14px; background:var(--panel); }
+table { border-collapse:collapse; width:100%; min-width:880px; font-size:13.5px; }
+th, td { text-align:left; padding:8px 14px; border-bottom:1px solid var(--line); vertical-align:top; }
+th { font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); font-weight:500; }
+td:first-child { width:70px; }
+tr:last-child td { border-bottom:0; }
+.nb { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:10px; border:1.5px solid; font-family:var(--mono); font-size:10px; font-weight:600; }
+.nb.c { border-color:var(--callc); } .nb.s { border-color:var(--s); }
+.sev { font-family:var(--mono); font-size:11px; font-weight:600; padding:1px 8px; border-radius:8px; border:1px solid var(--line); }
+.sev.critical { color:#B42318; border-color:#B42318; } .sev.high { color:#B54708; border-color:#B54708; }
+.sev.outside { color:var(--accent); border-color:var(--accent); }
+.sev.medium { color:var(--muted); } .sev.low { color:var(--soft); }
+.notes { max-width:92ch; color:var(--muted); font-size:14px; padding-left:20px; }
+.notes li { margin:0 0 6px; }
+</style>
+<main>
+<header>
+  <h1>ChatDeal architecture</h1>
+  <span class="meta">chatdeal-mvp-launch-ready, 014e748, 2026-11-08</span>
+</header>
+<p class="sub">Top to bottom: who is exposed to us, outside services we do not manage, our services, the database. Each arrow runs from the component that makes the call to the one it calls. A mock sits behind the real thing it replaces and uses the same numbered line. Our components hand work to each other through a queue, never by calling each other directly; the database only answers.</p>
+<div class="legend">
+  <span><i class="ln" style="border-color:var(--callc)"></i>Calls</span>
+  <span><i class="ln" style="border-color:var(--s)"></i>A scheduler fires it</span>
+  <span><i class="ln" style="border-color:var(--d)"></i>Calls the database</span>
+  <span><i class="ln dash" style="border-color:var(--mock)"></i>Mock and QA path</span>
+  <span><b class="pillsw">queue</b>Through the event queue</span>
+  <span><b class="pillsw" style="border-color:var(--d)">db</b>Through rows another part reads later</span>
+  <span><svg viewBox="0 0 16 16"><g class="ige"><circle cx="6" cy="6" r="5"/><path d="M1 6 H11 M6 1 a3 5 0 0 1 0 10 a3 5 0 0 1 0 -10"/></g></svg>Reachable from outside</span>
+  <span><svg viewBox="0 0 16 16"><g class="ign"><rect x="1.5" y="5" width="9" height="7" rx="1.5"/><path d="M3.5 5 V3.5 a2.5 2.5 0 0 1 5 0 V5"/></g></svg>Inside only</span>
+  <span><svg viewBox="0 0 16 16"><g class="icb"><path d="M4 12 V7 a4 4 0 0 1 8 0 V12 Z M2.5 12 H13.5 M6.5 14.5 H9.5"/></g></svg>Can raise a founder alert</span>
+  <span><b class="stagsw">setup</b>Needs accounts, keys or approval</span>
+  <span><i class="sw p"></i>Ours</span>
+  <span><i class="sw x"></i>Outside, not ours</span>
+  <span><i class="sw m"></i>Mock, QA and development only</span>
+</div>
+<div class="scroll">
+<svg viewBox="0 0 1900 1100" role="img" aria-labelledby="t1 d1">
+<title id="t1">ChatDeal architecture</title>
+<desc id="d1">Exposed people and the alerts inbox at the top; Meta and the model host with their mocks behind them; our gateway, agent, web and admin components with arrows between the exact components; PostgreSQL with its logins and table groups at the bottom.</desc>
+<defs><marker id="ar" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1.5L8 5L2 8.5" fill="none" stroke="context-stroke" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect class="mockcard" x="40" y="60" width="180" height="70" rx="10"/>
+<text class="mt" x="134" y="121" text-anchor="start">QA, port 9100</text>
+<rect class="ext" x="40" y="30" width="180" height="70" rx="10"/>
+<text class="h" x="54" y="55" text-anchor="start">Customer</text>
+<text class="t" x="54" y="73" text-anchor="start">on WhatsApp</text>
+<g class="ic"><rect x="194" y="42" width="9" height="16" rx="2"/><line x1="197" y1="55" x2="200" y2="55"/></g>
+<rect class="mockcard" x="1110" y="60" width="180" height="70" rx="10"/>
+<text class="mt" x="1166" y="121" text-anchor="start">QA, any OTP</text>
+<rect class="ext" x="1110" y="30" width="180" height="70" rx="10"/>
+<text class="h" x="1124" y="55" text-anchor="start">Shop owner</text>
+<text class="t" x="1124" y="73" text-anchor="start">browser</text>
+<g class="ic"><path d="M1261 48 L1263 43 H1273 L1275 48 Z"/><path d="M1262 48 V57 H1274 V48"/><rect x="1266" y="52" width="4" height="5"/></g>
+<rect class="ext" x="1700" y="30" width="160" height="70" rx="10"/>
+<text class="h" x="1714" y="55" text-anchor="start">Founder</text>
+<text class="t" x="1714" y="73" text-anchor="start">console; alert email</text>
+<g class="ic"><circle cx="1838" cy="47" r="3.5"/><path d="M1831 57 a7 6 0 0 1 14 0"/></g>
+<text class="cap" x="560" y="74" text-anchor="start">EXPOSED: who reaches us, and who we reach</text>
+<rect class="mockcard" x="60" y="190" width="340" height="80" rx="10"/>
+<text class="mt" x="140" y="261" text-anchor="start">Mock Meta, port 9100</text>
+<rect class="ext" x="60" y="160" width="340" height="80" rx="10"/>
+<text class="h" x="74" y="185" text-anchor="start">Meta Cloud API</text>
+<text class="t" x="74" y="203" text-anchor="start">WhatsApp, webhooks,</text>
+<text class="t" x="74" y="218" text-anchor="start">Graph API, sign-up popup</text>
+<path class="wa" d="M374 173 a11 10 0 1 1 -6.5 18.5 L363 194 L365 188.5 A11 10 0 0 1 374 173 Z"/><path class="wat" d="M369 183.5 L372.5 187 L379 180"/>
+<rect class="mockcard" x="640" y="190" width="260" height="80" rx="10"/>
+<text class="mt" x="706" y="261" text-anchor="start">Local model, bridge 9200</text>
+<rect class="ext" x="640" y="160" width="260" height="80" rx="10"/>
+<text class="h" x="654" y="185" text-anchor="start">Model host (LLM)</text>
+<text class="t" x="654" y="203" text-anchor="start">Groq gpt-oss-20b</text>
+<rect class="mdl" x="865" y="175" width="18" height="18" rx="4"/><path class="mdl2" d="M874 179 C874.5 182.5 875.5 183.5 879 184 C875.5 184.5 874.5 185.5 874 189 C873.5 185.5 872.5 184.5 869 184 C872.5 183.5 873.5 182.5 874 179 Z"/><path class="mdlp" d="M870 175 V172 M878 175 V172 M870 193 V196 M878 193 V196 M865 180 H862 M865 188 H862 M883 180 H886 M883 188 H886"/>
+<text class="cap" x="940" y="230" text-anchor="start">OUTSIDE SERVICES WE DO NOT MANAGE</text>
+<rect class="ext" x="1440" y="160" width="200" height="80" rx="10"/>
+<text class="h" x="1454" y="185" text-anchor="start">Mail service</text>
+<text class="t" x="1454" y="203" text-anchor="start">SMTP, any provider</text>
+<g class="ic"><rect x="1610" y="174" width="16" height="12" rx="2"/><path d="M1610 175 L1618 181 L1626 175"/></g>
+<rect class="ours" x="8" y="306" width="1884" height="394" rx="18"/>
+<text class="oursl" x="720" y="326" text-anchor="start">OUR SERVICES</text>
+<rect class="part" x="20" y="340" width="480" height="340" rx="14"/>
+<text class="ph" x="34" y="360" text-anchor="start">GATEWAY</text>
+<rect class="part" x="580" y="340" width="430" height="340" rx="14"/>
+<text class="ph" x="594" y="360" text-anchor="start">AGENT</text>
+<rect class="part" x="1090" y="340" width="430" height="340" rx="14"/>
+<text class="ph" x="1104" y="360" text-anchor="start">WEB</text>
+<rect class="part" x="1600" y="340" width="280" height="340" rx="14"/>
+<text class="ph" x="1614" y="360" text-anchor="start">ADMIN</text>
+<rect class="comp" x="35" y="380" width="210" height="100" rx="10"/>
+<text class="h" x="47" y="402" text-anchor="start">receive</text>
+<text class="pe" x="47" y="419" text-anchor="start">port 8001</text>
+<g class="ige"><circle cx="123.8" cy="415" r="5"/><path d="M118.8 415 H128.8 M123.8 410 a3 5 0 0 1 0 10 a3 5 0 0 1 0 -10"/></g>
+<text class="t" x="47" y="438" text-anchor="start">checks the signature,</text>
+<text class="t" x="47" y="452" text-anchor="start">stores the raw request</text>
+<g class="ic"><path d="M218 399 L220 392 H230 L232 399 V405 H218 Z M218 399 H222 L223.5 401 H226.5 L228 399 H232"/></g>
+<rect class="mockcard" x="265" y="406" width="220" height="102" rx="10"/>
+<text class="mt" x="352" y="500" text-anchor="start">In-process simulator</text>
+<rect class="comp" x="265" y="380" width="220" height="100" rx="10"/>
+<text class="h" x="277" y="402" text-anchor="start">send</text>
+<text class="pn" x="277" y="419" text-anchor="start">port 8000</text>
+<g class="ign"><rect x="349.3" y="414" width="9" height="7" rx="1.5"/><path d="M351.3 414 V412.5 a2.5 2.5 0 0 1 5 0 V414"/></g>
+<text class="t" x="277" y="438" text-anchor="start">replies, codes, owner alerts;</text>
+<text class="t" x="277" y="452" text-anchor="start">24 h window, rate limit</text>
+<g class="ic"><path d="M458 397 L472 391 L467 405 L464.5 399 Z M464.5 399 L472 391"/></g>
+<g class="icb"><path d="M463 468 V463 a4 4 0 0 1 8 0 V468 Z M461.5 468 H472.5 M465.5 470.5 H468.5"/></g>
+<rect class="sched" x="35" y="540" width="210" height="120" rx="10"/>
+<text class="h" x="47" y="562" text-anchor="start">scheduler</text>
+<text class="pn" x="47" y="579" text-anchor="start">port 8000</text>
+<g class="ign"><rect x="119.3" y="574" width="9" height="7" rx="1.5"/><path d="M121.3 574 V572.5 a2.5 2.5 0 0 1 5 0 V574"/></g>
+<text class="t" x="47" y="598" text-anchor="start">relays events, keeps</text>
+<text class="t" x="47" y="612" text-anchor="start">the raw log, retention</text>
+<g class="ics"><circle cx="225" cy="558" r="7"/><path d="M225 554 V558 L228 560"/></g>
+<g class="icb"><path d="M223 648 V643 a4 4 0 0 1 8 0 V648 Z M221.5 648 H232.5 M225.5 650.5 H228.5"/></g>
+<rect class="comp" x="265" y="540" width="220" height="120" rx="10"/>
+<text class="h" x="277" y="562" text-anchor="start">inbound</text>
+<text class="pn" x="277" y="579" text-anchor="start">port 8000</text>
+<g class="ign"><rect x="349.3" y="574" width="9" height="7" rx="1.5"/><path d="M351.3 574 V572.5 a2.5 2.5 0 0 1 5 0 V574"/></g>
+<text class="t" x="277" y="598" text-anchor="start">reads Meta's payload,</text>
+<text class="t" x="277" y="612" text-anchor="start">finds the shop</text>
+<g class="ic"><path d="M458 552 H472 L467 558 V564 L463 562 V558 Z"/></g>
+<g class="icb"><path d="M463 648 V643 a4 4 0 0 1 8 0 V648 Z M461.5 648 H472.5 M465.5 650.5 H468.5"/></g>
+<rect class="comp" x="598" y="490" width="180" height="160" rx="10"/>
+<text class="h" x="610" y="512" text-anchor="start">worker</text>
+<text class="pn" x="610" y="529" text-anchor="start">port 8000</text>
+<g class="ign"><rect x="682.3" y="524" width="9" height="7" rx="1.5"/><path d="M684.3 524 V522.5 a2.5 2.5 0 0 1 5 0 V524"/></g>
+<text class="t" x="610" y="548" text-anchor="start">plan, price, write,</text>
+<text class="t" x="610" y="562" text-anchor="start">check, reply;</text>
+<text class="t" x="610" y="576" text-anchor="start">owner loop, timers</text>
+<path class="spk" d="M754 499 C755 507 758 510 766 511 C758 512 755 515 754 523 C753 515 750 512 742 511 C750 510 753 507 754 499 Z"/><circle class="spk" cx="763" cy="502" r="2.2"/>
+<g class="icb"><path d="M756 638 V633 a4 4 0 0 1 8 0 V638 Z M754.5 638 H765.5 M758.5 640.5 H761.5"/></g>
+<rect class="sched" x="840" y="540" width="160" height="80" rx="10"/>
+<text class="h" x="852" y="562" text-anchor="start">scheduler</text>
+<text class="pn" x="852" y="579" text-anchor="start">port 8000</text>
+<g class="ign"><rect x="924.3" y="574" width="9" height="7" rx="1.5"/><path d="M926.3 574 V572.5 a2.5 2.5 0 0 1 5 0 V574"/></g>
+<text class="t" x="852" y="598" text-anchor="start">fires due timers</text>
+<g class="ics"><circle cx="980" cy="558" r="7"/><path d="M980 554 V558 L983 560"/></g>
+<g class="icb"><path d="M978 608 V603 a4 4 0 0 1 8 0 V608 Z M976.5 608 H987.5 M980.5 610.5 H983.5"/></g>
+<rect class="comp" x="1110" y="380" width="160" height="100" rx="10"/>
+<text class="h" x="1122" y="402" text-anchor="start">frontend</text>
+<text class="pe" x="1122" y="419" text-anchor="start">port 8080</text>
+<g class="ige"><circle cx="1198.8" cy="415" r="5"/><path d="M1193.8 415 H1203.8 M1198.8 410 a3 5 0 0 1 0 10 a3 5 0 0 1 0 -10"/></g>
+<text class="t" x="1122" y="438" text-anchor="start">owner app</text>
+<text class="t" x="1122" y="452" text-anchor="start">and pages</text>
+<g class="ic"><rect x="1242" y="391" width="16" height="13" rx="2"/><line x1="1242" y1="395" x2="1258" y2="395"/></g>
+<rect class="comp" x="1110" y="540" width="200" height="120" rx="10"/>
+<text class="h" x="1122" y="562" text-anchor="start">backend (api)</text>
+<text class="pn" x="1122" y="579" text-anchor="start">port 8000</text>
+<g class="ign"><rect x="1194.3" y="574" width="9" height="7" rx="1.5"/><path d="M1196.3 574 V572.5 a2.5 2.5 0 0 1 5 0 V574"/></g>
+<text class="t" x="1122" y="598" text-anchor="start">sign-in, billing,</text>
+<text class="t" x="1122" y="612" text-anchor="start">catalogue, replies</text>
+<g class="ic"><rect x="1282" y="551" width="16" height="6" rx="1.5"/><rect x="1282" y="559" width="16" height="6" rx="1.5"/><circle cx="1286" cy="554" r="0.9"/><circle cx="1286" cy="562" r="0.9"/></g>
+<g class="icb"><path d="M1288 648 V643 a4 4 0 0 1 8 0 V648 Z M1286.5 648 H1297.5 M1290.5 650.5 H1293.5"/></g>
+<rect class="dev" x="1122" y="620" width="88" height="18" rx="4"/>
+<text class="devt" x="1129" y="632.5" text-anchor="start">dev: any OTP</text>
+<rect class="dev" x="1214" y="620" width="88" height="18" rx="4"/>
+<text class="devt" x="1221" y="632.5" text-anchor="start">dev: test pay</text>
+<rect class="dev" x="1122" y="640" width="100" height="18" rx="4"/>
+<text class="devt" x="1129" y="652.5" text-anchor="start">dev: /sim chat</text>
+<rect class="sched" x="1360" y="540" width="150" height="120" rx="10"/>
+<text class="h" x="1372" y="562" text-anchor="start">scheduler</text>
+<text class="pn" x="1372" y="579" text-anchor="start">port 8000</text>
+<g class="ign"><rect x="1444.3" y="574" width="9" height="7" rx="1.5"/><path d="M1446.3 574 V572.5 a2.5 2.5 0 0 1 5 0 V574"/></g>
+<text class="t" x="1372" y="598" text-anchor="start">billing, trials,</text>
+<text class="t" x="1372" y="612" text-anchor="start">deletions, alerts</text>
+<g class="ics"><circle cx="1490" cy="558" r="7"/><path d="M1490 554 V558 L1493 560"/></g>
+<g class="icb"><path d="M1488 648 V643 a4 4 0 0 1 8 0 V648 Z M1486.5 648 H1497.5 M1490.5 650.5 H1493.5"/></g>
+<rect class="comp" x="1620" y="380" width="240" height="100" rx="10"/>
+<text class="h" x="1632" y="402" text-anchor="start">frontend</text>
+<text class="pe" x="1632" y="419" text-anchor="start">port 8082</text>
+<g class="ige"><circle cx="1708.8" cy="415" r="5"/><path d="M1703.8 415 H1713.8 M1708.8 410 a3 5 0 0 1 0 10 a3 5 0 0 1 0 -10"/></g>
+<text class="t" x="1632" y="438" text-anchor="start">founder console</text>
+<g class="ic"><rect x="1832" y="391" width="16" height="13" rx="2"/><line x1="1832" y1="395" x2="1848" y2="395"/></g>
+<rect class="comp" x="1620" y="540" width="240" height="120" rx="10"/>
+<text class="h" x="1632" y="562" text-anchor="start">backend (api)</text>
+<text class="pn" x="1632" y="579" text-anchor="start">port 8000</text>
+<g class="ign"><rect x="1704.3" y="574" width="9" height="7" rx="1.5"/><path d="M1706.3 574 V572.5 a2.5 2.5 0 0 1 5 0 V574"/></g>
+<text class="t" x="1632" y="598" text-anchor="start">boards, agent audit,</text>
+<text class="t" x="1632" y="612" text-anchor="start">read a chat, confirm payments</text>
+<g class="ic"><rect x="1832" y="551" width="16" height="6" rx="1.5"/><rect x="1832" y="559" width="16" height="6" rx="1.5"/><circle cx="1836" cy="554" r="0.9"/><circle cx="1836" cy="562" r="0.9"/></g>
+<line class="f c" x1="110" y1="100" x2="110" y2="158" marker-end="url(#ar)"/>
+<circle class="bdg" cx="110" cy="128" r="7"/>
+<text class="bn" x="110" y="131" text-anchor="middle">1</text>
+<line class="f mk" x1="126" y1="130" x2="126" y2="158" marker-end="url(#ar)"/>
+<path class="f c" fill="none" d="M1140 100 V145 H360 V158" marker-end="url(#ar)"/>
+<circle class="bdg" cx="760" cy="145" r="7"/>
+<text class="bn" x="760" y="148" text-anchor="middle">16</text>
+<path class="f mk" fill="none" d="M1156 130 V151 H376 V158" marker-end="url(#ar)"/>
+<line class="f c" x1="110" y1="240" x2="110" y2="378" marker-end="url(#ar)"/>
+<circle class="bdg" cx="110" cy="330" r="7"/>
+<text class="bn" x="110" y="333" text-anchor="middle">2</text>
+<line class="f mk" x1="126" y1="270" x2="126" y2="378" marker-end="url(#ar)"/>
+<line class="f c" x1="330" y1="378" x2="330" y2="242" marker-end="url(#ar)"/>
+<circle class="bdg" cx="330" cy="340" r="7"/>
+<text class="bn" x="330" y="343" text-anchor="middle">3</text>
+<line class="f mk" x1="346" y1="378" x2="346" y2="272" marker-end="url(#ar)"/>
+<path class="f c" fill="none" d="M140 480 V510 H375 V538" marker-end="url(#ar)"/>
+<circle class="bdg" cx="160" cy="510" r="7"/>
+<text class="bn" x="160" y="513" text-anchor="middle">7</text>
+<rect class="pill" x="180.0" y="502" width="40" height="16" rx="8"/>
+<text class="pt" x="200" y="513.5" text-anchor="middle">queue</text>
+<line class="f s" x1="200" y1="538" x2="200" y2="520" marker-end="url(#ar)"/>
+<circle class="bdg" cx="186" cy="530" r="7"/>
+<text class="bn" x="186" y="533" text-anchor="middle">20</text>
+<line class="f c" x1="485" y1="610" x2="596" y2="610" marker-end="url(#ar)"/>
+<circle class="bdg" cx="497" cy="600" r="7"/>
+<text class="bn" x="497" y="603" text-anchor="middle">8</text>
+<rect class="pill" x="520.0" y="602" width="40" height="16" rx="8"/>
+<text class="pt" x="540" y="613.5" text-anchor="middle">queue</text>
+<path class="f c" fill="none" d="M598 520 H540 V450 H487" marker-end="url(#ar)"/>
+<circle class="bdg" cx="586" cy="510" r="7"/>
+<text class="bn" x="586" y="513" text-anchor="middle">9</text>
+<rect class="pill" x="520.0" y="477" width="40" height="16" rx="8"/>
+<text class="pt" x="540" y="488.5" text-anchor="middle">queue</text>
+<path class="f c" fill="none" d="M1110 570 H1050 V410 H487" marker-end="url(#ar)"/>
+<circle class="bdg" cx="1098" cy="560" r="7"/>
+<text class="bn" x="1098" y="563" text-anchor="middle">10</text>
+<rect class="pill" x="920.0" y="402" width="40" height="16" rx="8"/>
+<text class="pt" x="940" y="413.5" text-anchor="middle">queue</text>
+<line class="f c" x1="1110" y1="640" x2="780" y2="640" marker-end="url(#ar)"/>
+<circle class="bdg" cx="1098" cy="630" r="7"/>
+<text class="bn" x="1098" y="633" text-anchor="middle">11</text>
+<rect class="pill" x="1030.0" y="632" width="40" height="16" rx="8"/>
+<text class="pt" x="1050" y="643.5" text-anchor="middle">queue</text>
+<line class="f c" x1="780" y1="555" x2="838" y2="555" marker-end="url(#ar)"/>
+<circle class="bdg" cx="792" cy="545" r="7"/>
+<text class="bn" x="792" y="548" text-anchor="middle">21</text>
+<rect class="pilldb" x="797.0" y="547" width="26" height="16" rx="8"/>
+<text class="pt" x="810" y="558.5" text-anchor="middle">db</text>
+<line class="f s" x1="838" y1="595" x2="780" y2="595" marker-end="url(#ar)"/>
+<circle class="bdg" cx="810" cy="615" r="7"/>
+<text class="bn" x="810" y="618" text-anchor="middle">13</text>
+<rect class="pill" x="790.0" y="587" width="40" height="16" rx="8"/>
+<text class="pt" x="810" y="598.5" text-anchor="middle">queue</text>
+<line class="f c" x1="1310" y1="580" x2="1358" y2="580" marker-end="url(#ar)"/>
+<circle class="bdg" cx="1334" cy="562" r="7"/>
+<text class="bn" x="1334" y="565" text-anchor="middle">22</text>
+<rect class="pilldb" x="1321.0" y="572" width="26" height="16" rx="8"/>
+<text class="pt" x="1334" y="583.5" text-anchor="middle">db</text>
+<path class="f s" fill="none" d="M1435 660 V670 H690 V652" marker-end="url(#ar)"/>
+<circle class="bdg" cx="1300" cy="670" r="7"/>
+<text class="bn" x="1300" y="673" text-anchor="middle">23</text>
+<line class="halo" x1="680" y1="402" x2="680" y2="418"/>
+<line class="halo" x1="696" y1="402" x2="696" y2="418"/>
+<line class="f c" x1="680" y1="488" x2="680" y2="242" marker-end="url(#ar)"/>
+<circle class="bdg" cx="680" cy="340" r="7"/>
+<text class="bn" x="680" y="343" text-anchor="middle">12</text>
+<line class="f mk" x1="696" y1="488" x2="696" y2="272" marker-end="url(#ar)"/>
+<line class="f c" x1="1250" y1="100" x2="1250" y2="378" marker-end="url(#ar)"/>
+<circle class="bdg" cx="1250" cy="330" r="7"/>
+<text class="bn" x="1250" y="333" text-anchor="middle">14</text>
+<line class="f mk" x1="1266" y1="130" x2="1266" y2="378" marker-end="url(#ar)"/>
+<line class="f c" x1="1190" y1="480" x2="1190" y2="538" marker-end="url(#ar)"/>
+<circle class="bdg" cx="1202" cy="510" r="7"/>
+<text class="bn" x="1202" y="513" text-anchor="middle">15</text>
+<line class="f s" x1="1490" y1="538" x2="1490" y2="242" marker-end="url(#ar)"/>
+<circle class="bdg" cx="1490" cy="330" r="7"/>
+<text class="bn" x="1490" y="333" text-anchor="middle">19</text>
+<path class="f c" fill="none" d="M1640 200 H1730 V102" marker-end="url(#ar)"/>
+<path class="f c" fill="none" d="M1440 200 H1320 V70 H1292" marker-end="url(#ar)"/>
+<text class="tbd" x="1326" y="122" text-anchor="start">tbd</text>
+<rect class="stag" x="344" y="220" width="46" height="14" rx="7"/>
+<g class="skey"><circle cx="352" cy="227" r="2.6"/><path d="M354.5 227 H359 M357.5 227 V229.5"/></g>
+<text class="stt" x="362" y="230.2" text-anchor="start">setup</text>
+<rect class="stag" x="844" y="220" width="46" height="14" rx="7"/>
+<g class="skey"><circle cx="852" cy="227" r="2.6"/><path d="M854.5 227 H859 M857.5 227 V229.5"/></g>
+<text class="stt" x="862" y="230.2" text-anchor="start">setup</text>
+<rect class="stag" x="1584" y="220" width="46" height="14" rx="7"/>
+<g class="skey"><circle cx="1592" cy="227" r="2.6"/><path d="M1594.5 227 H1599 M1597.5 227 V229.5"/></g>
+<text class="stt" x="1602" y="230.2" text-anchor="start">setup</text>
+<rect class="stag" x="100" y="390" width="46" height="14" rx="7"/>
+<g class="skey"><circle cx="108" cy="397" r="2.6"/><path d="M110.5 397 H115 M113.5 397 V399.5"/></g>
+<text class="stt" x="118" y="400.2" text-anchor="start">setup</text>
+<rect class="stag" x="320" y="390" width="46" height="14" rx="7"/>
+<g class="skey"><circle cx="328" cy="397" r="2.6"/><path d="M330.5 397 H335 M333.5 397 V399.5"/></g>
+<text class="stt" x="338" y="400.2" text-anchor="start">setup</text>
+<rect class="stag" x="1228" y="550" width="46" height="14" rx="7"/>
+<g class="skey"><circle cx="1236" cy="557" r="2.6"/><path d="M1238.5 557 H1243 M1241.5 557 V559.5"/></g>
+<text class="stt" x="1246" y="560.2" text-anchor="start">setup</text>
+<rect class="stag" x="930" y="126" width="46" height="14" rx="7"/>
+<g class="skey"><circle cx="938" cy="133" r="2.6"/><path d="M940.5 133 H945 M943.5 133 V135.5"/></g>
+<text class="stt" x="948" y="136.2" text-anchor="start">setup</text>
+<line class="f c" x1="1780" y1="100" x2="1780" y2="378" marker-end="url(#ar)"/>
+<circle class="bdg" cx="1780" cy="330" r="7"/>
+<text class="bn" x="1780" y="333" text-anchor="middle">17</text>
+<line class="f c" x1="1780" y1="480" x2="1780" y2="538" marker-end="url(#ar)"/>
+<circle class="bdg" cx="1792" cy="510" r="7"/>
+<text class="bn" x="1792" y="513" text-anchor="middle">18</text>
+<line class="f d" x1="260" y1="682" x2="260" y2="742" marker-end="url(#ar)"/>
+<line class="f d" x1="795" y1="682" x2="795" y2="742" marker-end="url(#ar)"/>
+<line class="f d" x1="1305" y1="682" x2="1305" y2="742" marker-end="url(#ar)"/>
+<line class="f d" x1="1740" y1="682" x2="1740" y2="742" marker-end="url(#ar)"/>
+<rect class="pg" x="20" y="744" width="1860" height="340" rx="14"/>
+<g class="icbig"><ellipse cx="50" cy="766" rx="9" ry="3.5"/><path d="M41 766 V779 a9 3.5 0 0 0 18 0 V766"/><path d="M41 772.5 a9 3.5 0 0 0 18 0"/></g>
+<text class="pgh" x="72" y="778" text-anchor="start">PostgreSQL 16</text>
+<text class="t" x="196" y="778" text-anchor="start">50 tables in 8 groups, each table in one group only; 5 logins</text>
+<text class="t" x="1860" y="778" text-anchor="end">external in production; it only answers calls</text>
+<text class="cap" x="40" y="810" text-anchor="start">LOGINS (ROLES)</text>
+<rect class="role" x="40" y="818" width="480" height="40" rx="8"/>
+<text class="rn" x="54" y="836" text-anchor="start">app_user</text>
+<text class="rw" x="172" y="836" text-anchor="start">every service</text>
+<text class="t" x="54" y="851" text-anchor="start">shop data, row security per shop</text>
+<rect class="role" x="40" y="864" width="480" height="40" rx="8"/>
+<text class="rn" x="54" y="882" text-anchor="start">app_system</text>
+<text class="rw" x="172" y="882" text-anchor="start">every service</text>
+<text class="t" x="54" y="897" text-anchor="start">platform work, bypasses row security</text>
+<rect class="role" x="40" y="910" width="480" height="40" rx="8"/>
+<text class="rn" x="54" y="928" text-anchor="start">app_pricing</text>
+<text class="rw" x="172" y="928" text-anchor="start">agent worker only</text>
+<text class="t" x="54" y="943" text-anchor="start">the only login that reads price_floors</text>
+<rect class="role" x="40" y="956" width="480" height="40" rx="8"/>
+<text class="rn" x="54" y="974" text-anchor="start">app_console</text>
+<text class="rw" x="172" y="974" text-anchor="start">admin backend only</text>
+<text class="t" x="54" y="989" text-anchor="start">console sign-in, sessions, grants</text>
+<rect class="role" x="40" y="1002" width="480" height="40" rx="8"/>
+<text class="rn" x="54" y="1020" text-anchor="start">app_owner</text>
+<text class="rw" x="172" y="1020" text-anchor="start">the migrate job only</text>
+<text class="t" x="54" y="1035" text-anchor="start">owns the schema</text>
+<rect class="grp" x="560" y="796" width="322" height="136" rx="10"/>
+<text class="gh" x="572" y="816" text-anchor="start">Shops and people</text>
+<text class="gn" x="870" y="816" text-anchor="end">8</text>
+<text class="tn" x="572" y="836" text-anchor="start">businesses, business_users, accounts,</text>
+<text class="tn" x="572" y="850" text-anchor="start">business_keys, whatsapp_numbers, customers,</text>
+<text class="tn" x="572" y="864" text-anchor="start">style_examples, deletion_requests</text>
+<rect class="grp" x="890" y="796" width="322" height="136" rx="10"/>
+<text class="gh" x="902" y="816" text-anchor="start">Catalogue and pricing</text>
+<text class="gn" x="1200" y="816" text-anchor="end">6</text>
+<text class="tn" x="902" y="836" text-anchor="start">products, product_variants, offers,</text>
+<text class="tn" x="902" y="850" text-anchor="start">pricing_policies, price_floors, negotiations</text>
+<rect class="grp" x="1220" y="796" width="322" height="136" rx="10"/>
+<text class="gh" x="1232" y="816" text-anchor="start">Conversations and AI</text>
+<text class="gn" x="1530" y="816" text-anchor="end">12</text>
+<text class="tn" x="1232" y="836" text-anchor="start">conversations, messages, channel_events,</text>
+<text class="tn" x="1232" y="850" text-anchor="start">turns, agent_runs, agent_timers, handoffs,</text>
+<text class="tn" x="1232" y="864" text-anchor="start">knowledge_gaps, deals, owner_messages,</text>
+<text class="tn" x="1232" y="878" text-anchor="start">learning_observations, config_proposals</text>
+<rect class="grp" x="1550" y="796" width="322" height="136" rx="10"/>
+<text class="gh" x="1562" y="816" text-anchor="start">Plumbing and health</text>
+<text class="gn" x="1860" y="816" text-anchor="end">8</text>
+<text class="tn" x="1562" y="836" text-anchor="start">webhook_events, outbox, jobs,</text>
+<text class="tn" x="1562" y="850" text-anchor="start">idempotency_keys, rate_buckets,</text>
+<text class="tn" x="1562" y="864" text-anchor="start">number_connect_requests, sim_messages,</text>
+<text class="tn" x="1562" y="878" text-anchor="start">heartbeats</text>
+<rect class="grp" x="560" y="940" width="322" height="136" rx="10"/>
+<text class="gh" x="572" y="960" text-anchor="start">Sign-in</text>
+<text class="gn" x="870" y="960" text-anchor="end">3</text>
+<text class="tn" x="572" y="980" text-anchor="start">auth_sessions, otp_challenges,</text>
+<text class="tn" x="572" y="994" text-anchor="start">otp_deliveries</text>
+<rect class="grp" x="890" y="940" width="322" height="136" rx="10"/>
+<text class="gh" x="902" y="960" text-anchor="start">Billing</text>
+<text class="gn" x="1200" y="960" text-anchor="end">4</text>
+<text class="tn" x="902" y="980" text-anchor="start">subscriptions, invoices, payments,</text>
+<text class="tn" x="902" y="994" text-anchor="start">usage_notices</text>
+<rect class="grp" x="1220" y="940" width="322" height="136" rx="10"/>
+<text class="gh" x="1232" y="960" text-anchor="start">Support</text>
+<text class="gn" x="1530" y="960" text-anchor="end">3</text>
+<text class="tn" x="1232" y="980" text-anchor="start">support_tickets, support_messages,</text>
+<text class="tn" x="1232" y="994" text-anchor="start">support_attachments</text>
+<rect class="grp" x="1550" y="940" width="322" height="136" rx="10"/>
+<text class="gh" x="1562" y="960" text-anchor="start">Founder console and audit</text>
+<text class="gn" x="1860" y="960" text-anchor="end">6</text>
+<text class="tn" x="1562" y="980" text-anchor="start">admin_credentials, admin_sessions,</text>
+<text class="tn" x="1562" y="994" text-anchor="start">break_glass_grants, operator_alerts,</text>
+<text class="tn" x="1562" y="1008" text-anchor="start">audit_log, platform_audit_log</text>
+</svg>
+</div>
+
+<h2>Each numbered line</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>#</th><th>Caller</th><th>Called</th><th>What happens</th></tr></thead>
+<tbody>
+<tr><td><span class="nb c">1</span></td><td>Customer (or QA tester)</td><td>Meta (or mock Meta)</td><td>Sends a WhatsApp message; the reply comes back the same way. QA uses the phone view of <code>tools/meta-sim</code></td></tr>
+<tr><td><span class="nb c">2</span></td><td>Meta (or mock Meta)</td><td>gateway receive</td><td>Signed webhook. receive checks it, stores the raw request, answers 200 at once. The <code>META_*</code> settings pick real or mock</td></tr>
+<tr><td><span class="nb c">3</span></td><td>gateway send</td><td>Meta (or mock Meta)</td><td>Graph API: replies, typing, read ticks, sign-in codes, owner alerts</td></tr>
+<tr><td><span class="nb c">7</span></td><td>receive</td><td>inbound</td><td>The raw request id is written with the request, then relayed onto queue <code>inbound.events</code></td></tr>
+<tr><td><span class="nb c">8</span></td><td>inbound</td><td>agent worker</td><td>Queue <code>conversation.events</code> and <code>platform.events</code>; the worker reads the message row by id</td></tr>
+<tr><td><span class="nb c">9</span></td><td>agent worker</td><td>send</td><td>Queue <code>outbound.actions</code>: read tick, typing, text parts, owner alerts</td></tr>
+<tr><td><span class="nb c">10</span></td><td>web backend</td><td>send</td><td>Queue <code>outbound.actions</code>: sign-in code, connect a number, the owner's typed reply; the backend polls a request row for the answer</td></tr>
+<tr><td><span class="nb c">11</span></td><td>web backend</td><td>agent worker</td><td>Queue <code>conversation.events</code>: the owner paused or took over a chat</td></tr>
+<tr><td><span class="nb c">12</span></td><td>agent worker</td><td>Model host (or local model)</td><td>Planner, writer and reply check on each turn. The local model runs inside the worker; <code>tools/llm-bridge</code> listens on 9200</td></tr>
+<tr><td><span class="nb s">13</span></td><td>agent scheduler</td><td>agent worker</td><td>Queue <code>conversation.turns</code>: a due follow-back or take-over timer fires</td></tr>
+<tr><td><span class="nb c">14</span></td><td>Shop owner (or QA tester)</td><td>web frontend</td><td>Opens the owner app; QA signs in with any code when <code>OTP_ACCEPT_ANY</code> is on</td></tr>
+<tr><td><span class="nb c">15</span></td><td>web frontend</td><td>web backend</td><td>Proxies <code>/api</code></td></tr>
+<tr><td><span class="nb c">16</span></td><td>Shop owner's browser</td><td>Meta (or mock Meta)</td><td>Embedded Signup popup straight from Meta; its result goes to the web backend, then line 10</td></tr>
+<tr><td><span class="nb c">17</span></td><td>Founder</td><td>admin frontend</td><td>Opens the console</td></tr>
+<tr><td><span class="nb c">18</span></td><td>admin frontend</td><td>admin backend</td><td>Proxies <code>/admin/v1</code></td></tr>
+<tr><td><span class="nb s">19</span></td><td>web scheduler</td><td>Mail service</td><td>Sends open founder alerts by email; the mail service delivers them straight to the founder (owner email is planned, tbd). WhatsApp and webhook copies go out directly; see the list below</td></tr>
+<tr><td><span class="nb s">20</span></td><td>gateway scheduler</td><td>the queue</td><td>Relays written events onto the queues (every scheduler does this), keeps the raw webhook log, applies retention</td></tr>
+<tr><td><span class="nb c">21</span></td><td>agent worker</td><td>agent scheduler</td><td>Writes, moves or cancels timer rows (<code>agent_timers</code>) whenever a chat changes; the scheduler reads the due ones</td></tr>
+<tr><td><span class="nb c">22</span></td><td>web backend</td><td>web scheduler</td><td>Rows the scheduler acts on later: deletion requests, subscriptions and invoices</td></tr>
+<tr><td><span class="nb s">23</span></td><td>web scheduler</td><td>agent worker</td><td>Queue <code>owner.notifications</code>: usage warnings at 80 and 100 percent</td></tr>
+</tbody></table></div>
+
+<h2>What sends the founder an alert</h2>
+<p class="sub">Any component records the problem as one open alert per cause (repeats only add a count). The web scheduler sends them: critical at once to email, WhatsApp and the webhook, repeated until resolved; high at once, then only if it happens again; medium in a rollup email; low in a digest email. Critical and high also send a notice when resolved. Part-down and stalled-queue alerts close themselves when the part or queue recovers.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Severity</th><th>Raised by</th><th>When</th></tr></thead>
+<tbody>
+<tr><td><span class="sev critical">critical</span></td><td>any scheduler</td><td>Customer messages dead-lettered (queues inbound.events, conversation.events)</td></tr>
+<tr><td><span class="sev high">high</span></td><td>any scheduler</td><td>Any other queue has dead-lettered jobs</td></tr>
+<tr><td><span class="sev high">high</span></td><td>gateway inbound</td><td>Webhook for a WhatsApp number we do not know</td></tr>
+<tr><td><span class="sev high">high</span></td><td>agent worker</td><td>AI turn failed repeatedly; the chat went to the owner</td></tr>
+<tr><td><span class="sev high">high</span></td><td>agent scheduler</td><td>A message still unanswered after the recovery sweep</td></tr>
+<tr><td><span class="sev medium">medium</span></td><td>gateway send</td><td>An outbound message or owner alert failed</td></tr>
+<tr><td><span class="sev medium">medium</span></td><td>agent worker</td><td>Meta reported a delivery failure; owner-notification problems</td></tr>
+<tr><td><span class="sev medium">medium</span></td><td>web scheduler</td><td>An invoice is overdue</td></tr>
+<tr><td><span class="sev low">low</span></td><td>web scheduler</td><td>A subscription lapsed</td></tr>
+<tr><td><span class="sev low">low</span></td><td>web backend</td><td>A shop opened a support ticket</td></tr>
+<tr><td><span class="sev critical">critical</span></td><td>any scheduler</td><td>A customer-path part stopped checking in for 2 minutes: gateway receive, inbound or send, the agent worker</td></tr>
+<tr><td><span class="sev high">high</span></td><td>any scheduler</td><td>Any other part stopped checking in: a scheduler, the web or admin backend</td></tr>
+<tr><td><span class="sev critical">critical</span></td><td>any scheduler</td><td>A customer queue's oldest job has waited 5 minutes (inbound.events, conversation.events); other queues are high</td></tr>
+</tbody></table></div>
+
+<h2>Notes</h2>
+<ul class="notes">
+<li>Database: 50 tables, each in exactly one group (checked against the migrations when this page was built). Columns are left out; they would not fit legibly.</li>
+<li>The event queue is Postgres jobs by default, Redis by setting (<code>QUEUE_BACKEND</code>). A change and its event are written together; any scheduler relays the event onto the queue.</li>
+<li>Mocks: <code>tools/meta-sim</code> (port 9100, this machine only) plays Meta and the phones; the local model runs inside the agent worker, <code>tools/llm-bridge</code> on port 9200; the in-process simulator runs inside the gateway. "dev: any OTP", "dev: test pay" and "dev: /sim chat" are switches in the web backend. Production refuses to start with the in-product ones on.</li>
+<li>Not drawn: the worker also queues handoff and deal alerts for its own owner loop; the web frontend can forward Meta's webhook path to receive so one address serves both.</li>
+<li>Not built: voice-note transcription (deferred, ADR 0015), console passkeys, a card or UPI gateway. Nothing has run against real Meta, a real model or real SMTP.</li>
+</ul>
+</main>
+
+</html>
