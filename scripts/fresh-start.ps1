@@ -98,8 +98,13 @@ Write-Host 'done.' -ForegroundColor Green
 
 Step '6/7  Building and starting gateway, agent, web and the simulator (first build takes several minutes)'
 foreach ($p in 'gateway', 'agent', 'web') {
-  Dk compose --env-file "deploy\$p\.env" -f "deploy\$p\docker-compose.yml" up -d --build | Out-Null
-  if ($LASTEXITCODE -ne 0) { throw "$p failed to start: powershell -File scripts\stack.ps1 $p" }
+  $out = $null
+  for ($try = 1; $try -le 2; $try++) {            # a first build can fail on a passing network error (a package download): one retry
+    $out = Dk compose --env-file "deploy\$p\.env" -f "deploy\$p\docker-compose.yml" up -d --build
+    if ($LASTEXITCODE -eq 0) { break }
+    Write-Host "$p did not start (attempt $try of 2)." -ForegroundColor Yellow
+  }
+  if ($LASTEXITCODE -ne 0) { Write-Host ($out | Select-Object -Last 25 | Out-String); throw "$p failed to start. The last lines of Docker's output are above; send them and the problem can be fixed." }
   Write-Host "$p started."
 }
 Dk compose --env-file tools\meta-sim\.env -f tools\meta-sim\docker-compose.yml up -d --build | Out-Null
