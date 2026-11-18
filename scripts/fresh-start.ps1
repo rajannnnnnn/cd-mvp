@@ -19,12 +19,16 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $root
-$m = [Environment]::GetEnvironmentVariable('Path', 'Machine'); $u = [Environment]::GetEnvironmentVariable('Path', 'User'); $env:Path = "$m;$u"
+[Environment]::CurrentDirectory = $root      # .NET file calls follow this, not PowerShell's folder: without it they look in the wrong place
+$m =[Environment]::GetEnvironmentVariable('Path', 'Machine'); $u = [Environment]::GetEnvironmentVariable('Path', 'User'); $env:Path = "$m;$u"
 function Step([string]$t) { Write-Host "`n== $t" -ForegroundColor Cyan }
 function Dk { $ErrorActionPreference = 'Continue'; $o = & docker @args 2>&1; $o | ForEach-Object { "$_" } }   # docker writes progress and "no such volume" to stderr: never treat that as failure
 function Test-Engine { try { $null = docker version --format '{{.Server.Version}}' 2>$null; return ($LASTEXITCODE -eq 0) } catch { return $false } }
+function Full([string]$p) { if ([System.IO.Path]::IsPathRooted($p)) { $p } else { Join-Path $root $p } }
 function Set-EnvValue([string]$file, [string]$key, [string]$value) {
-  $utf8 = New-Object System.Text.UTF8Encoding($false)
+  $file = Full $file
+  if (-not (Test-Path $file)) { throw "Missing $file : the earlier step did not write it. Run with -Reset, or check the lines above for an error." }
+  $utf8 =New-Object System.Text.UTF8Encoding($false)
   $lines = [System.Collections.Generic.List[string]]([System.IO.File]::ReadAllLines($file))
   $at = -1
   for ($i = 0; $i -lt $lines.Count; $i++) { if ($lines[$i] -match "^$key=") { $at = $i; break } }
@@ -32,6 +36,7 @@ function Set-EnvValue([string]$file, [string]$key, [string]$value) {
   [System.IO.File]::WriteAllLines($file, $lines, $utf8)
 }
 function Get-EnvValue([string]$file, [string]$key) {
+  $file = Full $file
   if (-not (Test-Path $file)) { return '' }
   foreach ($l in [System.IO.File]::ReadAllLines($file)) { if ($l -match "^$key=(.*)$") { $v = $Matches[1].Trim(); if ($v.StartsWith('#')) { return '' }; return ($v -replace '\s+#.*$', '') } }
   return ''
