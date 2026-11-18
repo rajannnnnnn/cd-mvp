@@ -4,34 +4,17 @@
  */
 
 export interface paths {
-    "/admin/v1/auth/code/request": {
+    "/admin/v1/auth/events": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Console sign-in activity, newest first: sign-ins, refused attempts, locks, ended sessions */
+        get: operations["events_admin_v1_auth_events_get"];
         put?: never;
-        /** Send a sign-in code to an enrolled platform operator (the answer is the same for everyone) */
-        post: operations["request_code_admin_v1_auth_code_request_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/admin/v1/auth/code/verify": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Step 1: the WhatsApp code. Returns a five-minute ticket, which is not a session */
-        post: operations["verify_code_admin_v1_auth_code_verify_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -64,7 +47,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** End the session now */
+        /** End this session now (only this one; it needs no code) */
         post: operations["logout_admin_v1_auth_logout_post"];
         delete?: never;
         options?: never;
@@ -89,7 +72,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/v1/auth/totp": {
+    "/admin/v1/auth/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every console session: where from, on what, how it was proven, for how long */
+        get: operations["sessions_admin_v1_auth_sessions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/auth/sessions/revoke-others": {
         parameters: {
             query?: never;
             header?: never;
@@ -98,8 +98,76 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Step 2: the authenticator code. Returns the console session */
-        post: operations["verify_totp_admin_v1_auth_totp_post"];
+        /** End every other session (or all, with include_this_session). Needs a fresh authenticator code */
+        post: operations["revoke_others_admin_v1_auth_sessions_revoke_others_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/auth/sessions/{session_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** End one session. Needs a fresh authenticator code */
+        post: operations["revoke_session_admin_v1_auth_sessions__session_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/auth/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The authenticator code. Returns a session, or a ticket when a WhatsApp code is needed as well */
+        post: operations["sign_in_admin_v1_auth_sign_in_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/auth/step-up/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send the second-layer WhatsApp code to the founder (needs a ticket) */
+        post: operations["step_up_send_admin_v1_auth_step_up_send_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/auth/step-up/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The WhatsApp code. Returns the console session */
+        post: operations["step_up_verify_admin_v1_auth_step_up_verify_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2279,18 +2347,6 @@ export interface components {
             /** Waba Id */
             waba_id: string;
         };
-        /** CodeRequest */
-        CodeRequest: {
-            /** Phone */
-            phone: string;
-        };
-        /** CodeVerify */
-        CodeVerify: {
-            /** Code */
-            code: string;
-            /** Phone */
-            phone: string;
-        };
         /**
          * ConnectIn
          * @description What the browser hands back after Meta's Embedded Signup popup finishes.
@@ -2665,6 +2721,22 @@ export interface components {
             mu: number;
             /** Sigma */
             sigma: number;
+        };
+        /** EventOut */
+        EventOut: {
+            /** Action */
+            action: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Detail */
+            detail: {
+                [key: string]: unknown;
+            };
+            /** Id */
+            id: number;
         };
         /** ExtendIn */
         ExtendIn: {
@@ -3665,6 +3737,31 @@ export interface components {
              */
             type: "quantity" | "advance_payment" | "repeat_customer";
         };
+        /** RevokeAllIn */
+        RevokeAllIn: {
+            /** Code */
+            code: string;
+            /**
+             * Include This Session
+             * @description sign out everywhere, this browser too, and forget every trusted browser
+             * @default false
+             */
+            include_this_session: boolean;
+        };
+        /** RevokeIn */
+        RevokeIn: {
+            /**
+             * Code
+             * @description a fresh authenticator code: ending a session is as protected as signing in
+             */
+            code: string;
+            /**
+             * Forget Browser
+             * @description also stop trusting that browser, so it needs the WhatsApp code again
+             * @default true
+             */
+            forget_browser: boolean;
+        };
         /** SalesSettingsIn */
         SalesSettingsIn: {
             /** Discount Default */
@@ -3696,6 +3793,76 @@ export interface components {
         SendIn: {
             /** Text */
             text: string;
+        };
+        /** SessionOut */
+        SessionOut: {
+            /**
+             * Browser Id
+             * @description the same value means the same browser
+             */
+            browser_id: string | null;
+            /** Country */
+            country: string | null;
+            /**
+             * Device
+             * @description for example 'Chrome 142 on Windows'
+             */
+            device: string;
+            /** Duration S */
+            duration_s: number;
+            /** Ended At */
+            ended_at: string | null;
+            /** Ended Reason */
+            ended_reason: string | null;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Ip */
+            ip: string | null;
+            /** Is Current */
+            is_current: boolean;
+            /** Last Seen At */
+            last_seen_at: string | null;
+            /**
+             * Method
+             * @description authenticator | authenticator+whatsapp | extended
+             */
+            method: string | null;
+            /** Network */
+            network: string | null;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /**
+             * Status
+             * @description active | ended | expired
+             */
+            status: string;
+            /** Step Up Reason */
+            step_up_reason: string | null;
+            /** User Agent */
+            user_agent: string | null;
+            /**
+             * Usual Network
+             * @description the network the founder's last good sign-in came from
+             */
+            usual_network: boolean;
+            /** Where */
+            where: string;
+        };
+        /** SignInIn */
+        SignInIn: {
+            /** Code */
+            code: string;
         };
         /** SimAccount */
         SimAccount: {
@@ -3835,6 +4002,13 @@ export interface components {
              * @enum {string}
              */
             step: "details" | "whatsapp" | "assistant";
+        };
+        /** StepUpVerify */
+        StepUpVerify: {
+            /** Code */
+            code: string;
+            /** Ticket */
+            ticket: string;
         };
         /** StyleIn */
         StyleIn: {
@@ -4025,19 +4199,6 @@ export interface components {
              */
             updated_at: string;
         };
-        /** TicketIn */
-        TicketIn: {
-            /**
-             * Category
-             * @default question
-             * @enum {string}
-             */
-            category: "question" | "problem" | "billing" | "whatsapp" | "other";
-            /** Message */
-            message: string;
-            /** Subject */
-            subject: string;
-        };
         /** TicketMessageOut */
         TicketMessageOut: {
             /**
@@ -4127,13 +4288,6 @@ export interface components {
              * @constant
              */
             token_type: "bearer";
-        };
-        /** TotpIn */
-        TotpIn: {
-            /** Code */
-            code: string;
-            /** Ticket */
-            ticket: string;
         };
         /** TurnRow */
         TurnRow: {
@@ -4305,6 +4459,24 @@ export interface components {
             /** Phone */
             phone: string;
         };
+        /** TicketIn */
+        salesai__api__routes__admin_auth__TicketIn: {
+            /** Ticket */
+            ticket: string;
+        };
+        /** TicketIn */
+        salesai__api__routes__support__TicketIn: {
+            /**
+             * Category
+             * @default question
+             * @enum {string}
+             */
+            category: "question" | "problem" | "billing" | "whatsapp" | "other";
+            /** Message */
+            message: string;
+            /** Subject */
+            subject: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -4314,18 +4486,18 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    request_code_admin_v1_auth_code_request_post: {
+    events_admin_v1_auth_events_get: {
         parameters: {
-            query?: never;
-            header?: never;
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CodeRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -4333,44 +4505,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    verify_code_admin_v1_auth_code_verify_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CodeVerify"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["EventOut"][];
                 };
             };
             /** @description Validation Error */
@@ -4483,7 +4618,112 @@ export interface operations {
             };
         };
     };
-    verify_totp_admin_v1_auth_totp_post: {
+    sessions_admin_v1_auth_sessions_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_others_admin_v1_auth_sessions_revoke_others_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevokeAllIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_session_admin_v1_auth_sessions__session_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevokeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sign_in_admin_v1_auth_sign_in_post: {
         parameters: {
             query?: never;
             header?: never;
@@ -4492,7 +4732,77 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TotpIn"];
+                "application/json": components["schemas"]["SignInIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    step_up_send_admin_v1_auth_step_up_send_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["salesai__api__routes__admin_auth__TicketIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    step_up_verify_admin_v1_auth_step_up_verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StepUpVerify"];
             };
         };
         responses: {
@@ -8364,7 +8674,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TicketIn"];
+                "application/json": components["schemas"]["salesai__api__routes__support__TicketIn"];
             };
         };
         responses: {

@@ -27,7 +27,7 @@ async def upsert_account(conn: Conn, phone: str, name: str | None = None, langua
     return row["id"]
 
 
-async def create_business(db: Database, master_key: bytes, *, name: str, owner_phone: str, owner_name: str,
+async def create_business(db: Database, master_key: bytes | None, *, name: str, owner_phone: str, owner_name: str,
                           timezone: str = "Asia/Kolkata", plan: str = "pilot", language: str = "en",
                           profile: dict[str, Any] | None = None, ai_enabled: bool = False, signup_source: str | None = None,
                           actor: str = "operator", slug_hint: str | None = None) -> CreatedBusiness:
@@ -37,7 +37,8 @@ async def create_business(db: Database, master_key: bytes, *, name: str, owner_p
         slug = await unique_slug(s, slug_hint or name)
         await s.execute("INSERT INTO businesses (id, name, slug, timezone, plan, signup_source) VALUES (%s,%s,%s,%s,%s,%s)",
                         (bid, name, slug, timezone, plan, signup_source))
-        await TokenVault.create_key(s, master_key, bid)
+        if master_key is not None:             # the web part has no master key: the shop's data key is then made when its first token is stored (TokenVault)
+            await TokenVault.create_key(s, master_key, bid)
         account_id = await upsert_account(s, phone, owner_name, language)
     async with db.tenant(bid) as c:
         await c.execute(

@@ -8,7 +8,6 @@ import psycopg
 
 # (table, constraint) pairs that may go without: tiny, written rarely, or already covered by the primary key of the same shape.
 EXEMPT = {
-    ("pricing_policies", "pricing_policies_business_id_variant_id_fkey"),     # primary key is variant_id
     ("price_floors", "price_floors_business_id_variant_id_fkey"),             # primary key is variant_id
     ("payments", "payments_business_id_invoice_id_fkey"),                      # a handful per shop per year
     ("support_tickets", "support_tickets_opened_by_fkey"),                     # only matters when an account is erased

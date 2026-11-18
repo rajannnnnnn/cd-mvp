@@ -27,3 +27,13 @@ class WebhookSink:
         finally:
             if self._client is None:
                 await client.aclose()
+
+
+async def ping_outside(url: str, component: str, *, timeout_s: float = 5.0) -> bool:
+    """Post to an outside dead-man's switch (ADR 0046). True when it answered 2xx; any failure is the caller's to log."""
+    try:
+        async with httpx.AsyncClient(timeout=timeout_s) as client:
+            r = await client.post(url, json={"service": "chatdeal", "component": component})
+        return r.is_success
+    except httpx.HTTPError:
+        return False

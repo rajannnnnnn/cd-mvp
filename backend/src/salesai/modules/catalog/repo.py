@@ -222,7 +222,8 @@ def query_tokens(text: str) -> list[str]:
 async def retrieve(c: Conn, text: str, *, limit: int = 8, small_catalog: int = 30) -> list[dict[str, Any]]:
     """Relevant variants for the customer's text, from catalog_public (no floor exists there).
     Small catalogs are returned whole; large ones are ranked by trigram word similarity."""
-    n = (await (await c.execute("SELECT count(*) AS n FROM catalog_public")).fetchone())["n"]
+    # only "is it small?" matters, so stop counting one past the limit instead of counting the whole catalog on every turn
+    n = (await (await c.execute("SELECT count(*) AS n FROM (SELECT 1 FROM catalog_public LIMIT %s) s", (small_catalog + 1,))).fetchone())["n"]
     if n <= small_catalog:
         return await (await c.execute("SELECT * FROM catalog_public ORDER BY product_name, variant_name")).fetchall()
     toks = query_tokens(text)

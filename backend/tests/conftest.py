@@ -81,6 +81,7 @@ def env(pg_urls: dict[str, str]) -> dict[str, str]:
         "JWT_SECRET": "test-jwt-secret-0123456789abcdefghij",
         "OTP_SECRET": "test-otp-secret-0123456789abcdefghij",
         "ADMIN_JWT_SECRET": "test-admin-secret-0123456789abcdefgh",
+        "FOUNDER_PHONE": "+919999900000",    # the one founder (ADR 0047); the console admits no other number
         "META_APP_SECRET": "test-app-secret",
         "META_VERIFY_TOKEN": "test-verify-token",
         "OTP_MIN_INTERVAL_S": "0",

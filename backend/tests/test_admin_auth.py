@@ -1,10 +1,10 @@
-"""ADR 0028: the founder's console is its own application with its own sign-in. A WhatsApp code alone never opens it; an
-authenticator code is mandatory; the public application can neither mint nor accept its sessions."""
+"""ADR 0028 / ADR 0047: the founder's console is its own application with its own sign-in. An authenticator code is the first proof and is mandatory;
+a WhatsApp code is the second layer when a sign-in looks suspicious; the public application can neither mint nor accept its sessions.
+The rules for when the second layer applies, and for the single founder, are in tests/test_founder_sign_in.py."""
 from __future__ import annotations
 
 import os
 import time
-import uuid
 from unittest import mock
 
 import httpx
@@ -15,7 +15,7 @@ from cryptography.exceptions import InvalidTag
 from salesai.api.app import create_app
 from salesai.config import Settings
 from salesai.modules.auth.admin import enroll_admin
-from tests.admin_helpers import A1, admin_login, code_for, make_admin, ticket
+from tests.admin_helpers import A1, admin_login, code_for, make_admin, sign_in, step_up
 from tests.test_api import V1, hdr, login
 
 
@@ -30,7 +30,7 @@ async def audit(world, action: str, actor=None):
 
 # ---------------------------------------------------------------- the sign-in
 
-async def test_a_whatsapp_code_and_an_authenticator_code_open_the_console(world, client):
+async def test_an_authenticator_code_opens_the_console(world, client):
     phone, secret = await make_admin(world)
     tokens = await admin_login(client, world.rt, phone, secret)
     assert tokens["role"] == "operator" and tokens["expires_in"] == world.rt.settings.admin_session_minutes * 60
@@ -40,9 +40,11 @@ async def test_a_whatsapp_code_and_an_authenticator_code_open_the_console(world,
     assert any(a["actor_account_id"] for a in await audit(world, "admin.signed_in"))
 
 
-async def test_the_whatsapp_code_alone_is_not_a_session(world, client):
-    phone, _ = await make_admin(world)
-    t = await ticket(client, phone)
+async def test_a_ticket_is_not_a_session(world, client):
+    phone, secret = await make_admin(world)
+    first = (await sign_in(client, world.rt, secret)).json()                       # a fresh browser: the second layer is required
+    assert first["step_up"] == "whatsapp_code" and "access_token" not in first
+    t = first["ticket"]
     for headers in ({"Authorization": f"Bearer {t}"}, {}):
         assert (await client.get(f"{V1}/operator/businesses", headers=headers)).status_code in (401, 403)
     assert (await client.get(f"{A1}/auth/me", headers={"Authorization": f"Bearer {t}"})).status_code in (401, 403)
@@ -74,63 +76,42 @@ async def test_an_admin_session_is_not_accepted_by_the_shop_api(world, client):
     assert (await client.get(f"{V1}/products", headers=bearer(tokens))).status_code == 401
 
 
-async def test_only_an_enrolled_operator_can_get_a_code_and_nobody_can_tell_who_is(world, client):
-    ordinary = f"+9192{uuid.uuid4().int % 10**8:08d}"
-    unenrolled = f"+9192{uuid.uuid4().int % 10**8:08d}"
-    async with world.rt.db.system_tx() as c:
-        await c.execute("INSERT INTO accounts (phone, name, platform_role) VALUES (%s,'Op','operator')", (unenrolled,))
-    enrolled, _ = await make_admin(world)
-    answers = []
-    for phone in (ordinary, unenrolled, enrolled, f"+9192{uuid.uuid4().int % 10**8:08d}"):
-        r = await client.post(f"{A1}/auth/code/request", json={"phone": phone})
-        answers.append((r.status_code, r.json()))
-    assert len({str(a) for a in answers}) == 1                                    # the same answer for everyone
-    async with world.rt.db.system_tx() as c:
-        sent = {r["phone"] for r in await (await c.execute("SELECT phone FROM otp_deliveries WHERE phone = ANY(%s)", ([ordinary, unenrolled, enrolled],))).fetchall()}
-    assert sent == {enrolled.removeprefix("+")} or sent == {enrolled}              # a code goes only to an enrolled operator
-    for phone in (ordinary, unenrolled):
-        r = await client.post(f"{A1}/auth/code/verify", json={"phone": phone, "code": "123456"})
-        assert r.status_code == 401
-
-
 async def test_the_demo_setting_that_accepts_any_code_never_applies_here(world, client, monkeypatch):
-    phone, _ = await make_admin(world)
+    phone, secret = await make_admin(world)
     monkeypatch.setattr(world.rt.settings, "otp_accept_any", True)
-    r = await client.post(f"{A1}/auth/code/verify", json={"phone": phone, "code": "000000"})
-    assert r.status_code == 401
+    assert (await sign_in(client, world.rt, secret)).status_code == 401           # even the right authenticator code: the demo setting switches the console off
+    assert (await client.post(f"{A1}/auth/sign-in", json={"code": "000000"})).status_code == 401
 
 
 # ---------------------------------------------------------------- the authenticator code
 
 async def test_a_wrong_authenticator_code_is_refused_and_five_lock_the_account(world, client):
     phone, secret = await make_admin(world)
-    t = await ticket(client, phone)
     for _ in range(5):
-        assert (await client.post(f"{A1}/auth/totp", json={"ticket": t, "code": "000000"})).status_code == 401
-    r = await client.post(f"{A1}/auth/totp", json={"ticket": t, "code": code_for(world.rt, secret)})
-    assert r.status_code == 429                                                   # even the right code is refused while locked
-    t2 = await ticket(client, phone)
-    assert (await client.post(f"{A1}/auth/totp", json={"ticket": t2, "code": code_for(world.rt, secret, steps_ahead=1)})).status_code == 429
+        assert (await client.post(f"{A1}/auth/sign-in", json={"code": "000000"})).status_code == 401
+    assert (await sign_in(client, world.rt, secret)).status_code == 429          # even the right code is refused while locked
+    assert (await sign_in(client, world.rt, secret, steps_ahead=1)).status_code == 429
     async with world.rt.db.console_tx() as c:                                      # the lock ends
         await c.execute("UPDATE admin_credentials SET locked_until = now() - interval '1 second' WHERE account_id=(SELECT id FROM accounts WHERE phone=%s)", (phone,))
-    t3 = await ticket(client, phone)
-    assert (await client.post(f"{A1}/auth/totp", json={"ticket": t3, "code": code_for(world.rt, secret, steps_ahead=1)})).status_code == 200
+    r = await sign_in(client, world.rt, secret, steps_ahead=1)
+    assert r.status_code == 200                                                   # a good code works again; having been guessed at, it also needs the WhatsApp code
+    assert r.json()["step_up"] == "whatsapp_code"
     assert await audit(world, "admin.locked") and await audit(world, "admin.sign_in_failed")
 
 
 async def test_a_code_cannot_be_used_twice(world, client):
     phone, secret = await make_admin(world)
     await admin_login(client, world.rt, phone, secret)
-    t = await ticket(client, phone)
-    assert (await client.post(f"{A1}/auth/totp", json={"ticket": t, "code": code_for(world.rt, secret)})).status_code == 401      # same 30 seconds: replay
-    assert (await client.post(f"{A1}/auth/totp", json={"ticket": t, "code": code_for(world.rt, secret, steps_ahead=1)})).status_code == 200
+    assert (await sign_in(client, world.rt, secret)).status_code == 401           # the same 30 seconds: replay
+    assert (await sign_in(client, world.rt, secret, steps_ahead=1)).status_code == 200
 
 
 async def test_a_ticket_works_once(world, client):
     phone, secret = await make_admin(world)
-    t = await ticket(client, phone)
-    assert (await client.post(f"{A1}/auth/totp", json={"ticket": t, "code": code_for(world.rt, secret)})).status_code == 200
-    assert (await client.post(f"{A1}/auth/totp", json={"ticket": t, "code": code_for(world.rt, secret, steps_ahead=1)})).status_code == 401
+    t = (await sign_in(client, world.rt, secret)).json()["ticket"]
+    assert (await step_up(client, phone, t)).status_code == 200
+    again = await client.post(f"{A1}/auth/step-up/verify", json={"ticket": t, "code": "123456"})
+    assert again.status_code == 401
 
 
 async def test_the_secret_is_not_stored_in_the_clear(world):
@@ -147,22 +128,11 @@ async def test_the_secret_is_not_stored_in_the_clear(world):
 
 async def test_enrolling_again_replaces_the_secret_and_clears_a_lock(world, client):
     phone, old = await make_admin(world)
-    new = await enroll_admin(world.rt.db, world.rt.settings, phone)
+    new = await enroll_admin(world.rt.db, world.rt.settings)
     assert new != old
-    t = await ticket(client, phone)
-    assert (await client.post(f"{A1}/auth/totp", json={"ticket": t, "code": code_for(world.rt, old)})).status_code == 401
-    assert (await client.post(f"{A1}/auth/totp", json={"ticket": t, "code": code_for(world.rt, new, steps_ahead=1)})).status_code == 200
+    assert (await sign_in(client, world.rt, old)).status_code == 401
+    assert (await sign_in(client, world.rt, new, steps_ahead=1)).status_code == 200
     assert len(await audit(world, "admin.enrolled")) >= 2
-
-
-async def test_only_an_operator_can_be_enrolled(world):
-    ordinary = f"+9192{uuid.uuid4().int % 10**8:08d}"
-    async with world.rt.db.system_tx() as c:
-        await c.execute("INSERT INTO accounts (phone, name) VALUES (%s,'Shop')", (ordinary,))
-    with pytest.raises(ValueError):
-        await enroll_admin(world.rt.db, world.rt.settings, ordinary)
-    with pytest.raises(ValueError):
-        await enroll_admin(world.rt.db, world.rt.settings, "+919000000000")      # no such account
 
 
 # ---------------------------------------------------------------- the session
@@ -209,7 +179,7 @@ async def test_an_address_allowlist_can_restrict_the_console(world, client, monk
     outside = {**bearer(tokens), "X-Forwarded-For": "198.51.100.7"}
     inside = {**bearer(tokens), "X-Forwarded-For": "203.0.113.50"}
     assert (await client.get(f"{V1}/operator/businesses", headers=outside)).status_code == 403
-    assert (await client.post(f"{A1}/auth/code/request", json={"phone": phone}, headers={"X-Forwarded-For": "198.51.100.7"})).status_code == 403
+    assert (await client.post(f"{A1}/auth/sign-in", json={"code": "000000"}, headers={"X-Forwarded-For": "198.51.100.7"})).status_code == 403
     assert (await client.get(f"{V1}/operator/businesses", headers=inside)).status_code == 200
     assert (await client.get(f"{V1}/operator/businesses", headers={**bearer(tokens), "X-Forwarded-For": "2001:db8::1"})).status_code == 200
 
@@ -223,7 +193,7 @@ async def _get(app, path, method="GET", **kw):
 
 async def test_the_public_application_has_no_admin_surface(rt):
     app = create_app(rt, "web")
-    for path in (f"{V1}/operator/businesses", f"{V1}/operator/alerts", f"{A1}/auth/code/request", f"{A1}/auth/me"):
+    for path in (f"{V1}/operator/businesses", f"{V1}/operator/alerts", f"{A1}/auth/sign-in", f"{A1}/auth/me"):
         assert (await _get(app, path)).status_code == 404, path
 
 
@@ -255,7 +225,7 @@ async def test_admin_cross_origin_calls_are_allowed_only_from_the_admin_origin(r
 
 def _settings(**kw) -> Settings:
     """Settings as a container would see them: only what it is given, not what the rest of the suite put in this process."""
-    base = dict(role="admin", master_key="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=", jwt_secret="j" * 32, otp_secret="o" * 32,
+    base = dict(role="admin", founder_phone="+919999900000", master_key="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=", jwt_secret="j" * 32, otp_secret="o" * 32,
                 admin_jwt_secret="a" * 32, database_url="postgresql://x/x", pricing_database_url="postgresql://x/x",
                 system_database_url="postgresql://x/x", console_database_url="postgresql://x/x", migration_database_url="postgresql://x/x")
     with mock.patch.dict(os.environ, {}, clear=True):

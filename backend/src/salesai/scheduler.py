@@ -14,6 +14,8 @@ import psycopg
 
 from salesai.alerts import raise_alert
 from salesai.config import ALL_QUEUES
+from salesai.heartbeat import check_parts
+from salesai.modules.alerting import ping_outside
 from salesai.modules.tenants import purge_due
 from salesai.obs import QUEUE_DEAD, QUEUE_DEPTH, QUEUE_OLDEST_AGE
 from salesai.runtime import Runtime
@@ -25,9 +27,9 @@ LEADER_LOCKS = {"all": LEADER_LOCK, "web": LEADER_LOCK + 1, "gateway": LEADER_LO
 
 # What each component's scheduler does. Moving events along (the relay) and expiring queue leases are shared plumbing that
 # every scheduler does; the rest belongs to one component. `all` is the development combination and does everything.
-_WEB = frozenset({"gauges", "alerts", "billing", "deletions", "retention"})   # billing, trials, platform alerts, scheduled shop deletions, sign-in data
-_AGENT = frozenset({"gauges", "timers", "recovery", "retention"})  # the agent's clock (follow-back, take-over), the recovery sweep, conversation data
-_GATEWAY = frozenset({"gauges", "retention"})                             # its raw-request log
+_WEB = frozenset({"gauges", "parts", "alerts", "billing", "deletions", "retention"})   # billing, trials, platform alerts, scheduled shop deletions, sign-in data
+_AGENT = frozenset({"gauges", "parts", "timers", "recovery", "retention"})  # the agent's clock (follow-back, take-over), the recovery sweep, conversation data
+_GATEWAY = frozenset({"gauges", "parts", "retention"})                             # its raw-request log
 DUTIES: dict[str, frozenset[str]] = {"web": _WEB, "agent": _AGENT, "gateway": _GATEWAY, "all": _WEB | _AGENT | _GATEWAY}
 
 
@@ -66,6 +68,8 @@ class Scheduler:
         self.duties = DUTIES[self.component]
         self.lock_id = LEADER_LOCKS[self.component]
         self.leader = LeaderLock(rt.settings.system_database_url, self.lock_id)
+        self.stall_after_s: float = rt.settings.queue_stall_alert_s          # ADR 0046
+        self.heartbeat_url: str = rt.settings.alert_heartbeat_url
 
     # ------------------------------------------------------------------ ticks (each returns how many things it did)
     async def tick_timers(self) -> int:
@@ -114,8 +118,9 @@ class Scheduler:
         # delete rights over chats, and row-level security cannot hide the rows meant to go (the session-4 bug class).
         if everything or comp == "web":
             out["support_attachments"] = 0
+            out["idempotency_keys"] = 0
         if everything or comp == "agent":
-            for k in ("messages", "owner_messages", "learning_observations", "turns"):
+            for k in ("messages", "owner_messages", "learning_observations", "turns", "agent_timers"):
                 out[k] = 0
         for bid in shops:
             async with self.rt.db.tenant(bid) as s:
@@ -124,6 +129,11 @@ class Scheduler:
                         """DELETE FROM support_attachments a USING support_tickets k
                             WHERE k.id = a.ticket_id AND k.status = 'resolved' AND k.updated_at < now() - make_interval(days => %s)""",
                         (cfg.resolved_ticket_attachment_retention_days,))).rowcount
+                if "idempotency_keys" in out:      # a retried write is answered from its stored reply for a day or so; after two days nobody retries it
+                    out["idempotency_keys"] += (await s.execute("DELETE FROM idempotency_keys WHERE created_at < now() - interval '2 days'")).rowcount
+                if "agent_timers" in out:          # timers that already fired or were cancelled are history, not clock (pending ones are never touched)
+                    out["agent_timers"] += (await s.execute(
+                        "DELETE FROM agent_timers WHERE status IN ('fired', 'cancelled') AND updated_at < now() - interval '7 days'")).rowcount
                 if "messages" in out and cfg.chat_retention_days:          # 0 = keep while the shop is active (founder's policy decision)
                     days = (cfg.chat_retention_days,)
                     out["learning_observations"] += (await s.execute(
@@ -146,6 +156,7 @@ class Scheduler:
             QUEUE_DEPTH.labels(s.queue).set(s.pending)
             QUEUE_OLDEST_AGE.labels(s.queue).set(s.oldest_due_age_s)
             QUEUE_DEAD.labels(s.queue).set(s.dead)
+            await self._stall(s.queue, stalled=s.due > 0 and s.oldest_due_age_s > self.stall_after_s, age_s=s.oldest_due_age_s)
             if s.dead:
                 async with self.rt.db.system_tx() as c:
                     # lost customer messages are Critical; any other queue stuck is High (ADR 0029). Only the first sighting is
@@ -154,6 +165,31 @@ class Scheduler:
                     if not exists:
                         await raise_alert(c, "critical" if s.queue in ("inbound.events", "conversation.events") else "high", "dead_letter",
                                           f"{s.dead} dead-lettered job(s) in {s.queue}", dedup_key=s.queue, detail={"queue": s.queue})
+
+    async def _stall(self, queue: str, *, stalled: bool, age_s: float) -> None:
+        """A queue whose oldest due job has waited too long: its consumer is down or stuck (ADR 0046). Clears itself when it catches up."""
+        async with self.rt.db.system_tx() as c:
+            if stalled:
+                await raise_alert(c, "critical" if queue in ("inbound.events", "conversation.events") else "high", "queue_stalled",
+                                  f"Queue {queue}: the oldest waiting job has waited {int(age_s // 60)} min", dedup_key=queue,
+                                  detail={"queue": queue, "age_s": int(age_s)})
+            else:
+                await c.execute("UPDATE operator_alerts SET resolved_at = now() WHERE kind = 'queue_stalled' AND dedup_key = %s AND resolved_at IS NULL",
+                                (queue,))
+
+    async def tick_parts(self) -> dict[str, object]:
+        """Parts that stopped checking in (ADR 0046). Every scheduler runs this, so a stopped scheduler is noticed by the others."""
+        return await check_parts(self.rt.db, self.rt.settings.part_down_after_s)
+
+    async def ping_outside(self) -> bool:
+        """Tell the outside dead-man's switch the alert path is alive (web scheduler only, ADR 0046). When these posts stop, the outside
+        service alerts the founder: the machine, the database or this scheduler is down. A failing checker is logged, never raised."""
+        if "alerts" not in self.duties or not self.heartbeat_url:
+            return False
+        ok = await ping_outside(self.heartbeat_url, self.component)
+        if not ok:
+            log.warning("outside heartbeat check did not accept the post")
+        return ok
 
     async def tick_slow(self, *, tidy: bool) -> None:
         """The work done every half minute (and the hourly tidy-up when `tidy`), limited to this component's duties."""
@@ -164,8 +200,11 @@ class Scheduler:
             await self.tick_timers()
         if "recovery" in d:
             await self.rt.reconciler.sweep()
+        if "parts" in d:
+            await self.tick_parts()
         if "alerts" in d:
             await self.rt.alerts.dispatch()
+            await self.ping_outside()
         if "billing" in d:
             await self.rt.billing.run_cycle()
         if "deletions" in d:

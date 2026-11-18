@@ -11,3 +11,7 @@ services:
       SIM_WEBHOOK_URL: ${SIM_WEBHOOK_URL:-http://host.docker.internal:8001/webhooks/whatsapp}
       SIM_APP_SECRET: ${SIM_APP_SECRET:?set SIM_APP_SECRET in tools/meta-sim/.env}
       SIM_VERIFY_TOKEN: ${SIM_VERIFY_TOKEN:?set SIM_VERIFY_TOKEN in tools/meta-sim/.env}
+      SIM_STATE_FILE: /data/state.json         # the phones, shop numbers and chats survive a restart or a rebuild (delete the volume to start clean)
+    volumes: ["meta-sim-data:/data"]
+volumes:
+  meta-sim-data:

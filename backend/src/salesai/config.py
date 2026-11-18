@@ -107,6 +107,9 @@ class Settings(BaseSettings):
     # --- the admin plane (ADR 0028): the founder's console is its own application on its own origin
     admin_jwt_secret: str = Field("", description="at least 32 characters, different from JWT_SECRET. Admin part only")
     admin_session_minutes: int = 30           # how long a console session lasts; there is no refresh, only a fresh authenticator code
+    founder_phone: str = Field("", description="the one founder's WhatsApp number, set at deployment; the only number the console ever admits (ADR 0047). Admin part only")
+    admin_device_trust_days: int = Field(30, ge=1, le=90)   # how long a browser the founder has signed in from stays trusted (no WhatsApp code needed there)
+    admin_geo_header: str = Field("", description="the front proxy's country header, e.g. CF-IPCountry; shown as the sign-in's country (no IP lookup is ever made, ADR 0048)")
     admin_allowed_origins: str = ""           # the console's own origin(s), e.g. https://admin.yourcompany.example
     admin_allowed_ips: str = ""               # optional: comma-separated addresses or ranges that may reach the console (empty = anyone who can sign in)
 
@@ -183,6 +186,11 @@ class Settings(BaseSettings):
     alert_high_cooldown_minutes: int = Field(30, ge=1)      # a High alert is repeated at most this often, and only if it happened again
     alert_medium_rollup_minutes: int = Field(60, ge=1)      # Medium alerts are gathered into one email per this interval
     alert_low_digest_minutes: int = Field(1440, ge=1)       # Low alerts are gathered into one digest per this interval
+    # --- knowing when a part is down (ADR 0046)
+    heartbeat_every_s: int = Field(30, ge=5, le=300)        # every process records that it is alive this often
+    part_down_after_s: int = Field(120, ge=20)              # a part unseen this long raises a part_down alert
+    queue_stall_alert_s: int = Field(300, ge=30)            # a queue whose oldest due job waits this long raises queue_stalled
+    alert_heartbeat_url: str = ""                           # the web scheduler posts here after each alert run; an outside checker alerts when posts stop
 
     @field_validator("alert_min_severity", mode="before")
     @classmethod
@@ -220,6 +228,17 @@ class Settings(BaseSettings):
             raise ValueError("MASTER_KEY must decode to exactly 32 bytes")
         return v
 
+    @field_validator("founder_phone")
+    @classmethod
+    def _founder_phone_is_a_number(cls, v: str) -> str:
+        if not v.strip():
+            return ""
+        from salesai.phone import normalize_phone
+        try:
+            return normalize_phone(v)
+        except ValueError as e:
+            raise ValueError("FOUNDER_PHONE must be a phone number like +919876543210") from e
+
     @model_validator(mode="after")
     def _required_secrets(self) -> Settings:
         """INV-11 / ADR 0020: each role gets the secrets it uses and no more; a required one that is missing stops startup."""
@@ -229,7 +248,7 @@ class Settings(BaseSettings):
         elif self.role == "api":                       # the public web part holds no Meta secret and no master key (ADR 0025, 0028)
             need |= {"jwt_secret", "otp_secret"}
         elif self.role == "admin":                     # the founder's console: the master key is for registering a pilot number by hand
-            need |= {"master_key", "jwt_secret", "otp_secret", "admin_jwt_secret"}
+            need |= {"master_key", "jwt_secret", "otp_secret", "admin_jwt_secret", "founder_phone"}
         elif self.role == "ingress":
             need |= {"meta_app_secret", "meta_verify_token"}
         elif self.role == "worker" and set(self.queues) & SENDING_QUEUES:
@@ -334,6 +353,10 @@ class Settings(BaseSettings):
             for name in ("jwt_secret", "otp_secret", "admin_jwt_secret", "meta_app_secret", "meta_verify_token"):
                 if any(w in getattr(self, name).lower() for w in weak):
                     raise ValueError(f"{name.upper()} looks like a placeholder; set a real secret")
+        if self.part_down_after_s < 2 * self.heartbeat_every_s:
+            raise ValueError("PART_DOWN_AFTER_S must be at least twice HEARTBEAT_EVERY_S, or one late heartbeat reads as a part down")
+        if self.alert_heartbeat_url and not self.alert_heartbeat_url.startswith(("https://", "http://")):
+            raise ValueError("ALERT_HEARTBEAT_URL must be an http(s) address")
         unknown_intents = sorted(set(n.strip() for n in self.tiering_planner_intents.split(",") if n.strip()) - set(KNOWN_INTENTS))
         if unknown_intents:
             raise ValueError(f"TIERING_PLANNER_INTENTS names intents that do not exist: {unknown_intents}")
@@ -383,6 +406,11 @@ class Settings(BaseSettings):
     @property
     def origins(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
+
+    @property
+    def master_key_or_none(self) -> bytes | None:
+        """The master key where this part holds one (gateway, console), None where it must not (the web part, ADR 0028)."""
+        return base64.b64decode(self.master_key) if self.master_key else None
 
     @property
     def master_key_bytes(self) -> bytes:

@@ -76,6 +76,7 @@ services:
       ALERT_MIN_SEVERITY: ${ALERT_MIN_SEVERITY:-low}
       ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
       ALERT_WHATSAPP_NUMBERS: ${ALERT_WHATSAPP_NUMBERS:-}
+      ALERT_HEARTBEAT_URL: ${ALERT_HEARTBEAT_URL:-}           # outside dead-man's switch (ADR 0046)
       # The WhatsApp copy of a Critical alert goes out from the platform's own sender
       PLATFORM_SENDER_PHONE_NUMBER_ID: ${PLATFORM_SENDER_PHONE_NUMBER_ID:-sim-platform}
       PLATFORM_WA_ACCESS_TOKEN: ${PLATFORM_WA_ACCESS_TOKEN:-}
@@ -97,5 +98,6 @@ services:
       API_UPSTREAM: api:8000
       INGRESS_UPSTREAM: ${WEBHOOK_UPSTREAM:-host.docker.internal:8001}   # the gateway's `receive`, so one public address serves both
       ALLOW_IPS: ${ALLOW_IPS:-0.0.0.0/0 ::/0}
+      META_SDK_ORIGIN: ${META_SDK_ORIGIN:-https://connect.facebook.net}   # the one host the site's security policy lets the sign-up script come from
     extra_hosts: ["host.docker.internal:host-gateway"]
     ports: ["${WEB_BIND:-0.0.0.0}:${WEB_PORT:-8080}:80"]      # reachable by default; WEB_BIND=127.0.0.1 keeps it to this machine

@@ -382,4 +382,21 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
     Run end to end against the unmodified product (`tools/meta-sim/e2e/drive_local_product.py`): the owner's sign-in code arrived on a phone through the product's WhatsApp code path, a shop was created and its number connected with the simulator's sign-up code,
     a customer's message got the assistant's reply (the local stand-in model), ack 19 ms and first reply 3.2 s. **Not done:** the product still contains its older in-process simulator (off by default in every deployed part; used by its own tests and the
     one-machine demo stack); retiring it means moving those tests onto the stand-in. **Not covered by any stand-in:** Meta's real verification, template approval, rate limits, payload quirks.
+  - **Knowing when a part is down (ADR 0046), 2026-11-08.** Every process writes a heartbeat (`heartbeats`, migration 0032) under a readable unit name
+    (`gateway receive`, `agent worker`, `web scheduler`...); every scheduler raises `part_down` for a unit quiet longer than `PART_DOWN_AFTER_S` (critical on the
+    customer path, high otherwise) and `queue_stalled` when a queue's oldest due job waits longer than `QUEUE_STALL_ALERT_S`; both close themselves on recovery.
+    The web scheduler posts to `ALERT_HEARTBEAT_URL` after each alert run so an outside dead-man's switch can report a dead machine, database or alert path.
+    Tests: `test_part_down.py` (written; **not yet run**: this machine's throwaway Postgres lacks the `pg_trgm` extension the migrations need). Lint, mypy and the
+    boundary check pass for the change; the boundary check still reports one older violation (`boards/service.py` imports `billing.PLANS`).
+  - **Database review and per-event benchmark, 2026-11-09.** Reviewed all 50 tables against the live schema: no duplicate indexes, every table has a primary key, row security is on every shop table;
+    findings are a stale-able `businesses.plan` (billing writes only `subscriptions.plan`; **open**, needs one source of truth), `sim_messages` (goes with the old simulator), a few overlaps that are
+    deliberate (`agent_runs` next to `turns`, two audit tables, three request mailboxes). New `backend/loadtest/event_costs.py` times each business event's own SQL on 50 shops / 150,000 chats /
+    3,000,000 messages as the shop's limited login (rolled back, so the data does not grow); the owner screens are timed by `loadtest.actions`. Result: every event is under about 20 ms of database work
+    except the agent's read of a chat (about 50 ms, nearly all of it the catalog size check and the trigram search) and, for the owner, Home (100 ms) and Analytics (0.9 s).
+    **Fixed:** migration 0033 indexes `pricing_policies (business_id, variant_id)` (the catalog view's RLS-filtered scan read the whole table; the exemption in `test_schema_indexes.py` was wrong and is removed);
+    the catalog size check stops counting at 31 instead of counting every variant on every turn (24 ms to 3 to 4 ms); the scheduler now purges fired/cancelled agent timers after 7 days and idempotency keys after 2 days
+    (`test_audit_and_retention.py`). **Not done, deliberately:** `agent_runs` cleanup (an audit record nothing may edit; needs the founder's retention period), the Analytics/Home daily roll-up (ADR 0021 step 3),
+    a stored and indexed search text for the catalog's trigram search (27 to 60 ms per agent turn at 400 products per shop), dropping `businesses.plan`.
+    The boundary check reports `boards/service.py -> billing.PLANS` only on Windows (a case-insensitive file system finds `plans.py` for `PLANS`); Linux CI passes it.
+    `tests/test_migrations.py::test_slug_backfill...` fails with "permission denied for schema public" here and fails the same way on the committed code: unrelated, not yet diagnosed.
 

@@ -49,6 +49,8 @@ def render_template(name: str, language: str, params: list[str]) -> str | None:
     body = (TEMPLATES.get(name) or {}).get(language) or (TEMPLATES.get(name) or {}).get("en")
     return None if body is None else _PH.sub(lambda m: params[int(m.group(1)) - 1] if int(m.group(1)) <= len(params) else "", body)
 WINDOW_S = 24 * 3600
+PERSISTED = {"message", "customers", "businesses", "settings", "reset"}      # the events after which the state is saved
+SECRET_SETTINGS = {"app_secret", "verify_token", "webhook_url"}                # set from the environment at every start, never read back from the file
 
 
 @dataclass
@@ -107,12 +109,53 @@ class Sim:
         self.tasks: set[asyncio.Task[Any]] = set()
         self.client = httpx.AsyncClient(timeout=15)
         self.media: dict[str, tuple[bytes, str]] = {}
+        self.state_file: Path | None = None                # set at start-up (SIM_STATE_FILE): where the phones, numbers and chats survive a restart
+        self._save_timer: asyncio.TimerHandle | None = None
 
     # ---------------------------------------------------------------- bus
     def publish(self, kind: str, data: Any) -> None:
         line = json.dumps({"type": kind, "data": data}, ensure_ascii=False, default=str)
         for q in list(self.subscribers):
             q.put_nowait(line)
+        if kind in PERSISTED and self.state_file is not None:
+            self._dirty()
+
+    # ---------------------------------------------------------------- keeping the phones, numbers and chats across a restart (QA should not have to set up again)
+    def _dirty(self) -> None:
+        """Save a moment after the last change, not on every one."""
+        if self._save_timer is not None:
+            return
+        try:
+            self._save_timer = asyncio.get_running_loop().call_later(1.0, self.save_state)
+        except RuntimeError:
+            self.save_state()
+
+    def save_state(self) -> None:
+        self._save_timer = None
+        if self.state_file is None:
+            return
+        data = {"version": 1, "biz": [asdict(b) for b in self.biz.values()], "customers": self.customers, "msgs": [asdict(m) for m in self.msgs[-3000:]],
+                "last_customer_msg": [[p, c, t] for (p, c), t in self.last_customer_msg.items()],
+                "settings": {k: v for k, v in asdict(self.settings).items() if k not in SECRET_SETTINGS}}      # the secrets come from the environment on every start
+        tmp = self.state_file.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        tmp.replace(self.state_file)                                                                          # never a half-written file
+
+    def load_state(self) -> bool:
+        if self.state_file is None or not self.state_file.exists():
+            return False
+        try:
+            data = json.loads(self.state_file.read_text(encoding="utf-8"))
+            biz = {b["pnid"]: Biz(**b) for b in data["biz"]}
+            msgs = [Msg(**m) for m in data["msgs"]]
+        except (OSError, ValueError, KeyError, TypeError):
+            return False                                                                                     # an unreadable file is ignored: start from the defaults
+        self.biz, self.customers, self.msgs = biz, {str(k): v for k, v in data.get("customers", {}).items()}, msgs
+        self.last_customer_msg = {(p, c): float(t) for p, c, t in data.get("last_customer_msg", [])}
+        for k, v in (data.get("settings") or {}).items():
+            if k not in SECRET_SETTINGS and hasattr(self.settings, k):
+                setattr(self.settings, k, v)
+        return True
 
     def spawn(self, coro: Any) -> None:
         t = asyncio.create_task(coro)
@@ -546,7 +589,7 @@ $('go').onclick=async()=>{
 
 @app.get("/sdk.js")
 async def sdk_js() -> Response:
-    return Response(SDK_JS, media_type="application/javascript")
+    return Response(SDK_JS, media_type="application/javascript", headers={"Access-Control-Allow-Origin": "*"})   # like Meta's script: the page loads it cross-origin
 
 
 @app.get("/sim/app/signup")

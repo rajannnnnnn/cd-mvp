@@ -5,151 +5,265 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Meta simulator</title>
 <style>
-:root{--bg:#f0f2f5;--panel:#fff;--ink:#111b21;--muted:#667781;--line:#e9edef;--me:#d9fdd3;--them:#fff;--chat:#efeae2;--accent:#00a884;--blue:#53bdeb;--bad:#d93025;--warn:#b26a00;--code:#f6f8fa}
-@media (prefers-color-scheme:dark){:root{--bg:#0b141a;--panel:#111b21;--ink:#e9edef;--muted:#8696a0;--line:#222d34;--me:#005c4b;--them:#202c33;--chat:#0b141a;--accent:#00a884;--blue:#53bdeb;--bad:#f28b82;--warn:#fdd663;--code:#0d1b22}}
-*{box-sizing:border-box}html,body{height:100%;margin:0}body{font:14px/1.4 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
-header{display:flex;align-items:center;gap:12px;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
-header h1{font-size:15px;margin:0;font-weight:600}.pill{font-size:12px;padding:2px 8px;border-radius:99px;background:var(--code);color:var(--muted)}
-.pill.ok{color:var(--accent)}.pill.bad{color:var(--bad)}
-main{display:grid;grid-template-columns:270px minmax(360px,1fr) 380px;height:calc(100% - 45px)}
-@media (max-width:1000px){main{grid-template-columns:1fr;grid-auto-rows:minmax(360px,auto);height:auto}}
-section{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+:root{--bg:#f0f2f5;--panel:#fff;--ink:#111b21;--muted:#667781;--line:#e9edef;--me:#d9fdd3;--them:#fff;--chat:#efeae2;--accent:#00a884;--accent2:#008069;--blue:#53bdeb;--bad:#d93025;--warn:#b26a00;--code:#f6f8fa;--hover:#f5f6f6;--sel:#f0f2f5}
+@media (prefers-color-scheme:dark){:root{--bg:#0b141a;--panel:#111b21;--ink:#e9edef;--muted:#8696a0;--line:#222d34;--me:#005c4b;--them:#202c33;--chat:#0b141a;--accent:#00a884;--accent2:#25d366;--blue:#53bdeb;--bad:#f28b82;--warn:#fdd663;--code:#0d1418;--hover:#1a252c;--sel:#2a3942}}
+*{box-sizing:border-box}[hidden]{display:none!important}html,body{height:100%;margin:0}body{font:14px/1.4 system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:10px;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:15px;margin:0;font-weight:700}.sub{font-size:12px;color:var(--muted)}
+.pill{font-size:12px;padding:2px 9px;border-radius:99px;background:var(--code);color:var(--muted);white-space:nowrap}.pill.ok{color:var(--accent)}.pill.bad{color:var(--bad)}
+select,input,button,textarea{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+button{cursor:pointer;transition:background .15s,border-color .15s,transform .05s}button:hover{background:var(--hover)}button:active{transform:scale(.97)}button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}button.primary:hover{background:var(--accent2)}button:disabled{opacity:.5;cursor:default}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}.seg button{border:0;border-radius:0}.seg button.on{background:var(--accent);color:#fff}
+/* who am I: the phone (or shop) bar */
+#bar{display:flex;align-items:center;gap:10px;padding:6px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:nowrap;min-width:0}
+.barlabel{font-weight:600;font-size:13px;white-space:nowrap;flex:none}
+.chips{display:flex;gap:6px;flex-wrap:nowrap;align-items:center;flex:1;min-width:0;overflow-x:auto;padding:2px 0;scrollbar-width:none}.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:99px;border:1px solid var(--line);background:var(--panel);font-weight:600;font-variant-numeric:tabular-nums;transition:all .2s}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(0,168,132,.35)}
+.chip .dot{min-width:17px;height:17px;border-radius:99px;background:var(--accent2);color:#fff;font-size:11px;display:grid;place-items:center;padding:0 4px}.chip.on .dot{background:#fff;color:var(--accent2)}
+.addphone{display:flex;gap:6px;flex:none}.addphone input{width:170px;padding:4px 10px}.addphone button{padding:4px 10px}
+main{display:grid;grid-template-columns:minmax(260px,320px) minmax(380px,1fr) 400px;flex:1;min-height:0}
+@media (max-width:1100px){main{grid-template-columns:1fr;grid-auto-rows:minmax(420px,auto);overflow:auto}}
+section{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;min-width:0}
 .hd{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center}
-select,input,button,textarea{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
-button{cursor:pointer}button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}button:disabled{opacity:.5;cursor:default}
-.list{overflow:auto;flex:1}.contact{display:flex;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer}.contact.sel{background:var(--code)}
-.av{width:38px;height:38px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:600;flex:none}
-.contact .t{min-width:0;flex:1}.contact .n{font-weight:600}.contact .l{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
-#chat{background:var(--chat);overflow:auto;flex:1;padding:12px 8%;display:flex;flex-direction:column;gap:4px}
-.b{max-width:75%;padding:6px 9px;border-radius:8px;background:var(--them);box-shadow:0 1px 1px rgba(0,0,0,.12);word-wrap:break-word;white-space:pre-wrap}
-.b.me{align-self:flex-end;background:var(--me)}.b.them{align-self:flex-start}
-.b .meta{font-size:11px;color:var(--muted);margin-top:2px;display:flex;gap:6px;justify-content:flex-end;align-items:center}
-.tick{letter-spacing:-3px}.tick.read{color:var(--blue)}.fail{color:var(--bad)}.tag{background:var(--code);border-radius:4px;padding:0 4px}
-.lat{align-self:flex-start;font-size:11px;color:var(--muted);margin:-2px 0 4px 4px}.sep{align-self:center;font-size:11px;color:var(--muted);background:var(--panel);border-radius:6px;padding:1px 8px;margin:6px 0}
-.composer{display:flex;gap:6px;padding:8px;border-top:1px solid var(--line);background:var(--panel);flex-wrap:wrap}.composer input{flex:1;min-width:140px}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.seg button{border:0;border-radius:0}.seg button.on{background:var(--accent);color:#fff}
-.tabs{display:flex;border-bottom:1px solid var(--line)}.tabs button{flex:1;border:0;border-radius:0;background:none;padding:9px;color:var(--muted)}.tabs button.on{color:var(--ink);border-bottom:2px solid var(--accent)}
-.pane{overflow:auto;flex:1;padding:8px}.ev{border:1px solid var(--line);border-radius:8px;margin-bottom:6px;overflow:hidden}.ev>div{padding:5px 8px;display:flex;gap:8px;cursor:pointer;align-items:center}
+.list{overflow:auto;flex:1}
+.contact{display:flex;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .15s}.contact:hover{background:var(--hover)}.contact.sel{background:var(--sel)}
+.av{width:40px;height:40px;border-radius:50%;background:#b0bcc3;color:#fff;display:grid;place-items:center;font-weight:600;flex:none;font-size:18px}.contact.sel .av,.hd .av.named{background:var(--accent)}
+.contact .t{min-width:0;flex:1}.contact .n{font-weight:600;font-variant-numeric:tabular-nums}.contact .l{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+.contact .row1,.contact .row2{display:flex;gap:6px;justify-content:space-between;align-items:center}.contact .when{font-size:11px;color:var(--muted)}.contact .when.new{color:var(--accent)}
+.badge{background:var(--accent);color:#fff;border-radius:99px;min-width:18px;height:18px;padding:0 5px;font-size:11px;font-weight:600;display:grid;place-items:center;animation:pop .25s ease-out}
+.contact .l.unread{font-weight:600;color:var(--ink)}
+/* the conversation */
+#strip{display:flex;gap:8px;align-items:center;padding:6px 12px;background:var(--code);border-bottom:1px solid var(--line);font-size:12.5px;flex-wrap:wrap}
+#strip b{font-variant-numeric:tabular-nums}#strip .arrow{color:var(--muted)}
+.who{display:flex;flex-direction:column;min-width:0;flex:1}.who .nm{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.who .ph{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.who .st{font-size:12px;color:var(--accent);font-weight:600;min-height:16px}
+#chat{background:var(--chat);overflow:auto;flex:1;padding:14px 8%;display:flex;flex-direction:column;gap:3px;scroll-behavior:smooth}
+#chat.swap{animation:fade .22s ease-out}
+.b{max-width:78%;padding:6px 9px 4px;border-radius:9px;background:var(--them);box-shadow:0 1px 1px rgba(0,0,0,.13);word-wrap:break-word;white-space:pre-wrap;position:relative}
+.b.new{animation:pop .22s ease-out}
+.b.me{align-self:flex-end;background:var(--me);border-top-right-radius:2px}.b.them{align-self:flex-start;border-top-left-radius:2px}
+.b .meta{font-size:11px;color:var(--muted);margin-top:1px;display:flex;gap:6px;justify-content:flex-end;align-items:center}
+.tick{letter-spacing:-3px;transition:color .4s}.tick.read{color:var(--blue)}.tick.pend{letter-spacing:0}.fail{color:var(--bad)}.tag{background:var(--code);border-radius:4px;padding:0 4px}
+.lat{align-self:flex-start;font-size:11px;color:var(--muted);margin:-1px 0 5px 4px}.sep{align-self:center;font-size:11.5px;color:var(--muted);background:var(--panel);border-radius:8px;padding:2px 10px;margin:8px 0;box-shadow:0 1px 1px rgba(0,0,0,.1)}
+.dots{display:inline-flex;gap:4px;padding:6px 4px}.dots i{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:blink 1.2s infinite}.dots i:nth-child(2){animation-delay:.2s}.dots i:nth-child(3){animation-delay:.4s}
+.copybtn{margin-top:4px;font-size:12px}
+.composer{display:flex;gap:6px;padding:8px;border-top:1px solid var(--line);background:var(--panel);flex-wrap:wrap}.composer input#msg{flex:1;min-width:140px;border-radius:99px;padding:8px 14px}
+#otpbar{padding:8px 12px;background:#fff8e1;color:#4a3b00;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center;flex-wrap:wrap}@media (prefers-color-scheme:dark){#otpbar{background:#3a3000;color:#fff3c4}}
+#otpbar b{font-size:20px;letter-spacing:3px;font-variant-numeric:tabular-nums}
+.welcome{margin:auto;max-width:460px;background:var(--panel);border-radius:14px;padding:18px 20px;box-shadow:0 2px 10px rgba(0,0,0,.12)}.welcome h2{margin:0 0 6px;font-size:17px}.welcome ol{margin:8px 0 0 18px;padding:0}.welcome li{margin:6px 0}
+.empty{margin:auto;color:var(--muted);text-align:center;max-width:320px}
+/* the QA tools */
+.tabs{display:flex;border-bottom:1px solid var(--line)}.tabs button{flex:1;border:0;border-radius:0;background:none;padding:9px 4px;color:var(--muted);font-size:13px}.tabs button.on{color:var(--ink);border-bottom:2px solid var(--accent);font-weight:600}
+.pane{overflow:auto;flex:1;padding:8px;scroll-behavior:smooth}.explain{font-size:12.5px;color:var(--muted);background:var(--code);border-radius:8px;padding:7px 9px;margin-bottom:8px}
+.ev{border:1px solid var(--line);border-radius:8px;margin-bottom:6px;overflow:hidden}.ev>div{padding:5px 8px;display:flex;gap:8px;cursor:pointer;align-items:center;flex-wrap:wrap}
 .ev .d{font-size:11px;font-weight:700;padding:0 6px;border-radius:4px;background:var(--code)}.ev pre{margin:0;padding:8px;background:var(--code);font-size:11px;overflow:auto;max-height:260px;display:none}.ev.open pre{display:block}
 table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:4px 6px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--muted);font-weight:600}
 label.f{display:flex;flex-direction:column;gap:2px;margin-bottom:8px;font-size:12px;color:var(--muted)}label.f input{color:var(--ink)}.row{display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
-.hint{font-size:12px;color:var(--muted)}h3{margin:12px 0 6px;font-size:13px}
+.hint{font-size:12px;color:var(--muted)}h3{margin:14px 0 6px;font-size:13px}
+#toast{position:fixed;left:50%;bottom:22px;transform:translate(-50%,20px);background:#111b21;color:#fff;padding:8px 16px;border-radius:99px;font-size:13px;opacity:0;pointer-events:none;transition:all .25s;z-index:20}#toast.on{opacity:.94;transform:translate(-50%,0)}
+dialog{border:0;border-radius:14px;max-width:640px;width:92vw;padding:0;background:var(--panel);color:var(--ink);box-shadow:0 10px 40px rgba(0,0,0,.35)}dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog .in{padding:18px 22px;max-height:80vh;overflow:auto}dialog h2{margin:0 0 8px}dialog dt{font-weight:600;margin-top:8px}dialog dd{margin:2px 0 0 0;color:var(--muted)}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:.2;transform:translateX(10px)}to{opacity:1;transform:none}}
+@keyframes blink{0%,60%,100%{opacity:.25;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
-<header><h1>Meta simulator</h1><div class="seg" id="view"><button data-v="phone" class="on" title="You hold a phone: pick any number, see its chats, its sign-in codes">Phone view</button><button data-v="biz" title="Pick a business number and see its customers">Business view</button></div><span id="live" class="pill">connecting…</span><span id="hook" class="pill"></span><span class="hint" id="graph"></span>
-  <span style="flex:1"></span><button id="reset">Clear conversation</button></header>
+<header>
+  <h1>Meta simulator</h1><span class="sub">a stand-in for WhatsApp and Meta, for testing the product</span>
+  <div class="seg" id="view"><button data-v="phone" class="on" title="You hold a customer's mobile phone and chat with shops">📱 Customer phones</button><button data-v="biz" title="You are the shop owner: see the shop's customers">🏪 Shop side</button></div>
+  <span id="live" class="pill">connecting…</span><span id="hook" class="pill"></span>
+  <span style="flex:1"></span><button id="help">❓ How this works</button><button id="reset" title="Delete every message in the simulator">Clear all chats</button>
+</header>
+<div id="bar"></div>
 <main>
+  <section id="left"><div class="hd" id="listhd"></div><div class="list" id="chats"></div><div class="hd" id="newchat"></div></section>
   <section>
-    <div class="hd"><select id="biz" style="flex:1"></select><b id="phlabel" hidden>Phones</b></div>
-    <div class="list" id="contacts"></div>
-    <div class="hd" id="chathd" hidden><b>Chats on this phone</b></div><div class="list" id="chats" hidden style="max-height:44%;border-top:1px solid var(--line)"></div>
-    <div class="hd"><input id="newwa" placeholder="new phone number, e.g. +91 98765 43210" style="flex:1"><button id="addc">Add</button></div>
-  </section>
-  <section>
-    <div class="hd"><div class="av" id="cav">?</div><div style="flex:1"><div id="cname" style="font-weight:600">Pick a customer</div><div class="hint" id="cstat"></div></div>
-      <div class="seg" id="role"><button data-r="customer" class="on" title="You are the customer's phone">Customer</button><button data-r="owner" title="You are the owner using the WhatsApp Business app (coexistence echo)">Owner (Business app)</button></div></div>
-    <div id="otpbar" hidden style="padding:8px 12px;background:var(--code);border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center"><span>Latest sign-in code on this phone:</span><b id="otpcode" style="font-size:18px;letter-spacing:2px"></b><button id="otpcopy">Copy</button><span class="hint" id="otpwhen"></span></div>
+    <div id="strip"></div>
+    <div class="hd"><div class="av" id="cav">?</div><div class="who"><div class="nm" id="cname">Pick a chat</div><div class="ph" id="cnum"></div><div class="st" id="cstat"></div></div>
+      <button id="savec" hidden>Save contact</button>
+      <div class="seg" id="role" hidden><button data-r="customer" class="on" title="Type as the customer, from the customer's phone">As the customer</button><button data-r="owner" title="Type as the shop owner, from the WhatsApp Business app (the product sees an echo)">As the shop owner</button></div></div>
+    <div id="otpbar" hidden><span>🔑 Latest sign-in code on this phone:</span><b id="otpcode"></b><button id="otpcopy">Copy</button><span class="hint" id="otpwhen"></span></div>
     <div id="chat"></div>
     <div class="composer"><input id="msg" placeholder="Type a message" autocomplete="off"><button class="primary" id="send">Send</button>
-      <button id="voice" title="Send a voice note (pick an audio file)">🎤</button><button id="photo" title="Send a photo (pick an image)">📷</button><input type="file" id="pick" hidden><button id="frag" title="Send three fragments 2 s apart">3 fragments</button></div>
+      <button id="voice" title="Send a voice note (pick an audio file)">🎤</button><button id="photo" title="Send a photo (pick an image)">📷</button><input type="file" id="pick" hidden><button id="frag" title="Send three short messages 2 seconds apart, like a customer typing in bursts">3 fragments</button></div>
   </section>
   <section style="border-right:0">
-    <div class="tabs" id="tabs"><button class="on" data-p="wire">Wire log</button><button data-p="timing">Timing</button><button data-p="audit">Audit</button><button data-p="set">Settings</button></div>
+    <div class="tabs" id="tabs"><button class="on" data-p="wire" title="Everything sent between this simulator and the product">Activity log</button><button data-p="timing" title="How fast the product answered">Reply speed</button><button data-p="audit" title="A summary and a table for the selected phone">Report</button><button data-p="set" title="Make things go wrong, connection settings">Test controls</button></div>
     <div class="pane" id="p-wire"></div><div class="pane" id="p-audit" hidden></div><div class="pane" id="p-timing" hidden></div><div class="pane" id="p-set" hidden></div>
   </section>
 </main>
+<div id="toast"></div>
+<dialog id="helpdlg"><div class="in" id="helpbody"></div></dialog>
 <script>
-const S={biz:[],customers:{},msgs:new Map(),wire:[],settings:{},typing:{},pnid:null,cust:null,role:'customer',tab:'wire',view:'phone'};
+const S={biz:[],customers:{},msgs:new Map(),wire:[],settings:{},typing:{},pnid:null,cust:null,role:'customer',tab:'wire',view:'phone',pending:[],drawn:new Set(),threadKey:'',follow:true};
+const LS=(k,d)=>{try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}};
+const SV=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+S.saved=LS('sim.saved',{}); S.seen=LS('sim.seen',{});            // like a real phone: the contacts you saved, and what you have already opened
 const $=s=>document.querySelector(s), el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
 const api=(p,b)=>fetch('/sim/api/'+p,b===undefined?{}:{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json());
 const fmt=t=>new Date(t*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+const hm=t=>new Date(t*1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
 const sec=(a,b)=>((b-a)).toFixed(1)+' s';
+const digits=s=>String(s||'').replace(/\D/g,'');
+const num=d=>{d=digits(d);return d.length===12&&d.startsWith('91')?'+91 '+d.slice(2,7)+' '+d.slice(7):'+'+d};
+const clock=t=>{const d=new Date(t*1000),n=new Date();return d.toDateString()===n.toDateString()?hm(t):d.toLocaleDateString([],{day:'2-digit',month:'short'})};
+const shops=()=>S.biz.filter(b=>b.kind==='business');
+const bizOf=pn=>S.biz.find(b=>b.pnid===pn)||{name:'?',display:'',kind:'business',pnid:pn};
+const skey=(wa,b)=>wa+'|'+digits(b.display);                      // a saved contact belongs to one phone
+const saved=b=>S.saved[skey(S.cust,b)];                          // the name this phone gave that number, if any
+const label=b=>saved(b)||num(b.display);
+const msgsOf=(pn,wa)=>[...S.msgs.values()].filter(m=>m.pnid===pn&&m.customer===wa).sort((a,b)=>a.ts-b.ts);
+const thread=()=>msgsOf(S.pnid,S.cust);
+const toPhone=m=>m.direction!=='in';
+const unreadOf=(wa,b)=>[...S.msgs.values()].filter(m=>m.pnid===b.pnid&&m.customer===wa&&toPhone(m)&&m.ts>(S.seen[wa+'|'+b.pnid]||0)).length;
+const unreadPhone=wa=>S.biz.reduce((a,b)=>a+unreadOf(wa,b),0);
+function toast(t){const x=$('#toast');x.textContent=t;x.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>x.classList.remove('on'),1900)}
 
-async function load(){
-  const st=await api('state'); S.biz=st.businesses; S.customers=st.customers; S.wire=st.wire.slice().reverse(); S.settings=st.settings;
-  S.typing=Object.fromEntries(Object.entries(st.typing).map(([k,v])=>[k,v])); S.msgs=new Map(st.messages.map(m=>[m.id,m]));
-  if(!S.pnid||!S.biz.find(b=>b.pnid===S.pnid)) S.pnid=(S.biz.find(b=>b.kind==='business')||S.biz[0]).pnid;
-  $('#graph').textContent='Graph base for the product: '+location.origin; renderAll();
-}
-function connect(){
-  const es=new EventSource('/sim/api/events');
-  es.onopen=()=>{$('#live').textContent='live';$('#live').className='pill ok'};
-  es.onerror=()=>{$('#live').textContent='reconnecting…';$('#live').className='pill bad'};
-  es.onmessage=e=>{const {type,data}=JSON.parse(e.data);
-    if(type==='message'){S.msgs.set(data.id,data);renderChat();renderContacts();renderOtp();renderTiming();if(S.tab==='audit')renderAudit()}
-    else if(type==='wire'){S.wire.unshift(data);S.wire.length=Math.min(S.wire.length,300);renderWire()}
-    else if(type==='customers'){S.customers=data;renderContacts()}
-    else if(type==='businesses'){S.biz=data;renderBiz()}
-    else if(type==='settings'){S.settings=data;renderSettings()}
-    else if(type==='typing'){S.typing[data.pnid+'|'+data.customer]=data.until;renderChat()}
-    else if(type==='reset'){S.msgs.clear();S.wire=[];renderAll()}};
-}
-function thread(){return [...S.msgs.values()].filter(m=>m.pnid===S.pnid&&m.customer===S.cust).sort((a,b)=>a.ts-b.ts)}
-function renderBiz(){const s=$('#biz');s.innerHTML='';S.biz.forEach(b=>{const o=el('option',null,`${b.name} · ${b.display}${b.kind==='platform'?' (platform sender)':''}`);o.value=b.pnid;s.appendChild(o)});s.value=S.pnid}
-function renderContacts(){
-  const box=$('#contacts');box.innerHTML='';
-  Object.entries(S.customers).forEach(([wa,name])=>{
-    const ms=[...S.msgs.values()].filter(m=>(S.view==='phone'||m.pnid===S.pnid)&&m.customer===wa).sort((a,b)=>a.ts-b.ts), last=ms[ms.length-1];
-    const c=el('div','contact'+(wa===S.cust?' sel':''));c.appendChild(el('div','av',(name||'?')[0].toUpperCase()));
-    const t=el('div','t');t.appendChild(el('div','n',name===wa?'+'+wa:name+'  +'+wa));t.appendChild(el('div','l',last?((last.direction==='in'?'':'↩ ')+last.text):'no messages'));c.appendChild(t);
-    c.onclick=()=>{S.cust=wa;renderAll2()};box.appendChild(c)});renderChats()}
-function renderChats(){
-  const on=S.view==='phone';['#chathd','#chats'].forEach(q=>$(q).hidden=!on||!S.cust);$('#biz').hidden=on;$('#phlabel').hidden=!on;
-  if(!on||!S.cust)return;
-  const box=$('#chats');box.innerHTML='';
-  const rows=S.biz.map(b=>{const ms=[...S.msgs.values()].filter(m=>m.pnid===b.pnid&&m.customer===S.cust).sort((a,c)=>a.ts-c.ts);return {b,last:ms[ms.length-1]}}).sort((x,y)=>(y.last?y.last.ts:0)-(x.last?x.last.ts:0));
-  rows.forEach(({b,last})=>{const c=el('div','contact'+(b.pnid===S.pnid?' sel':''));c.appendChild(el('div','av',(b.name||'?')[0].toUpperCase()));
-    const t=el('div','t');t.appendChild(el('div','n',b.name+(b.kind==='platform'?'  (sign-in codes)':'')));t.appendChild(el('div','l',last?((last.direction==='in'?'↩ ':'')+last.text):b.display+' · start a chat'));c.appendChild(t);
-    c.onclick=()=>{S.pnid=b.pnid;renderAll2()};box.appendChild(c)})}
+/* ---------------------------------------------------------------- switching: the phone (who is holding it) and the chat (who it is talking to) */
+function bestChat(wa){                                          // the chat with the newest message on that phone, else the first shop
+  const rows=S.biz.map(b=>({b,l:msgsOf(b.pnid,wa).slice(-1)[0]})).filter(r=>r.l).sort((x,y)=>y.l.ts-x.l.ts);
+  return rows.length?rows[0].b.pnid:(shops()[0]||S.biz[0]||{}).pnid}
+function pickPhone(wa){
+  if(!wa||S.cust===wa)return;S.cust=wa;S.pnid=bestChat(wa);S.pending=[];toast('📱 Now holding the phone '+num(wa));renderAll()}
+function pickChat(pn){
+  if(S.pnid===pn)return;S.pnid=pn;toast('💬 Opened the chat with '+label(bizOf(pn)));renderAll()}
+function pickShop(pn){
+  if(S.pnid===pn)return;S.pnid=pn;const ws=Object.keys(S.customers).map(w=>({w,l:msgsOf(pn,w).slice(-1)[0]})).sort((a,b)=>(b.l?b.l.ts:0)-(a.l?a.l.ts:0));
+  S.cust=ws.length?ws[0].w:null;toast('🏪 Now the shop '+num(bizOf(pn).display));renderAll()}
+function pickCustomer(wa){if(S.cust===wa)return;S.cust=wa;toast('💬 Opened the chat with '+num(wa));renderAll()}
+
+/* ---------------------------------------------------------------- the bar: which phone / which shop */
+function renderBar(){
+  const bar=$('#bar');bar.innerHTML='';const phone=S.view==='phone';
+  bar.appendChild(el('div','barlabel',phone?'📱 You are holding:':'🏪 You are the shop:'));
+  const chips=el('div','chips');
+  if(phone){Object.keys(S.customers).forEach(wa=>{const c=el('button','chip'+(wa===S.cust?' on':''),num(wa));const n=unreadPhone(wa)-(wa===S.cust?unreadOf(wa,bizOf(S.pnid)):0);
+      if(n>0)c.appendChild(el('span','dot',String(n)));c.title='Switch to this mobile phone';c.onclick=()=>pickPhone(wa);chips.appendChild(c)})}
+  else shops().forEach(b=>{const c=el('button','chip'+(b.pnid===S.pnid?' on':''),num(b.display));c.title=b.name;c.onclick=()=>pickShop(b.pnid);chips.appendChild(c)});
+  bar.appendChild(chips);
+  if(phone){const a=el('div','addphone');const i=el('input');i.id='newwa';i.placeholder='＋ add phone: +91 98765 43210';const b=el('button',null,'Add phone');
+    const add=async()=>{const v=i.value.trim();if(!v)return;await api('customers',{wa_id:v});const wa=digits(v);i.value='';setTimeout(()=>pickPhone(wa),250)};
+    b.onclick=add;i.onkeydown=e=>{if(e.key==='Enter')add()};a.append(i,b);bar.appendChild(a)}}
+
+/* ---------------------------------------------------------------- the list: chats on this phone / customers of this shop */
+function renderList(){
+  const box=$('#chats'),hd=$('#listhd'),nc=$('#newchat');box.innerHTML='';hd.innerHTML='';nc.innerHTML='';
+  const phone=S.view==='phone';
+  if(!S.cust&&phone){hd.appendChild(el('b',null,'Chats'));box.appendChild(el('div','empty','Add a phone above to start.'));return}
+  hd.appendChild(el('b',null,phone?'💬 Chats on '+num(S.cust):'💬 Customers of '+num(bizOf(S.pnid).display)));
+  if(phone){
+    const rows=S.biz.map(b=>({b,last:msgsOf(b.pnid,S.cust).slice(-1)[0]})).sort((x,y)=>(y.last?y.last.ts:0)-(x.last?x.last.ts:0));
+    rows.forEach(({b,last})=>{const n=b.pnid===S.pnid?0:unreadOf(S.cust,b),sv=saved(b);const c=el('div','contact'+(b.pnid===S.pnid?' sel':''));
+      c.appendChild(el('div','av',sv?sv[0].toUpperCase():'👤'));const t=el('div','t'),r1=el('div','row1'),r2=el('div','row2');
+      r1.appendChild(el('div','n',label(b)));if(last)r1.appendChild(el('div','when'+(n?' new':''),clock(last.ts)));
+      const l=el('div','l'+(n?' unread':''),last?((last.direction==='in'?'✓ ':'')+last.text):'Tap to start chatting');r2.appendChild(l);if(n)r2.appendChild(el('div','badge',String(n)));
+      t.append(r1);if(sv)t.append(el('div','l',num(b.display)));t.append(r2);c.appendChild(t);c.onclick=()=>pickChat(b.pnid);box.appendChild(c)});
+    const inp=el('input');inp.placeholder='＋ Chat with any number: +91 97000 00001';inp.style.flex='1';inp.setAttribute('list','numlist');
+    const dl=el('datalist');dl.id='numlist';S.biz.forEach(b=>{const o=el('option');o.value=num(b.display);dl.appendChild(o)});
+    const go=el('button',null,'Open');
+    const open=()=>{const d=digits(inp.value);if(!d)return;const hit=S.biz.find(b=>digits(b.display)===d||(d.length>=10&&digits(b.display).endsWith(d.slice(-10))));
+      if(hit){inp.value='';pickChat(hit.pnid)}else toast('No WhatsApp number in the simulator is '+num(d)+'. Numbers you can chat with: '+S.biz.map(b=>num(b.display)).join(', '))};
+    go.onclick=open;inp.onkeydown=e=>{if(e.key==='Enter')open()};nc.append(inp,go,dl)}
+  else{
+    const rows=Object.entries(S.customers).map(([wa,name])=>({wa,name,last:msgsOf(S.pnid,wa).slice(-1)[0]})).sort((x,y)=>(y.last?y.last.ts:0)-(x.last?x.last.ts:0));
+    rows.forEach(({wa,name,last})=>{const c=el('div','contact'+(wa===S.cust?' sel':''));c.appendChild(el('div','av',(name&&name!==wa?name:'👤')[0]));const t=el('div','t'),r1=el('div','row1'),r2=el('div','row2');
+      r1.appendChild(el('div','n',name&&name!==wa?name:num(wa)));if(last)r1.appendChild(el('div','when',clock(last.ts)));
+      r2.appendChild(el('div','l',last?((last.direction==='in'?'':'↩ ')+last.text):'no messages yet'));if(name&&name!==wa)t.appendChild(el('div','l',num(wa)));
+      t.append(r1,r2);c.appendChild(t);c.onclick=()=>pickCustomer(wa);box.appendChild(c)})}}
+
+/* ---------------------------------------------------------------- the conversation header: ALWAYS says which phone and who it is talking to */
+function renderHeader(){
+  const phone=S.view==='phone',strip=$('#strip');strip.innerHTML='';
+  const sb=$('#savec'),role=$('#role');
+  if(!S.cust||!S.pnid){$('#cname').textContent='Pick a chat';$('#cnum').textContent='';$('#cstat').textContent='';$('#cav').textContent='?';$('#cav').className='av';sb.hidden=true;role.hidden=true;return}
+  const b=bizOf(S.pnid);
+  if(phone){
+    strip.append(el('span',null,'📱 This phone:'),Object.assign(el('b'),{textContent:num(S.cust)}),el('span','arrow','➜'),el('span',null,'💬 talking to:'),Object.assign(el('b'),{textContent:num(b.display)}));
+    const sv=saved(b);$('#cname').textContent=sv||num(b.display);$('#cnum').textContent=sv?num(b.display)+' · saved contact':num(b.display)+' · not in your contacts';   // the number is always shown, even for a saved contact
+    $('#cav').textContent=sv?sv[0].toUpperCase():'👤';$('#cav').className='av'+(sv?' named':'');
+    sb.hidden=false;sb.textContent=sv?'Edit contact':'Save contact';
+    sb.onclick=()=>{const v=prompt('Name for '+num(b.display)+' on the phone '+num(S.cust)+' (leave empty to remove)',sv||'');if(v===null)return;if(v.trim())S.saved[skey(S.cust,b)]=v.trim();else delete S.saved[skey(S.cust,b)];SV('sim.saved',S.saved);renderAll()};
+    role.hidden=true;S.role='customer'}
+  else{
+    const nm=S.customers[S.cust];
+    strip.append(el('span',null,'🏪 This shop:'),Object.assign(el('b'),{textContent:num(b.display)}),el('span','arrow','➜'),el('span',null,'💬 talking to customer:'),Object.assign(el('b'),{textContent:num(S.cust)}));
+    $('#cname').textContent=nm&&nm!==S.cust?nm:num(S.cust);$('#cnum').textContent=num(S.cust)+' · customer';$('#cav').textContent='👤';$('#cav').className='av';
+    sb.hidden=true;role.hidden=false}
+  renderTyping()}
+function typingNow(){const t=S.typing[S.pnid+'|'+S.cust];return !!(t&&t*1000>Date.now())}
+function renderTyping(){
+  $('#cstat').textContent=typingNow()?'typing…':'';
+  const box=$('#chat');let d=box.querySelector('.typingbubble');
+  if(typingNow()&&S.cust&&S.pnid){if(!d){d=el('div','b them typingbubble new');d.innerHTML='<span class="dots"><i></i><i></i><i></i></span>';box.appendChild(d);box.scrollTop=box.scrollHeight}}
+  else if(d)d.remove()}
+
+/* ---------------------------------------------------------------- the chat itself */
+function tick(m){
+  if(m.status==='failed')return el('span','fail','✗ '+(m.error||'failed'));
+  return el('span','tick '+(m.status==='read'?'read':''),['delivered','read'].includes(m.status)?'✓✓':'✓')}
 function otpLatest(){
   const ms=[...S.msgs.values()].filter(m=>m.customer===S.cust&&m.direction!=='in'&&/\b\d{6}\b/.test(m.text)&&((S.biz.find(b=>b.pnid===m.pnid)||{}).kind==='platform'||(m.template||'').includes('otp'))).sort((a,b)=>b.ts-a.ts)[0];
   return ms?{code:ms.text.match(/\b\d{6}\b/)[0],ts:ms.ts}:null}
-function renderOtp(){
-  const o=S.view==='phone'&&S.cust?otpLatest():null;$('#otpbar').hidden=!o;if(!o)return;$('#otpcode').textContent=o.code;$('#otpwhen').textContent=fmt(o.ts)}
-function renderAll2(){renderContacts();renderChat();renderOtp();renderTiming();if(S.tab==='audit')renderAudit()}
-function tick(m,customerView){
-  if(m.status==='failed')return el('span','fail','✗ '+(m.error||'failed'));
-  const x=el('span','tick '+(m.status==='read'?'read':''),['delivered','read'].includes(m.status)?'✓✓':'✓');return x}
+function renderOtp(){const o=S.view==='phone'&&S.cust?otpLatest():null;$('#otpbar').hidden=!o;if(!o)return;$('#otpcode').textContent=o.code;$('#otpwhen').textContent=fmt(o.ts)}
+function welcome(){
+  const w=el('div','welcome');w.innerHTML='<h2>👋 Start here</h2><div class="hint">This pretends to be WhatsApp, so you can test the product without a real phone.</div><ol>'+
+    '<li><b>Pick the mobile phone</b> you are holding: the number chips at the top. Add one with “Add phone”.</li>'+
+    '<li><b>Pick a chat</b> on the left: a shop number, or ＋ Start a chat. Your phone number and the number you are talking to are always shown at the top of the chat.</li>'+
+    '<li><b>Type like a customer</b> and watch the product answer.</li>'+
+    '<li>Sign-in codes sent by the product show up on the phone as a yellow bar.</li>'+
+    '<li><b>Test as a customer from a different phone than the shop owner’s.</b> If the phone you hold is the shop’s owner, the product treats your message as an owner command and answers with “I didn’t catch that. Try: add product…”. That is expected, not an error.</li></ol><div class="hint" style="margin-top:10px">Stuck? Press <b>❓ How this works</b> at the top.</div>';return w}
 function renderChat(){
-  const box=$('#chat');box.innerHTML='';
-  if(!S.cust){$('#cname').textContent='Pick a customer';$('#cstat').textContent='';return}
-  const name=S.customers[S.cust];
-  if(S.view==='phone'){const bz=S.biz.find(b=>b.pnid===S.pnid)||{name:'?',display:''};$('#cname').textContent=bz.name+'  '+bz.display;$('#cav').textContent=(bz.name||'?')[0].toUpperCase()}
-  else{$('#cname').textContent=name+'  +'+S.cust;$('#cav').textContent=(name||'?')[0].toUpperCase()}
-  const typing=S.typing[S.pnid+'|'+S.cust];$('#cstat').textContent=(typing&&typing*1000>Date.now())?'business is typing…':'';
-  const ms=thread();let lastIn=null,prev=0;
+  const box=$('#chat');
+  if(!S.cust||!S.pnid){box.innerHTML='';box.appendChild(welcome());return}
+  const key=S.view+'|'+S.cust+'|'+S.pnid+'|'+S.role,fresh=key!==S.threadKey;
+  if(fresh){S.drawn=new Set();S.threadKey=key;box.classList.remove('swap');void box.offsetWidth;box.classList.add('swap')}
+  box.innerHTML='';
+  const ms=thread();let lastIn=null,prev=0,day='';
+  if(!ms.length&&!S.pending.length){box.appendChild(el('div','empty','No messages yet in this chat. Type a message below.'))}
   ms.forEach(m=>{
-    if(m.ts-prev>600){box.appendChild(el('div','sep',new Date(m.ts*1000).toLocaleString()))}prev=m.ts;
+    const d=new Date(m.ts*1000).toDateString();if(d!==day){day=d;box.appendChild(el('div','sep',d===new Date().toDateString()?'Today':new Date(m.ts*1000).toLocaleDateString([], {day:'numeric',month:'long',year:'numeric'})))}
+    prev=m.ts;
     const mine=S.role==='customer'?m.direction==='in':m.direction!=='in';
-    const b=el('div','b '+(mine?'me':'them'));b.appendChild(el('div',null,m.text));
+    const b=el('div','b '+(mine?'me':'them')+(S.drawn.has(m.id)||fresh?'':' new'));S.drawn.add(m.id);b.appendChild(el('div',null,m.text));
     const meta=el('div','meta');
     if(m.direction==='echo')meta.appendChild(el('span','tag','Business app'));
-    if(m.direction==='in'&&m.t_ack_ms!=null)meta.appendChild(el('span',null,'ack '+m.t_ack_ms+' ms'));
-    if(m.direction!=='in')meta.appendChild(el('span',null,m.status));
-    meta.appendChild(el('span',null,fmt(m.ts)));
+    if(m.direction==='in'&&m.t_ack_ms!=null)meta.appendChild(el('span',null,'product answered in '+m.t_ack_ms+' ms'));
+    meta.appendChild(el('span',null,hm(m.ts)));
     if(m.direction==='in'&&S.role==='customer'||m.direction!=='in'&&S.role==='owner')meta.appendChild(tick(m));
     const code=(m.direction!=='in'&&((S.biz.find(x=>x.pnid===m.pnid)||{}).kind==='platform'||(m.template||'').includes('otp')))?(m.text.match(/\b\d{6}\b/)||[])[0]:null;
-    if(code){const cb=el('button',null,'Copy code '+code);cb.style.marginTop='4px';cb.onclick=()=>navigator.clipboard&&navigator.clipboard.writeText(code);b.appendChild(cb)}
+    if(code){const cb=el('button','copybtn','Copy code '+code);cb.onclick=()=>navigator.clipboard&&navigator.clipboard.writeText(code);b.appendChild(cb)}
     b.appendChild(meta);box.appendChild(b);
     if(m.direction==='in')lastIn=m;
-    else if(lastIn&&m.direction==='out'){box.appendChild(el('div','lat',`reply latency ${sec(lastIn.ts,m.ts)} after the customer's last message`));lastIn=null}
+    else if(lastIn&&m.direction==='out'){box.appendChild(el('div','lat',`answered ${sec(lastIn.ts,m.ts)} after the customer's last message`));lastIn=null}
   });
-  box.scrollTop=box.scrollHeight}
+  S.pending.filter(p=>p.pnid===S.pnid&&p.customer===S.cust).forEach(p=>{                // what you just typed shows at once, with a clock, until the simulator confirms it
+    const b=el('div','b me'+(p.drawn?'':' new'));p.drawn=true;b.appendChild(el('div',null,p.text));const meta=el('div','meta');meta.append(el('span',null,hm(p.ts/1000)),p.failed?el('span','fail','✗ not sent'):el('span','tick pend','🕓'));b.appendChild(meta);box.appendChild(b)});
+  box.scrollTop=box.scrollHeight;renderTyping();markSeen()}
+function markSeen(){
+  if(S.view!=='phone'||!S.cust||!S.pnid)return;const k=S.cust+'|'+S.pnid,ms=thread();const last=ms.length?ms[ms.length-1].ts:0;
+  if((S.seen[k]||0)<last){S.seen[k]=last;SV('sim.seen',S.seen);renderList();renderBar()}}
+
+/* ---------------------------------------------------------------- the QA tools. Every log reads top to bottom: oldest first, newest at the bottom */
+function atBottom(p){return p.scrollHeight-p.scrollTop-p.clientHeight<60}
 function renderWire(){
-  const p=$('#p-wire');p.innerHTML='';
+  const p=$('#p-wire'),stick=S.follow&&(atBottom(p)||!p.dataset.ready);p.innerHTML='';p.dataset.ready='1';
+  p.appendChild(el('div','explain','Everything this simulator sent to the product (⇢ webhooks) and received from it (⇠ API calls). Oldest at the top, newest at the bottom. Click a row to see the raw message.'));
   S.wire.forEach(e=>{const w=el('div','ev');const h=el('div');
-    const lab={webhook_out:'⇢ WEBHOOK',api_in:'⇠ API',api_out:'↩ API REPLY',webhook_verify:'GET VERIFY'}[e.dir]||e.dir;
+    const lab={webhook_out:'⇢ TO PRODUCT',api_in:'⇠ FROM PRODUCT',api_out:'↩ OUR REPLY',webhook_verify:'GET VERIFY'}[e.dir]||e.dir;
     h.appendChild(el('span','d',lab));h.appendChild(el('span',null,e.label||e.path||''));
     const code=e.status??e.error;h.appendChild(el('span',e.status===200?'':'fail',String(code??'')));if(e.ms!=null)h.appendChild(el('span','hint',e.ms+' ms'));
-    h.appendChild(el('span','hint',fmt(e.t)));const pre=el('pre',null,JSON.stringify(e.body,null,2));h.onclick=()=>w.classList.toggle('open');w.append(h,pre);p.appendChild(w)})}
+    h.appendChild(el('span','hint',fmt(e.t)));const pre=el('pre',null,JSON.stringify(e.body,null,2));h.onclick=()=>w.classList.toggle('open');w.append(h,pre);p.appendChild(w)});
+  if(stick)p.scrollTop=p.scrollHeight}
 function renderTiming(){
-  const p=$('#p-timing');p.innerHTML='';
-  const ins=[...S.msgs.values()].filter(m=>m.direction==='in'&&m.pnid===S.pnid).sort((a,b)=>b.ts-a.ts).slice(0,40);
-  const t=el('table');t.innerHTML='<tr><th>Customer message</th><th>Ack</th><th>First reply</th><th>Read by biz</th></tr>';
+  const p=$('#p-timing');p.innerHTML='';p.appendChild(el('div','explain','How fast the product answered each customer message of the open chat’s shop. Oldest at the top, newest at the bottom. “First reply” includes the product’s intentional human-like waiting.'));
+  const ins=[...S.msgs.values()].filter(m=>m.direction==='in'&&m.pnid===S.pnid).sort((a,b)=>a.ts-b.ts).slice(-40);
+  const t=el('table');t.innerHTML='<tr><th>Customer message</th><th>Product answered in</th><th>First reply after</th><th>Read after</th></tr>';
   ins.forEach(m=>{const r=[...S.msgs.values()].filter(x=>x.direction==='out'&&x.pnid===m.pnid&&x.customer===m.customer&&x.ts>m.ts).sort((a,b)=>a.ts-b.ts)[0];
     const tr=el('tr');[m.text.slice(0,24),m.t_ack_ms!=null?m.t_ack_ms+' ms':'…',r?sec(m.ts,r.ts):'—',m.marks.read?sec(m.ts,m.marks.read):'—'].forEach(x=>tr.appendChild(el('td',null,x)));t.appendChild(tr)});
-  p.appendChild(el('div','hint','"First reply" is wall-clock from the customer\'s message to the product\'s first accepted API send, so it includes end-of-turn waiting, the model and human-like delays.'));p.appendChild(t)}
+  p.appendChild(t);p.scrollTop=p.scrollHeight}
 function field(label,key,type='text'){const l=el('label','f',label);const i=el('input');i.type=type;i.value=S.settings[key]??'';i.onchange=()=>api('settings',{[key]:type==='number'?+i.value:i.value});l.appendChild(i);return l}
 function check(label,key){const l=el('label','row');const i=el('input');i.type='checkbox';i.checked=!!S.settings[key];i.onchange=()=>api('settings',{[key]:i.checked});l.append(i,document.createTextNode(label));return l}
 function range(label,key){const l=el('label','f',label+' (ms, min–max)');const r=el('div','row');const a=el('input'),b=el('input');a.type=b.type='number';a.style.width=b.style.width='90px';
@@ -159,49 +273,97 @@ function renderSettings(){
   const o=location.origin, st=S.settings;
   const lines=['# deploy/gateway/.env (the gateway reaches this simulator from inside Docker: use http://host.docker.internal:'+(location.port||80)+' as META_GRAPH_BASE)','META_GRAPH_BASE='+o,'META_APP_ID=sim-app','META_APP_SECRET='+(st.app_secret||''),'META_VERIFY_TOKEN='+(st.verify_token||''),'META_CONFIG_ID=sim-config',
     'OTP_CHANNEL=whatsapp_cloud','PLATFORM_SENDER_PHONE_NUMBER_ID=sim-platform','PLATFORM_WA_ACCESS_TOKEN=SIMTOKEN-platform','','# deploy/web/.env (the browser loads these)','META_APP_ID=sim-app','META_CONFIG_ID=sim-config','META_SDK_URL='+o+'/sdk.js','META_SIGNUP_ORIGINS='+o,'','# Meta dashboard equivalent: callback URL = your gateway receive address /webhooks/whatsapp, verify token as above'];
-  p.appendChild(el('h3',null,'Settings for the product (variables only)'));const pre=el('pre',null,lines.join('\n'));pre.style.cssText='background:var(--code);padding:8px;border-radius:8px;font-size:11px;overflow:auto;margin:0 0 6px';p.appendChild(pre);
-  const cp=el('button',null,'Copy these lines');cp.onclick=()=>navigator.clipboard&&navigator.clipboard.writeText(lines.join('\n'));p.appendChild(cp);
-  p.appendChild(el('h3',null,'Product connection'));p.appendChild(field('Product webhook URL','webhook_url'));p.appendChild(field('App secret (signs webhooks)','app_secret'));p.appendChild(field('Verify token','verify_token'));
-  const v=el('button',null,'Verify webhook (like Meta\'s dashboard)');v.onclick=async()=>{const r=await api('webhook/verify',{});const h=$('#hook');h.textContent=r.ok?'webhook verified':'verify failed: '+(r.status||r.error);h.className='pill '+(r.ok?'ok':'bad')};p.appendChild(v);
-  p.appendChild(el('h3',null,'Delivery behaviour'));p.appendChild(check('Customer has read receipts on','read_receipts'));p.appendChild(check('Customer phone is offline (never delivered)','phone_offline'));p.appendChild(check('Enforce the 24-hour window (error 131047)','enforce_window'));
-  p.appendChild(range('Sent after','sent_ms'));p.appendChild(range('Delivered after','delivered_ms'));p.appendChild(range('Read after','read_ms'));
-  p.appendChild(el('h3',null,'Inject a failure into the next send'));const row=el('div','row');const sel=el('select');
+  p.appendChild(el('div','explain','Use these to make things go wrong on purpose (an offline phone, a failed send) and to connect this simulator to the product. Nothing here changes the product itself.'));
+  p.appendChild(el('h3',null,'1 · How messages behave'));p.appendChild(check('The customer’s phone has read receipts on (blue ticks)','read_receipts'));p.appendChild(check('The customer’s phone is offline (messages are never delivered)','phone_offline'));p.appendChild(check('Enforce WhatsApp’s 24-hour rule (error 131047)','enforce_window'));
+  p.appendChild(range('Time until “sent”','sent_ms'));p.appendChild(range('Time until “delivered”','delivered_ms'));p.appendChild(range('Time until “read”','read_ms'));
+  p.appendChild(el('h3',null,'2 · Make the next message fail'));const row=el('div','row');const sel=el('select');
   [[131049,'131049 not delivered (async)'],[131026,'131026 undeliverable (async)'],[130429,'130429 rate limit'],[131056,'131056 pair rate limit'],[190,'190 token expired'],[131031,'131031 account locked']].forEach(([c,t])=>{const o=el('option',null,t);o.value=c;sel.appendChild(o)});
-  const add=el('button',null,'Queue');add.onclick=()=>api('settings',{fail_next:[...(S.settings.fail_next||[]),+sel.value]});row.append(sel,add);p.appendChild(row);p.appendChild(el('div','hint','Queued: '+((S.settings.fail_next||[]).join(', ')||'none')));
-  p.appendChild(el('h3',null,'Account events'));const r2=el('div','row');['PARTNER_REMOVED','ACCOUNT_RECONNECTED'].forEach(ev=>{const b=el('button',null,ev);b.onclick=()=>api('account-event',{pnid:S.pnid,event:ev});r2.appendChild(b)});p.appendChild(r2);
-  p.appendChild(el('h3',null,'Business numbers'));S.biz.forEach(b=>{const d=el('div','hint',`${b.name} ${b.display}\n  phone_number_id: ${b.pnid}\n  waba_id: ${b.waba_id}\n  access token: ${b.token}`);d.style.whiteSpace='pre-wrap';d.style.marginBottom='8px';p.appendChild(d)})}
+  const add=el('button',null,'Queue it');add.onclick=()=>api('settings',{fail_next:[...(S.settings.fail_next||[]),+sel.value]});row.append(sel,add);p.appendChild(row);p.appendChild(el('div','hint','Queued: '+((S.settings.fail_next||[]).join(', ')||'none')));
+  p.appendChild(el('h3',null,'3 · Pretend something happened to the shop’s WhatsApp account'));const r2=el('div','row');[['PARTNER_REMOVED','Disconnect the shop'],['ACCOUNT_RECONNECTED','Reconnect the shop']].forEach(([ev,t])=>{const b=el('button',null,t);b.title=ev;b.onclick=()=>api('account-event',{pnid:S.pnid,event:ev});r2.appendChild(b)});p.appendChild(r2);
+  p.appendChild(el('div','hint','Applies to the shop open in the chat.'));
+  p.appendChild(el('h3',null,'4 · Connection to the product'));p.appendChild(field('Where the product receives webhooks','webhook_url'));p.appendChild(field('App secret (signs every webhook)','app_secret'));p.appendChild(field('Verify token','verify_token'));
+  const v=el('button',null,'Check the connection (like Meta’s dashboard)');v.onclick=async()=>{const r=await api('webhook/verify',{});const h=$('#hook');h.textContent=r.ok?'✓ product connected':'✗ cannot reach the product: '+(r.status||r.error);h.className='pill '+(r.ok?'ok':'bad')};p.appendChild(v);
+  p.appendChild(el('h3',null,'5 · Number directory (which number is which shop)'));S.biz.forEach(b=>{const d=el('div','hint',`${num(b.display)} = ${b.name}${b.kind==='platform'?' (the product’s sign-in code sender)':''}\n  phone_number_id: ${b.pnid}   waba_id: ${b.waba_id}\n  access token: ${b.token}`);d.style.whiteSpace='pre-wrap';d.style.marginBottom='8px';p.appendChild(d)});
+  p.appendChild(el('h3',null,'6 · Settings to copy into the product'));const pre=el('pre',null,lines.join('\n'));pre.style.cssText='background:var(--code);padding:8px;border-radius:8px;font-size:11px;overflow:auto;margin:0 0 6px';p.appendChild(pre);
+  const cp=el('button',null,'Copy these lines');cp.onclick=()=>navigator.clipboard&&navigator.clipboard.writeText(lines.join('\n'));p.appendChild(cp)}
 let auditFilter='';
 async function renderAudit(){
-  const p=$('#p-audit');if(!S.cust){p.textContent='Pick a phone to see its audit.';return}
+  const p=$('#p-audit');if(!S.cust){p.textContent='Pick a phone to see its report.';return}
   const q='phone='+encodeURIComponent(S.cust)+(auditFilter?'&pnid='+encodeURIComponent(auditFilter):'');
   const a=await api('audit?'+q);p.innerHTML='';
-  const row=el('div','row');const sel=el('select');sel.appendChild(Object.assign(el('option',null,'All numbers'),{value:''}));S.biz.forEach(b=>{const o=el('option',null,b.name+' '+b.display);o.value=b.pnid;sel.appendChild(o)});sel.value=auditFilter;sel.onchange=()=>{auditFilter=sel.value;renderAudit()};
+  p.appendChild(el('div','explain','A summary of everything the phone '+num(S.cust)+' did, with a table below. Oldest at the top, newest at the bottom. Download it to attach to a bug report.'));
+  const row=el('div','row');const sel=el('select');sel.appendChild(Object.assign(el('option',null,'All numbers'),{value:''}));S.biz.forEach(b=>{const o=el('option',null,num(b.display)+' · '+b.name);o.value=b.pnid;sel.appendChild(o)});sel.value=auditFilter;sel.onchange=()=>{auditFilter=sel.value;renderAudit()};
   const j=el('a',null,'Download JSON');j.href='/sim/api/audit?'+q;j.download='meta-sim-audit.json';const c=el('a',null,'Download CSV');c.href='/sim/api/audit.csv?'+q;row.append(sel,j,c);p.appendChild(row);
-  const sm=a.summary,cards=[['Messages',sm.messages],['From phone',sm.from_phone],['To phone',sm.to_phone],['Failed',sm.failed],['Sign-in codes',sm.otp_codes_delivered],['Product ack (avg)',sm.avg_product_ack_ms==null?'—':sm.avg_product_ack_ms+' ms'],['First reply (avg)',sm.avg_first_reply_s==null?'—':sm.avg_first_reply_s+' s'],['Webhook failures',sm.webhook_failures]];
+  const sm=a.summary,cards=[['Messages',sm.messages],['Sent by the phone',sm.from_phone],['Received by the phone',sm.to_phone],['Failed',sm.failed],['Sign-in codes',sm.otp_codes_delivered],['Product answered in (avg)',sm.avg_product_ack_ms==null?'—':sm.avg_product_ack_ms+' ms'],['First reply after (avg)',sm.avg_first_reply_s==null?'—':sm.avg_first_reply_s+' s'],['Webhook failures',sm.webhook_failures]];
   const g=el('div');g.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0';cards.forEach(([k,v])=>{const d=el('div');d.style.cssText='border:1px solid var(--line);border-radius:8px;padding:6px';d.appendChild(el('div','hint',k));d.appendChild(Object.assign(el('div',null,String(v)),{style:'font-weight:600'}));g.appendChild(d)});p.appendChild(g);
   const t=el('table');t.innerHTML='<tr><th>Time</th><th>Path</th><th>What</th><th>Ticks</th><th>Product</th></tr>';
-  a.rows.slice().reverse().forEach(r=>{const tr=el('tr');const t0=r.time,tk=[r.sent_at&&'sent '+(r.sent_at-t0).toFixed(1)+'s',r.delivered_at&&'delivered '+(r.delivered_at-t0).toFixed(1)+'s',r.read_at&&'read '+(r.read_at-t0).toFixed(1)+'s'].filter(Boolean).join(' → ');
-    const prod=r.direction.startsWith('phone')?((r.product_ack_ms!=null?'ack '+r.product_ack_ms+' ms; ':'')+r.webhooks_to_product.map(w=>w.status).join(', ')):'';
-    [fmt(r.time),r.direction+' · '+r.business,(r.otp?'[sign-in code] ':'')+(r.template?'['+r.template+'] ':'')+r.text.slice(0,90),r.error?('✗ '+r.error):(tk||r.status),prod].forEach(x=>tr.appendChild(el('td',null,x)));t.appendChild(tr)});p.appendChild(t)}
-function renderAll(){renderBiz();renderContacts();renderChat();renderOtp();renderWire();renderTiming();renderSettings()}
+  a.rows.forEach(r=>{const tr=el('tr');const t0=r.time,tk=[r.sent_at&&'sent '+(r.sent_at-t0).toFixed(1)+'s',r.delivered_at&&'delivered '+(r.delivered_at-t0).toFixed(1)+'s',r.read_at&&'read '+(r.read_at-t0).toFixed(1)+'s'].filter(Boolean).join(' → ');
+    const prod=r.direction.startsWith('phone')?((r.product_ack_ms!=null?'answered in '+r.product_ack_ms+' ms; ':'')+r.webhooks_to_product.map(w=>w.status).join(', ')):'';
+    [fmt(r.time),r.direction+' · '+r.business,(r.otp?'[sign-in code] ':'')+(r.template?'['+r.template+'] ':'')+r.text.slice(0,90),r.error?('✗ '+r.error):(tk||r.status),prod].forEach(x=>tr.appendChild(el('td',null,x)));t.appendChild(tr)});p.appendChild(t);p.scrollTop=p.scrollHeight}
+
+/* ---------------------------------------------------------------- the help */
+function renderHelp(){
+  const b=$('#helpbody');b.innerHTML='<h2>How this simulator works</h2><p class="hint">It pretends to be WhatsApp and Meta, so you can test the product without a real phone or a Meta account. Nothing here is real, and it never sends a real message.</p>'+
+    '<dl><dt>📱 A phone</dt><dd>A mobile number you are holding. Pick it with the chips at the top. Each phone has its own chats and its own saved contacts, like a real phone.</dd>'+
+    '<dt>💬 A chat</dt><dd>One conversation on that phone: with a shop, or with the product’s sign-in sender. Pick it in the list on the left. The top of the chat always shows <b>This phone ➜ talking to</b> so you never lose track.</dd>'+
+    '<dt>👤 Save contact</dt><dd>Gives a number a name on this phone only, as on a real phone. The number is still shown under the name.</dd>'+
+    '<dt>👤 Owner or customer?</dt><dd>The phone you used to sign up a shop is that shop’s owner. When the owner messages their own shop number, the product answers as an assistant for the owner (“I didn’t catch that. Try: add product…”). To test what a customer sees, hold a different phone.</dd>'+
+    '<dt>🔑 Sign-in codes</dt><dd>When you sign in to the product with a phone number, the code arrives on that phone: look for the yellow bar (or the chat with the sender number).</dd>'+
+    '<dt>🏪 Shop side</dt><dd>Switch here to be the shop owner: pick the shop number, see its customers, and type as the customer or as the owner’s WhatsApp Business app.</dd>'+
+    '<dt>Activity log</dt><dd>Every message between this simulator and the product, oldest first. Useful to show developers what happened.</dd>'+
+    '<dt>Reply speed</dt><dd>How fast the product answered. Includes its intentional human-like waiting.</dd>'+
+    '<dt>Report</dt><dd>A summary and table for the phone you are holding. Download it for a bug report.</dd>'+
+    '<dt>Test controls</dt><dd>Make things go wrong on purpose: an offline phone, a failed send, a disconnected shop.</dd></dl>'+
+    '<h3>Words you may hear</h3><dl><dt>Webhook</dt><dd>How Meta tells the product a customer wrote. Here the simulator does that.</dd><dt>Ack</dt><dd>The product confirming it received a message (shown as “product answered in … ms”).</dd>'+
+    '<dt>Coexistence</dt><dd>The owner using the WhatsApp Business app on their own phone while the product also answers. “As the shop owner” plays that.</dd><dt>24-hour rule</dt><dd>A shop can only reply freely for 24 hours after the customer’s last message.</dd></dl>'+
+    '<div style="text-align:right;margin-top:12px"><button class="primary" id="helpclose">Got it</button></div>';
+  $('#helpclose').onclick=()=>$('#helpdlg').close()}
+
+/* ---------------------------------------------------------------- everything */
+function renderAll(){renderBar();renderList();renderHeader();renderChat();renderOtp();renderWire();renderTiming();renderSettings();if(S.tab==='audit')renderAudit()}
+async function load(){
+  const st=await api('state');S.biz=st.businesses;S.customers=st.customers;S.wire=st.wire.slice();S.settings=st.settings;
+  S.typing=Object.fromEntries(Object.entries(st.typing));S.msgs=new Map(st.messages.map(m=>[m.id,m]));
+  if(!S.pnid||!S.biz.find(b=>b.pnid===S.pnid))S.pnid=(shops()[0]||S.biz[0]||{}).pnid;
+  if(S.view==='phone'&&!S.cust){const f=Object.keys(S.customers)[0];if(f){S.cust=f;S.pnid=bestChat(f)}}
+  renderAll();renderHelp();if(!LS('sim.welcomed',false)){SV('sim.welcomed',true);if(!S.cust)return}}
+function connect(){
+  const es=new EventSource('/sim/api/events');
+  es.onopen=()=>{$('#live').textContent='● live';$('#live').className='pill ok'};
+  es.onerror=()=>{$('#live').textContent='reconnecting…';$('#live').className='pill bad'};
+  es.onmessage=e=>{const {type,data}=JSON.parse(e.data);
+    if(type==='message'){S.msgs.set(data.id,data);
+      if(data.direction==='in'){const i=S.pending.findIndex(p=>p.pnid===data.pnid&&p.customer===data.customer&&p.text===data.text);if(i>=0)S.pending.splice(i,1)}
+      renderChat();renderList();renderBar();renderOtp();renderTiming();if(S.tab==='audit')renderAudit()}
+    else if(type==='wire'){S.wire.push(data);if(S.wire.length>300)S.wire.shift();renderWire()}
+    else if(type==='customers'){S.customers=data;if(S.view==='phone'&&!S.cust){const f=Object.keys(data)[0];if(f){S.cust=f;S.pnid=bestChat(f)}}renderAll()}
+    else if(type==='businesses'){S.biz=data;renderAll()}
+    else if(type==='settings'){S.settings=data;renderSettings()}
+    else if(type==='typing'){S.typing[data.pnid+'|'+data.customer]=data.until;renderTyping()}
+    else if(type==='reset'){S.msgs.clear();S.wire=[];S.pending=[];S.drawn=new Set();renderAll()}};
+}
 async function send(kind){
-  if(!S.cust)return;const text=$('#msg').value.trim();if(kind==='text'&&!text)return;$('#msg').value='';
-  if(S.role==='owner'){await api('owner/send',{pnid:S.pnid,customer:S.cust,text});return}
-  await api('customer/send',{pnid:S.pnid,customer:S.cust,kind,text:kind==='text'?text:(kind==='audio'?'🎤 voice note':'📷 photo')})}
+  if(!S.cust||!S.pnid)return;const text=$('#msg').value.trim();if(kind==='text'&&!text)return;$('#msg').value='';
+  if(S.view==='biz'&&S.role==='owner'){await api('owner/send',{pnid:S.pnid,customer:S.cust,text});return}
+  const p={pnid:S.pnid,customer:S.cust,text,ts:Date.now()};S.pending.push(p);renderChat();                       // appears at once with a clock, like a real phone
+  try{await api('customer/send',{pnid:S.pnid,customer:S.cust,kind,text:kind==='text'?text:(kind==='audio'?'🎤 voice note':'📷 photo')})}
+  catch(e){p.failed=true;renderChat()}
+  setTimeout(()=>{const i=S.pending.indexOf(p);if(i>=0){S.pending.splice(i,1);renderChat()}},6000)}
 $('#send').onclick=()=>send('text');$('#msg').onkeydown=e=>{if(e.key==='Enter')send('text')};let pickKind='audio';
 $('#voice').onclick=()=>{pickKind='audio';$('#pick').accept='audio/*';$('#pick').click()};$('#photo').onclick=()=>{pickKind='image';$('#pick').accept='image/*';$('#pick').click()};
 $('#pick').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f||!S.cust)return;const buf=new Uint8Array(await f.arrayBuffer());let bin='';buf.forEach(b=>bin+=String.fromCharCode(b));
   await api('customer/send',{pnid:S.pnid,customer:S.cust,kind:pickKind,text:(pickKind==='audio'?'🎤 voice note':'📷 photo')+' '+f.name,media_b64:btoa(bin),mime:f.type||undefined})};
-$('#frag').onclick=()=>{if(S.cust&&S.role==='customer')api('script',{steps:[{pnid:S.pnid,customer:S.cust,text:'red saree',wait_ms:2000},{pnid:S.pnid,customer:S.cust,text:'for my sister wedding',wait_ms:2000},{pnid:S.pnid,customer:S.cust,text:'price?',wait_ms:0}]})};
-$('#biz').onchange=e=>{S.pnid=e.target.value;renderContacts();renderChat();renderTiming()};
-$('#addc').onclick=async()=>{const v=$('#newwa').value.trim();if(v){await api('customers',{wa_id:v});$('#newwa').value=''}};
-$('#reset').onclick=()=>api('reset',{});
-$('#view').onclick=e=>{const v=e.target.dataset.v;if(!v)return;S.view=v;[...$('#view').children].forEach(b=>b.classList.toggle('on',b.dataset.v===v));$('#role').hidden=v==='phone';if(v==='phone')S.role='customer';renderAll2();renderBiz()};
+$('#frag').onclick=()=>{if(S.cust&&S.pnid&&!(S.view==='biz'&&S.role==='owner'))api('script',{steps:[{pnid:S.pnid,customer:S.cust,text:'red saree',wait_ms:2000},{pnid:S.pnid,customer:S.cust,text:'for my sister wedding',wait_ms:2000},{pnid:S.pnid,customer:S.cust,text:'price?',wait_ms:0}]})};
+$('#reset').onclick=()=>{if(confirm('Delete every message in the simulator?'))api('reset',{})};
+$('#help').onclick=()=>{renderHelp();$('#helpdlg').showModal()};
+$('#view').onclick=e=>{const v=e.target.dataset.v;if(!v||v===S.view)return;S.view=v;[...$('#view').children].forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  if(v==='phone'){S.role='customer';if(!S.cust){const f=Object.keys(S.customers)[0];if(f){S.cust=f;}}if(S.cust)S.pnid=bestChat(S.cust);toast('📱 Customer phones: you are holding a customer’s mobile')}
+  else{const sh=shops();if(!sh.find(b=>b.pnid===S.pnid))S.pnid=(sh[0]||{}).pnid;const ws=Object.keys(S.customers).map(w=>({w,l:msgsOf(S.pnid,w).slice(-1)[0]})).sort((a,b)=>(b.l?b.l.ts:0)-(a.l?a.l.ts:0));S.cust=ws.length?ws[0].w:S.cust;toast('🏪 Shop side: you are the shop owner')}
+  renderAll()};
 $('#otpcopy').onclick=()=>{const o=otpLatest();if(o&&navigator.clipboard)navigator.clipboard.writeText(o.code)};
-$('#role').onclick=e=>{const r=e.target.dataset.r;if(!r)return;S.role=r;[...$('#role').children].forEach(b=>b.classList.toggle('on',b.dataset.r===r));renderChat()};
-$('#tabs').onclick=e=>{const p=e.target.dataset.p;if(!p)return;S.tab=p;if(p==='audit')renderAudit();[...$('#tabs').children].forEach(b=>b.classList.toggle('on',b.dataset.p===p));['wire','timing','audit','set'].forEach(x=>$('#p-'+x).hidden=x!==p)};
-setInterval(()=>{if(S.cust){const t=S.typing[S.pnid+'|'+S.cust];$('#cstat').textContent=(t&&t*1000>Date.now())?'business is typing…':''}},1000);
-$('#role').hidden=true;
+$('#role').onclick=e=>{const r=e.target.dataset.r;if(!r)return;S.role=r;[...$('#role').children].forEach(b=>b.classList.toggle('on',b.dataset.r===r));toast(r==='owner'?'🏪 Typing as the shop owner (WhatsApp Business app)':'👤 Typing as the customer');renderChat()};
+$('#tabs').onclick=e=>{const p=e.target.dataset.p;if(!p)return;S.tab=p;if(p==='audit')renderAudit();[...$('#tabs').children].forEach(b=>b.classList.toggle('on',b.dataset.p===p));['wire','timing','audit','set'].forEach(x=>$('#p-'+x).hidden=x!==p);if(p==='wire'){const w=$('#p-wire');w.scrollTop=w.scrollHeight}};
+setInterval(()=>{if(S.cust&&S.pnid)renderTyping()},1000);
 load().then(connect);
 </script>
 </body>

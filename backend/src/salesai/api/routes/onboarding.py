@@ -88,7 +88,7 @@ async def create(body: BusinessCreate, request: Request, rt: RT, p: Setup) -> To
     async with rt.db.system_tx() as c:
         src = await (await c.execute("SELECT signup_source FROM accounts WHERE id=%s", (p.account_id,))).fetchone()
     profile = {k: v for k, v in {"category": body.category, "city": body.city}.items() if v}
-    cb = await create_business(rt.db, rt.settings.master_key_bytes, name=body.name.strip(), owner_phone=p.phone, owner_name=body.owner_name.strip(),
+    cb = await create_business(rt.db, rt.settings.master_key_or_none, name=body.name.strip(), owner_phone=p.phone, owner_name=body.owner_name.strip(),
                                plan="trial", language="en", profile=profile, ai_enabled=False, signup_source=src["signup_source"] if src else None,
                                actor="owner", slug_hint=hint)
     await rt.billing.start_trial(cb.business_id)

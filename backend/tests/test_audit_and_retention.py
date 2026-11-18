@@ -143,3 +143,21 @@ async def test_attachments_of_long_resolved_tickets_are_purged_and_open_ones_kep
     await Scheduler(world.rt).tick_retention()
     rows = await world.q(shop, "SELECT t.status FROM support_attachments a JOIN support_tickets t ON t.id=a.ticket_id")
     assert [r["status"] for r in rows] == ["open"]
+
+
+async def test_finished_timers_and_old_idempotency_keys_are_purged_and_pending_timers_kept(world):
+    shop, _ = await shop_with_catalog(world)
+    await world.customer_says(shop, "+919600000404", "hello")
+    await world.drain(["inbound.events", "conversation.events"])
+    [conv] = await world.q(shop, "SELECT id FROM conversations")
+    for status, kind, when in (("fired", "follow_back", OLD), ("fired", "follow_back", NEW), ("cancelled", "takeover_check", OLD), ("pending", "takeover_check", OLD)):
+        await _x(world, shop, f"INSERT INTO agent_timers (business_id, conversation_id, kind, due_at, status, reason, why, updated_at) VALUES (%s,%s,%s,now(),%s,'retention-test','test',{when})",  # noqa: S608
+                 shop.business_id, conv["id"], kind, status)
+    for key, when in (("old-key", OLD), ("new-key", NEW)):
+        await _x(world, shop, f"INSERT INTO idempotency_keys (business_id, key, request_hash, status, response, created_at) VALUES (%s,%s,'h',200,'{{}}',{when})",  # noqa: S608
+                 shop.business_id, key)
+    await Scheduler(world.rt).tick_retention()
+    timers = await world.q(shop, "SELECT status, updated_at > now() - interval '30 days' AS recent FROM agent_timers WHERE kind IN ('follow_back','takeover_check') ORDER BY status")
+    assert {(t["status"], t["recent"]) for t in timers if t["status"] != "pending"} == {("fired", True)}       # the old fired and cancelled ones went, the recent one stayed
+    assert "pending" in {t["status"] for t in timers}                                                        # a pending timer is the clock itself: never purged, however old
+    assert {r["key"] for r in await world.q(shop, "SELECT key FROM idempotency_keys WHERE key IN ('old-key','new-key')")} == {"new-key"}

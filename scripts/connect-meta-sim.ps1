@@ -59,6 +59,7 @@ Set-EnvValue $web 'META_APP_ID' 'sim-app'
 Set-EnvValue $web 'META_CONFIG_ID' 'sim-config'
 Set-EnvValue $web 'META_SDK_URL' "http://${BrowserHost}:$Port/sdk.js"
 Set-EnvValue $web 'META_SIGNUP_ORIGINS' "http://${BrowserHost}:$Port"
+Set-EnvValue $web 'META_SDK_ORIGIN' "http://${BrowserHost}:$Port"        # the site's security policy lets the sign-up script come from this one origin
 Set-EnvValue $web 'META_GRAPH_BASE' "http://host.docker.internal:$Port"
 Set-EnvValue $web 'OTP_CHANNEL' 'whatsapp_cloud'
 Set-EnvValue $web 'PLATFORM_SENDER_PHONE_NUMBER_ID' 'sim-platform'

@@ -31,7 +31,7 @@ GRANT EXECUTE ON FUNCTION current_business_id() TO app_pricing;
 -- ---------------------------------------------------------------- app_system (platform work, BYPASSRLS)
 GRANT SELECT, INSERT, UPDATE, DELETE ON
   accounts, otp_challenges, auth_sessions, business_keys, webhook_events, outbox, jobs,
-  rate_buckets, operator_alerts, sim_messages
+  rate_buckets, operator_alerts, sim_messages, heartbeats
 TO app_system;
 GRANT SELECT, INSERT, UPDATE, DELETE ON businesses TO app_system;   -- onboarding + hard delete
 GRANT SELECT ON business_users, whatsapp_numbers, conversations, customers TO app_system;

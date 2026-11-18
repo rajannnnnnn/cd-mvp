@@ -119,7 +119,7 @@ async def create(body: NewBusiness, rt: RT, p: Operator) -> Any:
         owner = normalize_phone(body.owner_phone)
     except ValueError as e:
         raise ApiError(422, "invalid_phone", "Enter a valid mobile number with country code.") from e
-    cb = await create_business(rt.db, rt.settings.master_key_bytes, name=body.name, owner_phone=owner, owner_name=body.owner_name, timezone=body.timezone,
+    cb = await create_business(rt.db, rt.settings.master_key_or_none, name=body.name, owner_phone=owner, owner_name=body.owner_name, timezone=body.timezone,
                                plan=body.plan, language=body.language, ai_enabled=body.ai_enabled)
     if body.simulated_number:
         if not rt.settings.simulator_enabled:

@@ -803,43 +803,6 @@
         "title": "CloudNumberIn",
         "type": "object"
       },
-      "CodeRequest": {
-        "properties": {
-          "phone": {
-            "maxLength": 24,
-            "minLength": 5,
-            "title": "Phone",
-            "type": "string"
-          }
-        },
-        "required": [
-          "phone"
-        ],
-        "title": "CodeRequest",
-        "type": "object"
-      },
-      "CodeVerify": {
-        "properties": {
-          "code": {
-            "maxLength": 12,
-            "minLength": 1,
-            "title": "Code",
-            "type": "string"
-          },
-          "phone": {
-            "maxLength": 24,
-            "minLength": 5,
-            "title": "Phone",
-            "type": "string"
-          }
-        },
-        "required": [
-          "phone",
-          "code"
-        ],
-        "title": "CodeVerify",
-        "type": "object"
-      },
       "ConnectIn": {
         "description": "What the browser hands back after Meta's Embedded Signup popup finishes.",
         "properties": {
@@ -1971,6 +1934,36 @@
         "title": "Dist",
         "type": "object"
       },
+      "EventOut": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "detail": {
+            "additionalProperties": true,
+            "title": "Detail",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "action",
+          "at",
+          "detail"
+        ],
+        "title": "EventOut",
+        "type": "object"
+      },
       "ExtendIn": {
         "properties": {
           "code": {
@@ -2468,7 +2461,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
                 "type": "string"
               }
             ],
@@ -2481,7 +2473,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
                 "type": "string"
               }
             ],
@@ -2494,7 +2485,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
                 "type": "string"
               }
             ],
@@ -2513,7 +2503,6 @@
       "LadderOut": {
         "properties": {
           "list_price": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "List Price",
             "type": "string"
           },
@@ -2522,7 +2511,6 @@
             "items": {
               "anyOf": [
                 {
-                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                   "type": "string"
                 },
                 {
@@ -3149,7 +3137,6 @@
                     "type": "number"
                   },
                   {
-                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                     "type": "string"
                   }
                 ],
@@ -3283,7 +3270,6 @@
                 "decimal_places": 2,
                 "gt": 0,
                 "max_digits": 12,
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -3997,7 +3983,6 @@
                     "type": "number"
                   },
                   {
-                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                     "type": "string"
                   }
                 ],
@@ -4019,7 +4004,6 @@
                     "type": "number"
                   },
                   {
-                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                     "type": "string"
                   }
                 ],
@@ -4046,7 +4030,6 @@
                     "type": "number"
                   },
                   {
-                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                     "type": "string"
                   }
                 ],
@@ -4068,7 +4051,6 @@
                     "type": "number"
                   },
                   {
-                    "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                     "type": "string"
                   }
                 ],
@@ -4089,7 +4071,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
                 "type": "string"
               }
             ],
@@ -4143,7 +4124,6 @@
           "list_price": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -4159,7 +4139,6 @@
           "range_max": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -4171,7 +4150,6 @@
           "range_min": {
             "anyOf": [
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -4181,7 +4159,6 @@
             "title": "Range Min"
           },
           "round_to": {
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Round To",
             "type": "string"
           }
@@ -4679,6 +4656,49 @@
         "title": "RequirementIn",
         "type": "object"
       },
+      "RevokeAllIn": {
+        "properties": {
+          "code": {
+            "maxLength": 12,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "include_this_session": {
+            "default": false,
+            "description": "sign out everywhere, this browser too, and forget every trusted browser",
+            "title": "Include This Session",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "RevokeAllIn",
+        "type": "object"
+      },
+      "RevokeIn": {
+        "properties": {
+          "code": {
+            "description": "a fresh authenticator code: ending a session is as protected as signing in",
+            "maxLength": 12,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "forget_browser": {
+            "default": true,
+            "description": "also stop trusting that browser, so it needs the WhatsApp code again",
+            "title": "Forget Browser",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "RevokeIn",
+        "type": "object"
+      },
       "SalesSettingsIn": {
         "additionalProperties": false,
         "properties": {
@@ -4705,7 +4725,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -4817,6 +4836,204 @@
           "text"
         ],
         "title": "SendIn",
+        "type": "object"
+      },
+      "SessionOut": {
+        "properties": {
+          "browser_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the same value means the same browser",
+            "title": "Browser Id"
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "device": {
+            "description": "for example 'Chrome 142 on Windows'",
+            "title": "Device",
+            "type": "string"
+          },
+          "duration_s": {
+            "title": "Duration S",
+            "type": "integer"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "ended_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended Reason"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip"
+          },
+          "is_current": {
+            "title": "Is Current",
+            "type": "boolean"
+          },
+          "last_seen_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen At"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "authenticator | authenticator+whatsapp | extended",
+            "title": "Method"
+          },
+          "network": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Network"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "description": "active | ended | expired",
+            "title": "Status",
+            "type": "string"
+          },
+          "step_up_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Up Reason"
+          },
+          "user_agent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Agent"
+          },
+          "usual_network": {
+            "description": "the network the founder's last good sign-in came from",
+            "title": "Usual Network",
+            "type": "boolean"
+          },
+          "where": {
+            "title": "Where",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "is_current",
+          "device",
+          "user_agent",
+          "browser_id",
+          "ip",
+          "network",
+          "country",
+          "where",
+          "usual_network",
+          "method",
+          "step_up_reason",
+          "started_at",
+          "last_seen_at",
+          "ended_at",
+          "ended_reason",
+          "expires_at",
+          "duration_s"
+        ],
+        "title": "SessionOut",
+        "type": "object"
+      },
+      "SignInIn": {
+        "properties": {
+          "code": {
+            "maxLength": 12,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "SignInIn",
         "type": "object"
       },
       "SimAccount": {
@@ -5206,6 +5423,28 @@
           "action"
         ],
         "title": "StepAction",
+        "type": "object"
+      },
+      "StepUpVerify": {
+        "properties": {
+          "code": {
+            "maxLength": 12,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "ticket": {
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Ticket",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticket",
+          "code"
+        ],
+        "title": "StepUpVerify",
         "type": "object"
       },
       "StyleIn": {
@@ -5698,41 +5937,6 @@
         "title": "TicketDetail",
         "type": "object"
       },
-      "TicketIn": {
-        "additionalProperties": false,
-        "properties": {
-          "category": {
-            "default": "question",
-            "enum": [
-              "question",
-              "problem",
-              "billing",
-              "whatsapp",
-              "other"
-            ],
-            "title": "Category",
-            "type": "string"
-          },
-          "message": {
-            "maxLength": 4000,
-            "minLength": 1,
-            "title": "Message",
-            "type": "string"
-          },
-          "subject": {
-            "maxLength": 160,
-            "minLength": 1,
-            "title": "Subject",
-            "type": "string"
-          }
-        },
-        "required": [
-          "subject",
-          "message"
-        ],
-        "title": "TicketIn",
-        "type": "object"
-      },
       "TicketMessageOut": {
         "properties": {
           "attachments": {
@@ -5972,28 +6176,6 @@
           "role"
         ],
         "title": "Tokens",
-        "type": "object"
-      },
-      "TotpIn": {
-        "properties": {
-          "code": {
-            "maxLength": 12,
-            "minLength": 1,
-            "title": "Code",
-            "type": "string"
-          },
-          "ticket": {
-            "maxLength": 2000,
-            "minLength": 10,
-            "title": "Ticket",
-            "type": "string"
-          }
-        },
-        "required": [
-          "ticket",
-          "code"
-        ],
-        "title": "TotpIn",
         "type": "object"
       },
       "TurnRow": {
@@ -6494,6 +6676,56 @@
         ],
         "title": "Who",
         "type": "object"
+      },
+      "salesai__api__routes__admin_auth__TicketIn": {
+        "properties": {
+          "ticket": {
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Ticket",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticket"
+        ],
+        "title": "TicketIn",
+        "type": "object"
+      },
+      "salesai__api__routes__support__TicketIn": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "default": "question",
+            "enum": [
+              "question",
+              "problem",
+              "billing",
+              "whatsapp",
+              "other"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "message": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "subject": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject",
+          "message"
+        ],
+        "title": "TicketIn",
+        "type": "object"
       }
     }
   },
@@ -6504,27 +6736,47 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/admin/v1/auth/code/request": {
-      "post": {
-        "operationId": "request_code_admin_v1_auth_code_request_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CodeRequest"
-              }
+    "/admin/v1/auth/events": {
+      "get": {
+        "operationId": "events_admin_v1_auth_events_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "title": "Limit",
+              "type": "integer"
             }
           },
-          "required": true
-        },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Request Code Admin V1 Auth Code Request Post",
-                  "type": "object"
+                  "items": {
+                    "$ref": "#/components/schemas/EventOut"
+                  },
+                  "title": "Response Events Admin V1 Auth Events Get",
+                  "type": "array"
                 }
               }
             },
@@ -6541,50 +6793,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Send a sign-in code to an enrolled platform operator (the answer is the same for everyone)",
-        "tags": [
-          "admin-auth"
-        ]
-      }
-    },
-    "/admin/v1/auth/code/verify": {
-      "post": {
-        "operationId": "verify_code_admin_v1_auth_code_verify_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CodeVerify"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Verify Code Admin V1 Auth Code Verify Post",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Step 1: the WhatsApp code. Returns a five-minute ticket, which is not a session",
+        "summary": "Console sign-in activity, newest first: sign-ins, refused attempts, locks, ended sessions",
         "tags": [
           "admin-auth"
         ]
@@ -6687,7 +6896,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "End the session now",
+        "summary": "End this session now (only this one; it needs no code)",
         "tags": [
           "admin-auth"
         ]
@@ -6744,14 +6953,95 @@
         ]
       }
     },
-    "/admin/v1/auth/totp": {
+    "/admin/v1/auth/sessions": {
+      "get": {
+        "operationId": "sessions_admin_v1_auth_sessions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SessionOut"
+                  },
+                  "title": "Response Sessions Admin V1 Auth Sessions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Every console session: where from, on what, how it was proven, for how long",
+        "tags": [
+          "admin-auth"
+        ]
+      }
+    },
+    "/admin/v1/auth/sessions/revoke-others": {
       "post": {
-        "operationId": "verify_totp_admin_v1_auth_totp_post",
+        "operationId": "revoke_others_admin_v1_auth_sessions_revoke_others_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TotpIn"
+                "$ref": "#/components/schemas/RevokeAllIn"
               }
             }
           },
@@ -6762,8 +7052,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Verify Totp Admin V1 Auth Totp Post",
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "title": "Response Revoke Others Admin V1 Auth Sessions Revoke Others Post",
                   "type": "object"
                 }
               }
@@ -6781,7 +7073,198 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Step 2: the authenticator code. Returns the console session",
+        "summary": "End every other session (or all, with include_this_session). Needs a fresh authenticator code",
+        "tags": [
+          "admin-auth"
+        ]
+      }
+    },
+    "/admin/v1/auth/sessions/{session_id}/revoke": {
+      "post": {
+        "operationId": "revoke_session_admin_v1_auth_sessions__session_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End one session. Needs a fresh authenticator code",
+        "tags": [
+          "admin-auth"
+        ]
+      }
+    },
+    "/admin/v1/auth/sign-in": {
+      "post": {
+        "operationId": "sign_in_admin_v1_auth_sign_in_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignInIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Sign In Admin V1 Auth Sign In Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The authenticator code. Returns a session, or a ticket when a WhatsApp code is needed as well",
+        "tags": [
+          "admin-auth"
+        ]
+      }
+    },
+    "/admin/v1/auth/step-up/send": {
+      "post": {
+        "operationId": "step_up_send_admin_v1_auth_step_up_send_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/salesai__api__routes__admin_auth__TicketIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Step Up Send Admin V1 Auth Step Up Send Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send the second-layer WhatsApp code to the founder (needs a ticket)",
+        "tags": [
+          "admin-auth"
+        ]
+      }
+    },
+    "/admin/v1/auth/step-up/verify": {
+      "post": {
+        "operationId": "step_up_verify_admin_v1_auth_step_up_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StepUpVerify"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Step Up Verify Admin V1 Auth Step Up Verify Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "The WhatsApp code. Returns the console session",
         "tags": [
           "admin-auth"
         ]
@@ -13895,7 +14378,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TicketIn"
+                "$ref": "#/components/schemas/salesai__api__routes__support__TicketIn"
               }
             }
           },
