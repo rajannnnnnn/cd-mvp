@@ -90,6 +90,8 @@ if (-not $LlmKey) {
 Set-EnvValue $agent 'LLM_PROVIDER' 'openai_compat'
 Set-EnvValue $agent 'OPENAI_COMPAT_BASE_URL' 'https://openrouter.ai/api/v1'
 if ($LlmKey) { Set-EnvValue $agent 'OPENAI_COMPAT_API_KEY' $LlmKey }
+Set-EnvValue $agent 'OPENAI_COMPAT_THINKING_TOKENS' '800'   # gpt-oss thinks before it answers: without room for that the reply is cut off at the token limit
+Set-EnvValue $agent 'LLM_EFFORT_PLANNER' 'low'
 foreach ($k in 'LLM_MODEL_PLANNER', 'LLM_MODEL_WRITER', 'LLM_MODEL_CHECK') { Set-EnvValue $agent $k 'openai/gpt-oss-20b' }
 Set-EnvValue $web 'WEB_PORT' "$WebPort"
 Set-EnvValue $web 'ALLOWED_ORIGINS' "http://localhost:$WebPort"
