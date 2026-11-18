@@ -21,7 +21,7 @@ $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $root
 $m = [Environment]::GetEnvironmentVariable('Path', 'Machine'); $u = [Environment]::GetEnvironmentVariable('Path', 'User'); $env:Path = "$m;$u"
 function Step([string]$t) { Write-Host "`n== $t" -ForegroundColor Cyan }
-function Dk { $o = & docker @args 2>&1; $o | ForEach-Object { "$_" } }   # docker writes progress to stderr: never treat that as failure
+function Dk { $ErrorActionPreference = 'Continue'; $o = & docker @args 2>&1; $o | ForEach-Object { "$_" } }   # docker writes progress and "no such volume" to stderr: never treat that as failure
 function Test-Engine { try { $null = docker version --format '{{.Server.Version}}' 2>$null; return ($LASTEXITCODE -eq 0) } catch { return $false } }
 function Set-EnvValue([string]$file, [string]$key, [string]$value) {
   $utf8 = New-Object System.Text.UTF8Encoding($false)
