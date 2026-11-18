@@ -8,7 +8,7 @@ export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string, public details?: unknown) { super(message) }
 }
 
-const isAuthUrl = (u: string) => /\/admin\/v1\/auth\/(code|totp)/.test(u)
+const isAuthUrl = (u: string) => /\/admin\/v1\/auth\/(sign-in|step-up)/.test(u)
 
 /** Attaches the console session. A 401 anywhere except the sign-in itself means the session is over: forget it, and the app shows the sign-in. */
 async function adminFetch(input: Request): Promise<Response> {
