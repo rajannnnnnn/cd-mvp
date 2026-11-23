@@ -23,11 +23,10 @@ services:
     environment:
       ENV: ${APP_ENV:?set APP_ENV in deploy/admin/.env}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      TRUST_PROXY: "true"
+      TRUST_PROXY: ${TRUST_PROXY:-true}
       DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in deploy/admin/.env}
       SYSTEM_DATABASE_URL: ${SYSTEM_DATABASE_URL:?set SYSTEM_DATABASE_URL in deploy/admin/.env}
       CONSOLE_DATABASE_URL: ${CONSOLE_DATABASE_URL:?set CONSOLE_DATABASE_URL in deploy/admin/.env}   # the console's own login: the only one that can read admin sign-in secrets (ADR 0043)
-      MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?set MIGRATION_DATABASE_URL in deploy/admin/.env}
       QUEUE_BACKEND: ${QUEUE_BACKEND:-postgres}
       REDIS_URL: ${REDIS_URL:-}
       OTP_CHANNEL: ${OTP_CHANNEL:-whatsapp_cloud}
@@ -39,6 +38,9 @@ services:
       ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:?set ADMIN_JWT_SECRET in deploy/admin/.env}
       ADMIN_ALLOWED_ORIGINS: ${ADMIN_ALLOWED_ORIGINS:?set ADMIN_ALLOWED_ORIGINS in deploy/admin/.env}
       ADMIN_ALLOWED_IPS: ${ADMIN_ALLOWED_IPS:-}
+      FOUNDER_PHONE: ${FOUNDER_PHONE:?set FOUNDER_PHONE in deploy/admin/.env}
+      ADMIN_DEVICE_TRUST_DAYS: ${ADMIN_DEVICE_TRUST_DAYS:-30}
+      ADMIN_GEO_HEADER: ${ADMIN_GEO_HEADER:-}
       ADMIN_SESSION_MINUTES: ${ADMIN_SESSION_MINUTES:-30}
       OTP_DELIVERY_WAIT_S: ${OTP_DELIVERY_WAIT_S:-6}
     expose: ["8000"]
@@ -55,4 +57,4 @@ services:
       API_BASE: ${API_BASE:-}                        # empty = same origin: the console's server proxies only /admin/v1 and /api/v1/operator
       API_UPSTREAM: api:8000
       ALLOW_IPS: ${ALLOW_IPS:-0.0.0.0/0 ::/0}
-    ports: ["${ADMIN_BIND:-0.0.0.0}:${ADMIN_PORT:-8082}:80"]      # reachable by default; ADMIN_BIND=127.0.0.1 keeps it to this machine
+    ports: ["${ADMIN_BIND:-127.0.0.1}:${ADMIN_PORT:-8082}:80"]      # this machine only by default; ADMIN_BIND=0.0.0.0 publishes it to the network (a real server puts a TLS proxy in front)

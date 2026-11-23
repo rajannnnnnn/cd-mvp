@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     pricing_database_url: str = Field("", description="app_pricing: the only login that can read price floors; held by the agent's turn worker and nobody else (INV-1)")
     system_database_url: str = Field(..., description="app_system: platform work, BYPASSRLS")
     console_database_url: str = Field("", description="app_console: the founder console only; the one login that can read admin sign-in secrets and sessions (ADR 0043)")
-    migration_database_url: str = Field(..., description="app_owner: migrations only")
+    migration_database_url: str = Field("", description="app_owner: the migration job only (ADR 0050); no other part holds the schema owner's login")
     db_pool_max: int = 10
 
     # --- queue / blob
@@ -257,6 +257,8 @@ class Settings(BaseSettings):
                 need.add("platform_wa_access_token")   # the platform's own sender: sign-in codes, and alerts when a shop's number is down
         if self.simulator_enabled and self.role not in ("web", "admin", "migrate"):
             need.add("meta_app_secret")                # the simulator signs the webhooks it plays back
+        if self.role in ("migrate", "all"):
+            need.add("migration_database_url")         # ADR 0050: the schema owner's login goes to the migration job and to nothing else
         if self.role in ("admin", "all"):
             need.add("console_database_url")           # ADR 0043: the console's own database login
         if self.reads_floors:

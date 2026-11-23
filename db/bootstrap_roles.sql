@@ -31,3 +31,34 @@ SELECT format('GRANT CREATE, CONNECT ON DATABASE %I TO app_owner', current_datab
 SELECT format('GRANT CONNECT ON DATABASE %I TO app_user, app_pricing, app_system, app_console', current_database()) \gexec
 GRANT CREATE, USAGE ON SCHEMA public TO app_owner;
 GRANT USAGE ON SCHEMA public TO app_user, app_pricing, app_system, app_console;
+
+-- ---------------------------------------------------------------- hardening (ADR 0050)
+-- Nobody gets in by default: the PUBLIC pseudo-role (every login) loses the database and the schema, so only the roles named above can connect or create anything.
+SELECT format('REVOKE ALL ON DATABASE %I FROM PUBLIC', current_database()) \gexec
+REVOKE ALL ON SCHEMA public FROM PUBLIC;
+GRANT USAGE ON SCHEMA public TO app_user, app_pricing, app_system, app_console;
+
+-- Limits per login, set on the role so they hold whatever the application does. A runaway query, a transaction left open, or a lock held too long
+-- stops by itself instead of taking the database down. Generous on purpose: the numbers are for a mistake, not for normal work. The schema owner
+-- (migrations) has no statement limit because a migration may legitimately run long, but it never waits long for a lock held by live traffic.
+ALTER ROLE app_user    SET statement_timeout = '60s';
+ALTER ROLE app_pricing SET statement_timeout = '15s';
+ALTER ROLE app_system  SET statement_timeout = '120s';
+ALTER ROLE app_console SET statement_timeout = '60s';
+ALTER ROLE app_user    SET idle_in_transaction_session_timeout = '60s';
+ALTER ROLE app_pricing SET idle_in_transaction_session_timeout = '30s';
+ALTER ROLE app_system  SET idle_in_transaction_session_timeout = '120s';
+ALTER ROLE app_console SET idle_in_transaction_session_timeout = '60s';
+ALTER ROLE app_user    SET lock_timeout = '15s';
+ALTER ROLE app_pricing SET lock_timeout = '5s';
+ALTER ROLE app_system  SET lock_timeout = '15s';
+ALTER ROLE app_console SET lock_timeout = '15s';
+ALTER ROLE app_owner   SET lock_timeout = '30s';
+ALTER ROLE app_user    SET row_security = on;
+ALTER ROLE app_pricing SET row_security = on;
+-- A name in a query can only mean something in `public`: no search_path trick can point it at an object someone else made.
+ALTER ROLE app_user    SET search_path = public, pg_catalog;
+ALTER ROLE app_pricing SET search_path = public, pg_catalog;
+ALTER ROLE app_system  SET search_path = public, pg_catalog;
+ALTER ROLE app_console SET search_path = public, pg_catalog;
+ALTER ROLE app_owner   SET search_path = public, pg_catalog;

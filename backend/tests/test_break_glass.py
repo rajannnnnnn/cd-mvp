@@ -82,15 +82,13 @@ async def test_only_the_owner_sees_the_platform_access_list(world, client):
     assert (await client.get(f"{V1}/business/platform-access")).status_code == 401
 
 
-async def test_a_grant_runs_out_ends_early_and_covers_one_shop_and_one_operator(world, client):
-    op = await operator_token(world, client)
-    op2 = await operator_token(world, client)
+async def test_a_grant_runs_out_ends_early_and_covers_one_shop(world, client):
+    op = await operator_token(world, client)      # there is one founder (ADR 0047): enrolling again ends every session, so no second operator exists to refuse
     shop, other = await world.make_shop("Grant Shop"), await world.make_shop("Not Granted Shop")
     convs = await seed_activity(world, shop, days_ago=1, customers=1, deals=0)
     other_convs = await seed_activity(world, other, days_ago=1, customers=1, deals=0)
     g = await opened(client, op, shop)
     msgs = f"{OP}/businesses/{shop.business_id}/conversations/{convs[0]}/messages"
-    assert (await client.get(msgs, headers=hdr(op2), params={"grant": g["id"]})).status_code == 403              # another operator cannot use it
     assert (await client.get(f"{OP}/businesses/{other.business_id}/conversations/{other_convs[0]}/messages", headers=hdr(op), params={"grant": g["id"]})).status_code == 403
     assert (await client.get(f"{OP}/businesses/{shop.business_id}/conversations/{other_convs[0]}/messages", headers=hdr(op), params={"grant": g["id"]})).status_code == 404
     assert (await client.get(msgs, headers=hdr(op), params={"grant": g["id"]})).status_code == 200

@@ -220,8 +220,10 @@ class AdminAuth:
         now = self._now()
         oldest = now - timedelta(days=self.s.admin_device_trust_days)
         async with self.db.console_tx() as c:
-            k = await (await c.execute("SELECT trusted_devices FROM admin_credentials WHERE account_id=%s FOR UPDATE", (acct_id,))).fetchone()
+            k = await (await c.execute("SELECT trusted_devices, last_login_ip FROM admin_credentials WHERE account_id=%s FOR UPDATE", (acct_id,))).fetchone()
             assert k is not None
+            before = network_of(k["last_login_ip"])         # judged before this sign-in becomes the "last" one
+            usual_network = None if before is None else before == network_of(info.ip)
             devices = [d for d in k["trusted_devices"] if datetime.fromisoformat(d["at"]) > oldest]
             known = next((d for d in devices if device and d["h"] == _device_hash(device)), None)
             if known is not None:
@@ -235,7 +237,7 @@ class AdminAuth:
             await c.execute(
                 """UPDATE admin_credentials SET failed_since_login = 0, was_locked = false, last_login_at = %s, last_login_ip = %s, trusted_devices = %s
                    WHERE account_id=%s""", (now, info.ip, jsonb(devices), acct_id))
-        session, sid = await self._start_session(acct_id, info, _device_hash(token)[:16], method, reason)
+        session, sid = await self._start_session(acct_id, info, _device_hash(token)[:16], method, reason, usual_network)
         ctx = _ctx(info)
         await self._audit("admin.signed_in", acct_id, {"new_browser": known is None, "method": method, "reason": reason, "session": str(sid), **ctx})
         if reason is not None and reason != "first_sign_in":
@@ -313,16 +315,17 @@ class AdminAuth:
                 await self._after_failure(acct_id, "authenticator", locked_now, since, info)
             raise failure
 
-    async def _start_session(self, acct_id: uuid.UUID, info: ClientInfo, device_id: str | None, method: str, reason: str | None) -> tuple[AdminSession, uuid.UUID]:
+    async def _start_session(self, acct_id: uuid.UUID, info: ClientInfo, device_id: str | None, method: str, reason: str | None,
+                             usual_network: bool | None = None) -> tuple[AdminSession, uuid.UUID]:
         ttl = self.s.admin_session_minutes * 60
         sid = uuid.uuid4()
         now = self._now()
         async with self.db.console_tx() as c:
             await c.execute(
-                """INSERT INTO admin_sessions (id, account_id, stage, ip, expires_at, user_agent, device_label, device_id, geo, network, method, step_up_reason, last_seen_at)
-                   VALUES (%s,%s,'session',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                """INSERT INTO admin_sessions (id, account_id, stage, ip, expires_at, user_agent, device_label, device_id, geo, network, method, step_up_reason, last_seen_at, usual_network)
+                   VALUES (%s,%s,'session',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                 (sid, acct_id, info.ip, now + timedelta(seconds=ttl), (info.user_agent or "")[:300], describe_device(info.user_agent), device_id, info.geo,
-                 network_of(info.ip), method, reason, now))
+                 network_of(info.ip), method, reason, now, usual_network))
         return AdminSession(self._token(acct_id, sid, "operator", ttl), ttl), sid
 
     # ------------------------------------------------------------------ using, extending and ending a session
@@ -365,7 +368,7 @@ class AdminAuth:
             old = await (await c.execute("SELECT * FROM admin_sessions WHERE id=%s", (principal.session_id,))).fetchone()
             await c.execute("UPDATE admin_sessions SET revoked_at = now(), ended_reason = 'extended' WHERE id=%s", (principal.session_id,))
         assert old is not None
-        session, _ = await self._start_session(principal.account_id, ClientInfo(old["ip"], old["user_agent"], old["geo"]), old["device_id"], "extended", old["step_up_reason"])
+        session, _ = await self._start_session(principal.account_id, ClientInfo(old["ip"], old["user_agent"], old["geo"]), old["device_id"], "extended", old["step_up_reason"], old["usual_network"])
         await self._audit("admin.session_extended", principal.account_id, _ctx(info))
         return session
 
@@ -388,8 +391,6 @@ class AdminAuth:
         async with self.db.console_tx() as c:
             rows = await (await c.execute(
                 "SELECT * FROM admin_sessions WHERE account_id=%s AND stage='session' ORDER BY created_at DESC LIMIT %s", (principal.account_id, limit))).fetchall()
-            k = await (await c.execute("SELECT last_login_ip FROM admin_credentials WHERE account_id=%s", (principal.account_id,))).fetchone()
-        usual = network_of(k["last_login_ip"]) if k else None
         out = []
         for r in rows:
             ended = r["revoked_at"] or (r["expires_at"] if r["expires_at"] <= now else None)
@@ -399,7 +400,7 @@ class AdminAuth:
             out.append({
                 "id": r["id"], "status": status, "is_current": r["id"] == principal.session_id, "device": r["device_label"] or "Unknown device",
                 "user_agent": r["user_agent"], "browser_id": r["device_id"], "ip": r["ip"], "network": r["network"], "country": r["geo"],
-                "where": where_label(r["ip"], r["geo"]), "usual_network": bool(usual and r["network"] == usual),
+                "where": where_label(r["ip"], r["geo"]), "usual_network": bool(r["usual_network"]),
                 "method": r["method"], "step_up_reason": r["step_up_reason"], "started_at": r["created_at"], "last_seen_at": r["last_seen_at"],
                 "ended_at": ended, "ended_reason": reason, "expires_at": r["expires_at"], "duration_s": max(int((end - r["created_at"]).total_seconds()), 0)})
         return out

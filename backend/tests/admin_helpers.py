@@ -21,6 +21,10 @@ async def make_admin(world) -> tuple[str, str]:
     """The founder (the FOUNDER_PHONE setting) with an authenticator enrolled. Returns (phone, authenticator secret)."""
     s = world.rt.settings
     await forget_codes(world)
+    async with world.rt.db.console_tx() as c:                  # a clean console: what an earlier test left (sessions) must not count in this one
+        await c.execute("DELETE FROM admin_sessions")
+    async with world.rt.db.system_tx() as c:
+        await c.execute(r"DELETE FROM operator_alerts WHERE kind LIKE 'admin\_%'")
     return s.founder_phone, await enroll_admin(world.rt.db, s)
 
 

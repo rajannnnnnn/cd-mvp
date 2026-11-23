@@ -22,10 +22,9 @@ x-web: &web
   environment: &web-env
     ENV: ${APP_ENV:?set APP_ENV in deploy/web/.env}
     LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    TRUST_PROXY: "true"
+    TRUST_PROXY: ${TRUST_PROXY:-true}
     DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in deploy/web/.env}
     SYSTEM_DATABASE_URL: ${SYSTEM_DATABASE_URL:?set SYSTEM_DATABASE_URL in deploy/web/.env}
-    MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:?set MIGRATION_DATABASE_URL in deploy/web/.env}
     QUEUE_BACKEND: ${QUEUE_BACKEND:-postgres}
     REDIS_URL: ${REDIS_URL:-}
     OTP_CHANNEL: ${OTP_CHANNEL:-whatsapp_cloud}
@@ -100,4 +99,4 @@ services:
       ALLOW_IPS: ${ALLOW_IPS:-0.0.0.0/0 ::/0}
       META_SDK_ORIGIN: ${META_SDK_ORIGIN:-https://connect.facebook.net}   # the one host the site's security policy lets the sign-up script come from
     extra_hosts: ["host.docker.internal:host-gateway"]
-    ports: ["${WEB_BIND:-0.0.0.0}:${WEB_PORT:-8080}:80"]      # reachable by default; WEB_BIND=127.0.0.1 keeps it to this machine
+    ports: ["${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8080}:80"]      # this machine only by default; WEB_BIND=0.0.0.0 publishes it to the network (a real server puts a TLS proxy in front)

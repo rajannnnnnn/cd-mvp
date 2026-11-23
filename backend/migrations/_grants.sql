@@ -6,13 +6,16 @@ REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM app_user, app_pricing, app_sys
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM app_user, app_pricing, app_system, app_console;
 
 -- ---------------------------------------------------------------- app_user (tenant work)
-GRANT SELECT, INSERT, UPDATE, DELETE ON
+GRANT SELECT, INSERT, UPDATE ON
   businesses, business_users, whatsapp_numbers, style_examples,
   products, product_variants, pricing_policies, offers,
   customers, conversations, turns, messages,
   negotiations, deals, handoffs, knowledge_gaps,
   owner_messages, config_proposals, idempotency_keys
 TO app_user;
+-- Deleting is narrower than editing (ADR 0050): only the tables the code really deletes from, and only through the shop's own role (RLS limits it to
+-- that shop's rows). Everything else is removed only by the platform's hard delete of a whole shop, which cascades. A new DELETE grant needs a reason here.
+GRANT DELETE ON business_users, products, offers, style_examples, messages, turns, owner_messages, idempotency_keys TO app_user;
 GRANT SELECT, INSERT ON audit_log TO app_user;            -- append-only from tenant code
 GRANT SELECT ON accounts TO app_user;                      -- RLS limits it to the tenant's members
 GRANT SELECT ON catalog_public TO app_user;
@@ -29,10 +32,12 @@ GRANT SELECT (id, business_id, category) ON products TO app_pricing;      -- onl
 GRANT EXECUTE ON FUNCTION current_business_id() TO app_pricing;
 
 -- ---------------------------------------------------------------- app_system (platform work, BYPASSRLS)
-GRANT SELECT, INSERT, UPDATE, DELETE ON
+GRANT SELECT, INSERT, UPDATE ON
   accounts, otp_challenges, auth_sessions, business_keys, webhook_events, outbox, jobs,
   rate_buckets, operator_alerts, sim_messages, heartbeats
 TO app_system;
+GRANT DELETE ON accounts, otp_challenges, auth_sessions, webhook_events, outbox, jobs, rate_buckets, operator_alerts, sim_messages TO app_system;   -- retention and the hard delete of a shop
+GRANT SELECT ON schema_migrations TO app_system;           -- `doctor` reads which migrations are applied, without the schema owner's login
 GRANT SELECT, INSERT, UPDATE, DELETE ON businesses TO app_system;   -- onboarding + hard delete
 GRANT SELECT ON business_users, whatsapp_numbers, conversations, customers TO app_system;
 GRANT UPDATE (status, quality_rating, status_reason) ON whatsapp_numbers TO app_system;
@@ -44,7 +49,7 @@ GRANT EXECUTE ON FUNCTION current_business_id() TO app_system;
 
 -- ---------------------------------------------------------------- billing (platform writes, tenants read their own rows)
 GRANT SELECT ON subscriptions, invoices, payments TO app_user;
-GRANT SELECT, INSERT, UPDATE, DELETE ON subscriptions, invoices, payments TO app_system;
+GRANT SELECT, INSERT, UPDATE ON subscriptions, invoices, payments TO app_system;       -- money records are never deleted by any login (tax records must be kept)
 GRANT USAGE ON SEQUENCE invoice_number_seq TO app_system;
 
 -- ---------------------------------------------------------------- support tickets (shop writes its own; support = app_system)

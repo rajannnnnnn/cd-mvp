@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from salesai.alerts import raise_alert
 from salesai.db import Database, jsonb, required
 from salesai.events.outbox import announce_change, emit
 from salesai.modules.agent import checks as chk
@@ -25,6 +26,7 @@ from salesai.modules.agent import context as ctxmod
 from salesai.modules.agent import policy as pol
 from salesai.modules.agent import prompts
 from salesai.modules.agent.llm import LLMProvider, LLMRequest, LLMUnavailable
+from salesai.modules.agent.llm.failure import alert_message, classify
 from salesai.modules.agent.llm.local_nlg import render as render_directive
 from salesai.modules.agent.models import CheckOutput, PlannerOutput, WriterOutput
 from salesai.modules.agent.shape import shape_reply
@@ -151,6 +153,7 @@ class AgentService:
         self.llm_checks = llm_checks
         self.skip_check_when_low_risk = skip_check_when_low_risk
         self.rng = rng
+        self._recovery_checked: dict[str, float] = {}      # step -> when its failure alerts were last checked for closing
 
     # ------------------------------------------------------------------ public
     async def run_turn(self, business_id: uuid.UUID, conversation_id: uuid.UUID, version: int, *,
@@ -176,6 +179,7 @@ class AgentService:
             except LLMUnavailable as e:
                 usage.failed("planner", e)
                 log.error("LLM unavailable at planning: %s", e)
+                await self._report_llm_failure("planner", e)
                 plan = self._holding_plan(ctx, f"LLM unavailable: {e}", "system_failure")
                 return await self._finish(ctx, plan, [self._holding_text(plan)], usage, {"llm_unavailable": True}, signals or {}, version, t0, trigger, prompt_refs,
                                           fallback="llm_unavailable")
@@ -195,6 +199,29 @@ class AgentService:
                 parts, reaction = [self._holding_text(plan)], None
             return await self._finish(ctx, plan, parts, usage, {"planner": out.model_dump(mode="json"), "checks": checks_log},
                                       signals or {}, version, t0, trigger, prompt_refs, reaction=reaction, fallback=fallback, typing_started=typing_started)
+
+    async def _report_llm_failure(self, stage: str, error: Exception) -> None:
+        """Tell the founder, with the specific reason, that a model call failed (ADR 0049). One platform-wide alert per step: repeats only count up.
+        Alerting must never break a turn, so any failure here is logged and swallowed."""
+        f = classify(error, stage)
+        try:
+            async with self.db.system_tx() as s:
+                await raise_alert(s, f.severity, f"llm_{f.reason}", alert_message(f, stage, error), dedup_key=stage,
+                                  detail={"stage": stage, "reason": f.reason})
+        except Exception:  # noqa: BLE001
+            log.exception("could not raise the model-failure alert")
+
+    async def _llm_ok(self, stage: str) -> None:
+        """A model call for this step worked: close its open failure alerts so the founder gets the recovery notice. At most one cheap update a minute per step."""
+        now = time.monotonic()
+        if now - self._recovery_checked.get(stage, -1e9) < 60:
+            return
+        self._recovery_checked[stage] = now
+        try:
+            async with self.db.system_tx() as s:
+                await s.execute("UPDATE operator_alerts SET resolved_at = now() WHERE kind LIKE 'llm\\_%%' AND dedup_key = %s AND resolved_at IS NULL", (stage,))
+        except Exception:  # noqa: BLE001
+            log.exception("could not close the model-failure alert")
 
     async def _start_typing(self, ctx: ctxmod.TurnContext, plan: pol.Plan, version: int, trigger: str) -> float | None:
         """Show "typing..." as soon as the AI knows it will reply, so the customer's wait while the model writes looks like someone
@@ -223,6 +250,7 @@ class AgentService:
         res = await self.llm.generate(LLMRequest("planner", pr.text, ctx.planner_input(trigger), self.models.planner, pr.ref, max_tokens=1200,
                                                   cache_keys=PLANNER_CACHE_KEYS, effort=self.models.planner_effort), PlannerOutput)
         usage.add(res, "planner")
+        await self._llm_ok("planner")
         out: PlannerOutput = res.output
         plan = await pol.build_plan(ctx, out, self.pricing, trigger=trigger)
         return plan, out
@@ -267,9 +295,11 @@ class AgentService:
                     WriterOutput)
             except LLMUnavailable as e:
                 usage.failed("writer", e)
+                await self._report_llm_failure("writer", e)
                 log["failed"], log["error"] = ["llm_unavailable"], str(e)
                 return None, None, log
             usage.add(res, "writer")
+            await self._llm_ok("writer")
             parts = [p.strip() for p in res.output.parts if p and p.strip()]
             result = chk.run_checks(parts, checkctx)
             if result.ok and self.llm_checks and (needs_model_check(plan) or not self.skip_check_when_low_risk):
@@ -296,8 +326,10 @@ class AgentService:
                            effort=self.models.check_effort), CheckOutput)
         except LLMUnavailable as e:
             usage.failed("check", e)
+            await self._report_llm_failure("check", e)
             return result                      # deterministic checks already passed; do not block on the optional model check
         usage.add(res, "check")
+        await self._llm_ok("check")
         o: CheckOutput = res.output
         if not o.scope_ok:
             result.failures.append(chk.Failure("scope", "reply is outside the business scope"))

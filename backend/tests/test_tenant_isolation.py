@@ -125,8 +125,10 @@ async def test_cannot_update_or_delete_other_tenants_rows(db, two_tenants):
     async with db.tenant(a["bid"]) as c:
         r = await c.execute("UPDATE products SET name='hacked' WHERE id=%s", (b["product"],))
         assert r.rowcount == 0
-        r = await c.execute("DELETE FROM conversations WHERE id=%s", (b["conv"],))
+        r = await c.execute("DELETE FROM products WHERE id=%s", (b["product"],))          # a table the shop role may delete from: row security still hides the other shop's rows
         assert r.rowcount == 0
+        with pytest.raises(psycopg.errors.InsufficientPrivilege):                          # and one it may not: least privilege (ADR 0050), no delete at all
+            await c.execute("DELETE FROM conversations WHERE id=%s", (b["conv"],))
     async with db.tenant(b["bid"]) as c:
         row = await (await c.execute("SELECT name FROM products WHERE id=%s", (b["product"],))).fetchone()
         assert row["name"] == "Saree"

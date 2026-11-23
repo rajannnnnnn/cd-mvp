@@ -41,7 +41,7 @@ EXPECTED_SECRETS: dict[str, set[str]] = {
 }
 
 DUMMY = {
-    "ENV": "production", "MASTER_KEY": "a" * 43 + "=", "JWT_SECRET": "j" * 40, "OTP_SECRET": "o" * 40, "META_APP_SECRET": "m" * 24,
+    "FOUNDER_PHONE": "+919876543210", "ENV": "production", "MASTER_KEY": "a" * 43 + "=", "JWT_SECRET": "j" * 40, "OTP_SECRET": "o" * 40, "META_APP_SECRET": "m" * 24,
     "META_VERIFY_TOKEN": "v" * 24, "PLATFORM_WA_ACCESS_TOKEN": "EAAplatformtoken", "OPENAI_COMPAT_API_KEY": "gsk_example",
     "ANTHROPIC_API_KEY": "sk-ant-example", "OPENAI_COMPAT_BASE_URL": "https://llm.example/v1", "LLM_PROVIDER": "openai_compat",
     "ALLOWED_ORIGINS": "https://app.example.com", "ADMIN_JWT_SECRET": "z" * 40, "ADMIN_ALLOWED_ORIGINS": "https://admin.example.com", "META_GRAPH_VERSION": "v26.0", "OTP_CHANNEL": "whatsapp_cloud",
@@ -152,14 +152,14 @@ def test_the_only_services_that_publish_a_port_are_the_ones_meant_to():
     assert published == {"web/site", "gateway/receive", "admin/site"}             # the website, Meta's webhook and the founder's console, nothing else
 
 
-def test_published_ports_can_be_narrowed_by_setting_and_the_private_ones_are_loopback_only():
-    """The site and the console are reachable by default (they are meant to be served), and WEB_BIND / ADMIN_BIND narrow them. The webhook receiver
-    and the database are never published beyond this machine."""
+def test_published_ports_are_this_machine_only_by_default_and_widened_only_by_setting():
+    """The difference between a laptop and a real server is configuration only: every port is private unless WEB_BIND / ADMIN_BIND say otherwise, so a
+    forgotten setting can never expose the site or the console. The webhook receiver and the database are never published beyond this machine."""
     for sid, svc, _ in _services():
         for port in svc.get("ports", []):
             text = str(port)
             if sid in ("web/site", "admin/site"):
-                assert text.startswith(("${WEB_BIND:-0.0.0.0}:", "${ADMIN_BIND:-0.0.0.0}:")), f"{sid} cannot be narrowed: {text}"
+                assert text.startswith(("${WEB_BIND:-127.0.0.1}:", "${ADMIN_BIND:-127.0.0.1}:")), f"{sid} is not private by default, or cannot be widened by setting: {text}"
             else:
                 assert text.startswith("127.0.0.1:"), f"{sid} publishes {text} beyond this machine"
 

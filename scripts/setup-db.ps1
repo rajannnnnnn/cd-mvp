@@ -79,14 +79,14 @@ $master = Keep-Or-New 'MASTER_KEY' { New-Base64 32 }
 $verify = Keep-Or-New 'META_VERIFY_TOKEN' { New-Hex 16 }
 function Url([string]$role, [string]$pass) { "postgresql://app_${role}:$pass@${AppDbHost}:$AppDbPort/$Database" }
 $common = @{
-  DATABASE_URL = Url 'user' $pw.user; SYSTEM_DATABASE_URL = Url 'system' $pw.system; MIGRATION_DATABASE_URL = Url 'owner' $pw.owner
+  DATABASE_URL = Url 'user' $pw.user; SYSTEM_DATABASE_URL = Url 'system' $pw.system
 }
 $extra = @{
   web = @{ JWT_SECRET = $jwt; OTP_SECRET = $otp }
   gateway = @{ MASTER_KEY = $master; META_VERIFY_TOKEN = $verify }
   agent = @{ PRICING_DATABASE_URL = Url 'pricing' $pw.pricing }
   admin = @{ CONSOLE_DATABASE_URL = Url 'console' $pw.console; JWT_SECRET = $jwt; OTP_SECRET = $otp; ADMIN_JWT_SECRET = $adminJwt; MASTER_KEY = $master }
-  db = @{}
+  db = @{ MIGRATION_DATABASE_URL = Url 'owner' $pw.owner }      # the schema owner's login: the migration job holds it and no other part (ADR 0050)
 }
 foreach ($p in $parts) {
   $dir = Join-Path $deploy $p
@@ -97,6 +97,8 @@ foreach ($p in $parts) {
     $line = "$k=$($values[$k])"
     if ($text -match "(?m)^$k=") { $text = [regex]::Replace($text, "(?m)^$k=.*$", { param($m) $line }) } else { $text = $text.TrimEnd() + "`r`n$line`r`n" }
   }
+  if ($p -ne 'db') { $text = [regex]::Replace($text, '(?m)^MIGRATION_DATABASE_URL=.*?
+?', '') }      # an older run put the schema owner's login in every part: take it out again (ADR 0050)
   [System.IO.File]::WriteAllText($envFile, $text, (New-Object System.Text.UTF8Encoding($false)))
   Write-Host "     wrote deploy\$p\.env"
 }

@@ -49,7 +49,7 @@ async def _database(s: Settings) -> Check:
 async def _migrations(s: Settings) -> Check:
     want = sorted(f.stem for f in migrations_dir().glob("*.sql") if not f.name.startswith("_"))
     try:
-        async with await _connect(s.migration_database_url) as c:
+        async with await _connect(s.migration_database_url or s.system_database_url) as c:
             rows = await (await c.execute("SELECT version FROM schema_migrations")).fetchall()
     except Exception as e:  # noqa: BLE001
         return Check("migrations", "fail", f"could not read schema_migrations: {type(e).__name__}", "Run the migrations first: python -m salesai migrate (deploy/db).")

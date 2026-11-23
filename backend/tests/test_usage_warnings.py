@@ -11,10 +11,13 @@ from tests.test_conversation_flow import shop_with_catalog
 async def _on_plan(world, shop, plan: str, status: str = "active") -> datetime:
     start = datetime.now(UTC) - timedelta(days=3)
     async with world.rt.db.system_tx() as c:
-        await c.execute("DELETE FROM subscriptions WHERE business_id=%s", (shop.business_id,))
-        await c.execute(
-            "INSERT INTO subscriptions (business_id, plan, status, current_period_start, current_period_end) VALUES (%s,%s,%s,%s,%s)",
-            (shop.business_id, plan, status, start, start + timedelta(days=30)))
+        # no login may delete a money record (ADR 0050), so the plan is changed in place, and created only when the shop has none yet
+        changed = await c.execute("UPDATE subscriptions SET plan=%s, status=%s, current_period_start=%s, current_period_end=%s WHERE business_id=%s",
+                                  (plan, status, start, start + timedelta(days=30), shop.business_id))
+        if changed.rowcount == 0:
+            await c.execute(
+                "INSERT INTO subscriptions (business_id, plan, status, current_period_start, current_period_end) VALUES (%s,%s,%s,%s,%s)",
+                (shop.business_id, plan, status, start, start + timedelta(days=30)))
     return start
 
 

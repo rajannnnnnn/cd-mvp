@@ -26,9 +26,9 @@ $deploy = Join-Path $PSScriptRoot '..\deploy'
 # (the part itself prints the exact report if it cannot start, and `python -m salesai doctor <role>` checks everything).
 function Show-EnvReport([string]$part, [string]$envFile) {
   try {
-    $db = 'DATABASE_URL', 'SYSTEM_DATABASE_URL', 'MIGRATION_DATABASE_URL'
+    $db = 'DATABASE_URL', 'SYSTEM_DATABASE_URL'
     $need = @{
-      db = $db
+      db = @('MIGRATION_DATABASE_URL')
       web = $db + @('JWT_SECRET', 'OTP_SECRET')
       gateway = $db + @('META_APP_SECRET', 'META_VERIFY_TOKEN', 'MASTER_KEY')
       agent = $db + @('PRICING_DATABASE_URL', 'LLM_PROVIDER')
