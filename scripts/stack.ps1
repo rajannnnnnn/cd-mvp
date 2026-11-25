@@ -32,7 +32,7 @@ function Show-EnvReport([string]$part, [string]$envFile) {
       web = $db + @('JWT_SECRET', 'OTP_SECRET')
       gateway = $db + @('META_APP_SECRET', 'META_VERIFY_TOKEN', 'MASTER_KEY')
       agent = $db + @('PRICING_DATABASE_URL', 'LLM_PROVIDER')
-      admin = $db + @('CONSOLE_DATABASE_URL', 'ADMIN_JWT_SECRET', 'MASTER_KEY', 'JWT_SECRET', 'OTP_SECRET', 'ADMIN_ALLOWED_ORIGINS')
+      admin = $db + @('CONSOLE_DATABASE_URL', 'ADMIN_JWT_SECRET', 'MASTER_KEY', 'JWT_SECRET', 'OTP_SECRET', 'ADMIN_ALLOWED_ORIGINS', 'FOUNDER_PHONE', 'FOUNDER_EMAIL', 'FOUNDER_TOTP_SECRET', 'ADMIN_EMAIL_FROM')
     }
     $nice = @{
       web = 'ALLOWED_ORIGINS', 'INVOICE_SELLER_NAME', 'ALERT_EMAIL_TO', 'SMTP_HOST'

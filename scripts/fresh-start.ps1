@@ -7,7 +7,7 @@
 #   3 scripts\setup-db.ps1: database, five roles, deploy\<part>\.env files, tables
 #   4 scripts\connect-meta-sim.ps1: wires the Meta stand-in    5 puts in the model settings (OpenRouter, openai/gpt-oss-20b) and the site address
 #   6 builds and starts gateway, agent, web and the simulator   7 waits for every address, then prints them
-# The founder console (admin part) is not started here: its sign-in screen is not finished.
+# The founder console (admin part) is not started here: it needs your three founder settings and a way to email its codes (see docs\ADMIN_CONSOLE.md), then scripts\stack.ps1 admin.
 #   -Reset   first deletes the chatdeal containers and data volumes and the deploy\*\.env files: a truly blank start
 param(
   [string]$LlmKey = '',
