@@ -2,11 +2,13 @@
 schema-validated (never parsed from free text). The model PROPOSES; code validates and executes."""
 from __future__ import annotations
 
+import re
 import uuid
+from collections.abc import Callable
 from decimal import Decimal
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 
 Intent = Literal[
     "greeting", "product_inquiry", "price_query", "discount_request", "counter_offer", "availability",
@@ -14,8 +16,21 @@ Intent = Literal[
     "unsupported_media", "not_interested", "identity_question", "thanks", "goodbye", "smalltalk", "unknown", "nudge"]
 Action = Literal["reply", "silent", "handoff", "react_only"]
 Stage = Literal["new", "exploring", "interested", "negotiating", "ready_to_buy", "won", "lost"]
-Lang = Literal["en", "hi", "hinglish"]
-Script = Literal["latin", "devanagari"]
+
+
+def _label(default: str) -> Callable[[Any], str]:
+    """A free-text label from the model (a language or script name), kept short and plain. Any language is allowed: the customer is answered in
+    whatever they write (founder, 2026-11-24). A label the model garbles falls back to the default instead of failing the whole turn."""
+    def clean(v: Any) -> str:
+        if not isinstance(v, str):
+            return default
+        v = re.sub(r"[^\w\-_ /+().]", "", v, flags=re.UNICODE).strip().lower()[:40]
+        return v or default
+    return clean
+
+
+Lang = Annotated[str, BeforeValidator(_label("en")), Field(description="The language the customer writes in: a code or plain name, e.g. en, hi, ta, bn, mr, te, gu, kn, ml, pa, ur, or hinglish for Hindi in Latin letters.")]
+Script = Annotated[str, BeforeValidator(_label("latin")), Field(description="The writing system the customer uses, as a Unicode script name in lower case: latin, devanagari, tamil, bengali, telugu, gujarati, kannada, malayalam, gurmukhi, arabic ...")]
 Topic = Literal["hours", "address", "delivery", "payment", "returns", "contact", "other"]
 
 
@@ -71,6 +86,7 @@ class WriterOutput(_M):
 class CheckOutput(_M):
     scope_ok: bool = True
     claims_human: bool = False
+    identity_ok: bool = True                  # when `must_disclose` was asked: the reply says it is the shop's assistant (false = it does not)
     invented_claims: list[str] = []
     issues: list[str] = []
 

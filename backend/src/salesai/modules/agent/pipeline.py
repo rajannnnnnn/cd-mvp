@@ -25,9 +25,9 @@ from salesai.modules.agent import checks as chk
 from salesai.modules.agent import context as ctxmod
 from salesai.modules.agent import policy as pol
 from salesai.modules.agent import prompts
+from salesai.modules.agent.holding import holding_message
 from salesai.modules.agent.llm import LLMProvider, LLMRequest, LLMUnavailable
 from salesai.modules.agent.llm.failure import alert_message, classify
-from salesai.modules.agent.llm.local_nlg import render as render_directive
 from salesai.modules.agent.models import CheckOutput, PlannerOutput, WriterOutput
 from salesai.modules.agent.shape import shape_reply
 from salesai.modules.agent.style import reply_hint
@@ -181,7 +181,7 @@ class AgentService:
                 log.error("LLM unavailable at planning: %s", e)
                 await self._report_llm_failure("planner", e)
                 plan = self._holding_plan(ctx, f"LLM unavailable: {e}", "system_failure")
-                return await self._finish(ctx, plan, [self._holding_text(plan)], usage, {"llm_unavailable": True}, signals or {}, version, t0, trigger, prompt_refs,
+                return await self._finish(ctx, plan, [self._holding_text(ctx, plan)], usage, {"llm_unavailable": True}, signals or {}, version, t0, trigger, prompt_refs,
                                           fallback="llm_unavailable")
 
             if await self._conversation_moved(business_id, conversation_id, version):
@@ -196,7 +196,7 @@ class AgentService:
             if parts is None:      # checks failed twice or provider down: safe holding message + handoff
                 fallback = "llm_unavailable" if "llm_unavailable" in checks_log.get("failed", []) else "checks_failed"
                 plan = self._holding_plan(ctx, "reply failed automated checks: " + ",".join(checks_log.get("failed", [])), "system_failure", keep=plan)
-                parts, reaction = [self._holding_text(plan)], None
+                parts, reaction = [self._holding_text(ctx, plan)], None
             return await self._finish(ctx, plan, parts, usage, {"planner": out.model_dump(mode="json"), "checks": checks_log},
                                       signals or {}, version, t0, trigger, prompt_refs, reaction=reaction, fallback=fallback, typing_started=typing_started)
 
@@ -259,7 +259,7 @@ class AgentService:
         allowed = chk.numbers_in(" ".join(plan.allowed_texts))
         return chk.CheckContext(issued=frozenset(plan.issued), issued_percents=frozenset(plan.issued_percents),
                                 allowed_numbers=frozenset(allowed), real_urgency=frozenset(plan.real_urgency),
-                                sincere_identity_question=plan.sincere_identity_question, customer_script=plan.script,
+                                sincere_identity_question=plan.sincere_identity_question, customer_script=plan.script, language=plan.language,
                                 customer_style=ctx.customer_style)
 
     async def _write_and_check(self, ctx: ctxmod.TurnContext, plan: pol.Plan, usage: Usage, prompt_refs: dict[str, str]
@@ -302,7 +302,8 @@ class AgentService:
             await self._llm_ok("writer")
             parts = [p.strip() for p in res.output.parts if p and p.strip()]
             result = chk.run_checks(parts, checkctx)
-            if result.ok and self.llm_checks and (needs_model_check(plan) or not self.skip_check_when_low_risk):
+            # in a language the word patterns do not know, the model check is the only judge of "is this a person?" and "does it say it is an assistant?"
+            if result.ok and self.llm_checks and (needs_model_check(plan) or not chk.lexical(plan.language) or not self.skip_check_when_low_risk):
                 result = await self._llm_check(ctx, plan, parts, usage, prompt_refs, result)
             log["attempts"].append({"ok": result.ok, "failures": [f"{f.check}: {f.detail}" for f in result.failures]})
             if result.ok:
@@ -322,6 +323,7 @@ class AgentService:
                 LLMRequest("check", cp.text, {"parts": parts, "business": ctx.business["name"],
                                               # the same facts the writer was given: engine-issued prices, stock, shop info. Without them every correct quote looks invented.
                                               "allowed_facts": plan.directives,
+                                              "language": plan.language, "must_disclose": plan.sincere_identity_question,
                                               "facts": ctxmod.topic_text(ctx.business["profile"] or {}, "hours")}, self.models.check, cp.ref, max_tokens=400,
                            effort=self.models.check_effort), CheckOutput)
         except LLMUnavailable as e:
@@ -335,6 +337,8 @@ class AgentService:
             result.failures.append(chk.Failure("scope", "reply is outside the business scope"))
         if o.claims_human:
             result.failures.append(chk.Failure("human_claim", "model check: reply implies a human"))
+        if plan.sincere_identity_question and not o.identity_ok:
+            result.failures.append(chk.Failure("identity", "model check: the customer asked if this is a bot; the reply must say it is the shop's assistant"))
         for claim in o.invented_claims[:3]:
             result.failures.append(chk.Failure("invented_claim", claim[:120]))
         return result
@@ -348,9 +352,12 @@ class AgentService:
         p.handoffs.append((reason, note))
         return p
 
-    def _holding_text(self, plan: pol.Plan) -> str:
-        return render_directive({"type": "handoff_notice", "reason": "system_failure"}, plan.language,
-                                {"business_name": None, "customer_name": None, "honorific": None})
+    def _holding_text(self, ctx: ctxmod.TurnContext, plan: pol.Plan) -> str:
+        """The one message sent before the hand-over when the AI cannot answer: names who the customer is being connected to (agent/holding.py)."""
+        sales = ctx.business["sales_settings"] or {}
+        return holding_message([m["body"] for m in ctx.unanswered if m.get("body")], owner_name=ctx.extra.get("owner_name"),
+                               owner_title=sales.get("owner_title"), last_language=ctx.qualification.get("last_language"),
+                               script_hint=ctx.customer_style.get("script"))
 
     async def _release(self, ctx: ctxmod.TurnContext, reason: str) -> None:
         """AI may not speak: record the messages as handled-by-others so a later turn does not answer stale text."""
@@ -371,7 +378,7 @@ class AgentService:
                       *, reaction: str | None = None, fallback: str | None = None, typing_started: float | None = None) -> TurnOutcome:
         bid, cid = ctx.business["id"], ctx.conv["id"]
         route, llm_usage = route_of(plan, usage, checks=decision.get("checks"), fallback=fallback), usage.consolidated()
-        parts = [p for p in parts if p != "_limit"] or ([self._holding_text(plan)] if plan.handoffs else [])
+        parts = [p for p in parts if p != "_limit"] or ([self._holding_text(ctx, plan)] if plan.handoffs else [])
         now = datetime.now(UTC)
         timing = ctx.business["timing_params"]
         csettings = ctx.business["conversation_settings"] or {}

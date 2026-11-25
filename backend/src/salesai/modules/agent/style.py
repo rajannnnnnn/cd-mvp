@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import re
 import statistics
+from collections import Counter
 from typing import Any
 
-from salesai.modules.agent.llm.local_nlu import detect_lang
+from salesai.modules.agent.checks import script_of
 
 WINDOW = 12                                       # the most recent customer messages that describe how they write now
 EMOJI = re.compile(r"[\U0001F300-\U0001FAFF☀-➿]")
@@ -25,8 +26,24 @@ LENGTH_WORDS = ((4, "terse"), (8, "short"), (14, "medium"))
 MAX_WORDS = {"terse": 20, "short": 35, "medium": 60, "long": 90}
 
 
+_NO_SPACES = re.compile("[฀-໿က-႟ក-៿぀-ヿ㐀-鿿가-힯]")
+
+
 def _words(t: str) -> list[str]:
-    return re.findall(r"[a-zA-Z0-9ऀ-ॿ']+", t)
+    """Words in any script. Scripts written without spaces (Chinese, Japanese, Thai ...) count two characters as one word so a sentence is not one word."""
+    out: list[str] = []
+    for tok in t.split():
+        core = tok.strip(".,;:!?()[]{}\"'-")
+        if not any(ch.isalnum() for ch in core):
+            continue
+        out.extend([core] * (max(1, len(core) // 2) if _NO_SPACES.search(core) else 1))
+    return out
+
+
+def _script_of_message(m: str) -> str | None:
+    """The script most of this message's letters are written in, or None when it has no letters (an emoji says nothing about language)."""
+    letters = [c for c in m if c.isalpha()]
+    return max(Counter(script_of(c) for c in letters).items(), key=lambda kv: kv[1])[0] if letters else None
 
 
 def _score(text: str) -> float:
@@ -65,18 +82,12 @@ def style_of(messages: list[str]) -> dict[str, Any]:
     """The profile from a customer's messages, oldest first. Only the most recent `WINDOW` count."""
     msgs = [m for m in messages if m and m.strip()][-WINDOW:]
     if not msgs:
-        return {"messages": 0, "language": {"en": 1.0}, "dominant_language": "en", "script": "latin", "register": "neutral", "register_score": 0.5,
+        return {"messages": 0, "scripts": {"latin": 1.0}, "script": "latin", "register": "neutral", "register_score": 0.5,
                 "length": "short", "median_words": 0.0, "uses_emoji": False, "emoji_rate": 0.0, "lowercase_only": False, "punctuation": "light", "address_terms": []}
-    langs: dict[str, int] = {}
-    scripts = {"latin": 0, "devanagari": 0}
-    for m in msgs:
-        if not any(ch.isalpha() for ch in m):
-            continue                                                # an emoji-only message says nothing about language
-        lang, script = detect_lang([m])
-        langs[lang] = langs.get(lang, 0) + 1
-        scripts[script] += 1
-    total = sum(langs.values()) or 1
-    share = {k: round(v / total, 2) for k, v in sorted(langs.items(), key=lambda kv: -kv[1])} or {"en": 1.0}
+    # which script(s) they write in, from the letters themselves. The language is not guessed here: the model reads the messages and answers in it.
+    counts = Counter(sc for sc in (_script_of_message(m) for m in msgs) if sc)
+    total = sum(counts.values()) or 1
+    share = {k: round(v / total, 2) for k, v in counts.most_common()} or {"latin": 1.0}
     # recent messages weigh more: the way they write now matters more than how they began
     weights = [1 + i / len(msgs) for i in range(len(msgs))]
     score = sum(w * _score(m) for w, m in zip(weights, msgs, strict=True)) / sum(weights)
@@ -90,8 +101,7 @@ def style_of(messages: list[str]) -> dict[str, Any]:
     proper = sum(1 for m in letters_msgs if m[:1].isupper() and re.search(r"[.?!]\s*$", m))
     punctuation = "none" if punct == 0 else ("proper" if letters_msgs and proper >= 0.6 * len(letters_msgs) else "light")
     called = [a for a in ADDRESS if any(re.search(r"(?<![\w'])" + re.escape(a) + r"(?![\w'])", m.lower()) for m in msgs)]
-    return {"messages": len(msgs), "language": share, "dominant_language": next(iter(share)),
-            "script": "devanagari" if scripts["devanagari"] > scripts["latin"] else "latin", "register": _label(score), "register_score": round(score, 2),
+    return {"messages": len(msgs), "scripts": share, "script": next(iter(share)), "register": _label(score), "register_score": round(score, 2),
             "length": length, "median_words": float(med), "uses_emoji": emoji > 0, "emoji_rate": round(emoji / len(msgs), 2), "lowercase_only": lowercase,
             "punctuation": punctuation, "address_terms": called}
 

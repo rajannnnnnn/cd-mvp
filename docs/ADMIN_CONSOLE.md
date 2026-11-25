@@ -19,31 +19,47 @@ A figure the platform does not record yet is shown with a dash and the reason, n
 
 ## Signing in
 
-Two proofs, in this order: a code sent to your WhatsApp number, then a code from your authenticator app (Google Authenticator, Authy, 1Password and
-similar). Codes work once; five wrong ones lock the account for 15 minutes; a session lasts 30 minutes (configurable) and is extended only by a fresh
-authenticator code. There is no "remember me".
+You are three settings of the console, fixed by the deployment (ADR 0056): your WhatsApp number (`FOUNDER_PHONE`), your email (`FOUNDER_EMAIL`) and your
+authenticator secret (`FOUNDER_TOTP_SECRET`). The database holds none of them, nothing in the running system can change them, and changing one in the
+settings ends every session.
 
-## Setting it up once
+The first proof is always the code from your authenticator app (Google Authenticator, Authy, 1Password and similar). How much more it asks depends on the risk:
 
-1. Your number must be a platform operator account. Create it with the operator onboarding (or `INSERT INTO accounts (phone, platform_role) ...`).
-2. On the server, with the admin part's `.env` loaded, enrol your authenticator. It prints a secret and an `otpauth://` link; type the secret into your app.
-   The secret is shown once and never stored in the clear.
+| The sign-in | It asks for |
+|---|---|
+| **Routine**: a browser you have signed in from, the usual place, nothing wrong before | the authenticator code |
+| **Elevated**: a new browser, or a new place, or a recent lock | the authenticator code, plus **one** code, on your WhatsApp **or** your email (your choice, so a Meta outage never locks you out) |
+| **High**: the first sign-in on a database, wrong codes before this one, or a new browser and a new place together | the authenticator code, plus a WhatsApp code **and** an email code |
 
-```bash
-# the image already starts `python -m salesai`, so give only the command that follows it
-docker compose --env-file deploy/admin/.env -f deploy/admin/docker-compose.yml run --rm api admin-enroll +919999900000
-```
+A WhatsApp or email code is sent only after the authenticator code was right, so guessing can never make the platform message you. Codes work once; the email
+code is 8 digits and lasts 10 minutes; five wrong codes of any kind lock the account for 15 minutes; a session lasts 30 minutes (configurable) and is extended only
+by a fresh authenticator code. A refresh in the middle of a sign-in keeps its place and sends nothing. There is no "remember me" except a trusted browser (30 days).
 
-3. Fill in `deploy/admin/.env` (`ADMIN_JWT_SECRET` must differ from `JWT_SECRET`; `ADMIN_ALLOWED_ORIGINS` is the console's own address), then `scripts/stack.sh admin`.
-4. Put a TLS proxy in front of `ADMIN_PORT` on its own subdomain. Optionally restrict who can reach it with `ADMIN_ALLOWED_IPS` (checked by the API on every request) and `ALLOW_IPS` (checked by the web server).
+Every session is recorded: the address and its network, the device and browser language, the country (and the city and region when your proxy sends them: set
+`ADMIN_GEO_HEADER`, `ADMIN_GEO_CITY_HEADER`, `ADMIN_GEO_REGION_HEADER`, for example to Cloudflare's headers), whether the network was the usual one, the risk, every proof
+used, when it started, when it was last used, and when and why it ended. The **Security** screen shows all of it and can end any session (it asks for a fresh authenticator code).
+You are alerted (High) on every sign-in that needed more than the authenticator.
 
-To replace a lost phone, run the same enrol command again: it replaces the secret and signs out every console session.
+## Setting it up
+
+1. Make an authenticator secret: `python -m salesai admin-enroll --new-secret`. It prints a QR code and a `FOUNDER_TOTP_SECRET=` line, **once, and stores nothing**. Scan the QR
+   with your phone, put the line in `deploy/admin/.env`, and keep a copy of the key in a password manager or printed and locked away: with it a lost phone is not a lost console.
+2. Fill in `deploy/admin/.env`: `FOUNDER_PHONE`, `FOUNDER_EMAIL`, `FOUNDER_TOTP_SECRET`, `ADMIN_EMAIL_FROM` (for example `ChatDeal Access <access@yourcompany.example>`, verified in SES),
+   the mail settings (`EMAIL_TRANSPORT`, `SES_REGION` and keys, or SMTP), `ADMIN_JWT_SECRET` (must differ from `JWT_SECRET`) and `ADMIN_ALLOWED_ORIGINS` (the console's own address). Then `scripts/stack.sh admin`.
+   There is no enrolment step for the database: the first sign-in creates your account row from the settings.
+3. Put a TLS proxy (or let Caddy get a certificate for a real hostname) in front of `ADMIN_PORT` on its own subdomain. Optionally restrict who can reach it with `ADMIN_ALLOWED_IPS` (checked by the API on every request) and `ALLOW_IPS` (checked by Caddy).
+
+The `.env` now holds the key to your console: protect it like the master key (file permissions, never in git, never in chat).
+
+To replace a lost phone: add the saved key to a new authenticator app (or run `python -m salesai admin-enroll` to show the QR again). To change the key, make a new one with `--new-secret`, put it
+in the settings and restart: every session ends at once. `python -m salesai admin-enroll` (without options) also starts your sign-in state afresh: every session ends and every trusted browser
+is forgotten, and the next sign-in is a High one.
 
 ## What it deliberately does not do
 
 - It never shows a customer's words, name or number, or a floor price, on any board or in the audit.
 - "Sign in as a shop" is not in the console. To help an owner, use a recorded read of the chat, or ask them to show you.
-- Passkeys are not built yet (the decision accepts an authenticator app); there are no recovery codes (re-enrolling on the server is the recovery).
+- Passkeys are not built yet (the decision accepts an authenticator app); there are no recovery codes (the saved key, or a new one in the settings, is the recovery).
 
 ## Local development
 
@@ -52,7 +68,7 @@ To replace a lost phone, run the same enrol command again: it replaces the secre
 
 ## The console's database login
 
-The console uses its own database login, `app_console`, which is the only one that can read the authenticator secrets and sessions (ADR 0043). On a database that already exists, re-run
+The console uses its own database login, `app_console`, which is the only one that can read the console's sessions, sign-in state and emailed codes (ADR 0043). On a database that already exists, re-run
 `db/bootstrap_roles.sql` (it is safe to repeat; pass `-v console_pw=...`) or run `ALTER ROLE app_console LOGIN PASSWORD '...'`, then apply the migrations (they re-apply the grants) and put
-`CONSOLE_DATABASE_URL` in `deploy/admin/.env`. The `admin-enroll` command needs it too, because it writes the authenticator secret.
+`CONSOLE_DATABASE_URL` in `deploy/admin/.env`. The `admin-enroll` command needs it too, because it resets the sign-in state.
 

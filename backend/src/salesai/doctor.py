@@ -20,7 +20,7 @@ from salesai.db import check_logins, check_separation
 from salesai.migrate import migrations_dir
 from salesai.modules.agent.llm import factory
 from salesai.modules.agent.llm.base import LLMRequest
-from salesai.modules.alerting.email_sink import smtp_check
+from salesai.modules.alerting.email_sink import ses_check, smtp_check
 
 Status = Literal["ok", "fail", "skip"]
 
@@ -88,6 +88,14 @@ async def _model(s: Settings) -> Check:
 
 
 async def _email(s: Settings, send: bool) -> Check:
+    if s.email_transport == "ses":
+        if not (s.alert_emails and s.ses_region and s.alert_email_from):
+            return Check("email", "skip", "alert email is not set up", "Fill in ALERT_EMAIL_TO, ALERT_EMAIL_FROM, SES_REGION (and SES_ACCESS_KEY_ID / SES_SECRET_ACCESS_KEY) in deploy/web/.env; or set EMAIL_TRANSPORT=smtp and SMTP_HOST.")
+        try:
+            note = await asyncio.to_thread(ses_check, s.ses_region, s.ses_access_key_id, s.ses_secret_access_key, s.alert_email_from, s.alert_emails, send=send)
+        except Exception as e:  # noqa: BLE001
+            return Check("email", "fail", f"{type(e).__name__}: {str(e)[:120]}", "Check SES_REGION (the region where the sender is verified), the access key and secret, and that ALERT_EMAIL_FROM (and in the SES sandbox ALERT_EMAIL_TO) is verified in SES.")
+        return Check("email", "ok", note + ("; test message sent to " + ", ".join(s.alert_emails) if send else "; add --send-test-mail to send one"))
     if not (s.alert_emails and s.smtp_host and s.alert_email_from):
         return Check("email", "skip", "alert email is not set up", "Fill in ALERT_EMAIL_TO, ALERT_EMAIL_FROM, SMTP_HOST (and SMTP_USERNAME / SMTP_PASSWORD) in deploy/web/.env.")
     try:

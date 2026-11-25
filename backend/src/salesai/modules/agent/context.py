@@ -116,8 +116,10 @@ async def load(db: Database, business_id: uuid.UUID, conversation_id: uuid.UUID,
                WHERE cv.customer_id=%s AND d.status='won' LIMIT 1""", (customer["id"],))).fetchone()
         prior_ai = await (await c.execute(
             "SELECT 1 FROM messages WHERE conversation_id=%s AND direction='out' AND sender='ai' LIMIT 1", (conversation_id,))).fetchone()
+        owner = await (await c.execute("SELECT name FROM business_users WHERE role='owner' ORDER BY created_at LIMIT 1")).fetchone()
     return TurnContext(business=business, conv=conv, customer=customer, number=number, unanswered=unanswered, history=history,
-                       candidates=candidates, style_examples=style, is_repeat=repeat is not None, has_prior_ai_message=prior_ai is not None, now=now)
+                       candidates=candidates, style_examples=style, is_repeat=repeat is not None, has_prior_ai_message=prior_ai is not None, now=now,
+                       extra={"owner_name": owner["name"] if owner else None})
 
 
 # ---------------------------------------------------------------- business profile -> text for directives

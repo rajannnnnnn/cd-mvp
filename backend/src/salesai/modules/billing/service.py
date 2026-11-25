@@ -17,6 +17,7 @@ from salesai.db import Database, jsonb, required
 from salesai.events.outbox import emit
 from salesai.modules.billing.payments import PaymentProvider
 from salesai.modules.billing.plans import GRACE_DAYS, PLANS, TRIAL_DAYS, TRIAL_PLAN, Plan, gst_for
+from salesai.modules.mail import enqueue
 
 INVOICE_DUE_DAYS = 3
 
@@ -188,6 +189,9 @@ class BillingService:
                             (business_id, invoice_id, self.provider.name, res.provider_ref, inv["total_paise"], res.status))
             if res.status == "succeeded":
                 inv = await self._settle(c, inv)
+            elif res.status not in ("pending", "succeeded"):             # a real gateway can refuse a charge; "pending" is a bank transfer awaiting money
+                await enqueue(c, business_id, "payment_failed", {"number": inv["number"], "total_paise": inv["total_paise"]},
+                              f"payment_failed:{invoice_id}:{res.provider_ref}")
         return {**self._inv(inv), "payment": {"status": res.status, "mode": res.mode, "instructions": res.instructions}}
 
     async def settle_manually(self, invoice_id: uuid.UUID, reference: str | None = None) -> dict[str, Any]:
@@ -208,6 +212,9 @@ class BillingService:
     async def _settle(self, c: Any, inv: dict[str, Any]) -> dict[str, Any]:
         now = self.now()
         inv = required(await (await c.execute("UPDATE invoices SET status='paid', paid_at=%s WHERE id=%s RETURNING *", (now, inv["id"]))).fetchone(), "invoice")
+        await enqueue(c, inv["business_id"], "payment_confirmed",       # in this same transaction: the mail can neither be lost nor hold the payment up (ADR 0054)
+                      {"number": inv["number"], "total_paise": inv["total_paise"], "plan": inv["plan"], "period_start": inv["period_start"],
+                       "period_end": inv["period_end"], "paid_at": now}, f"payment_confirmed:{inv['id']}")
         sub = await self._sub(c, inv["business_id"])
         # the invoice that buys the newest period decides the subscription state
         if sub["current_period_end"] is None or inv["period_end"] >= sub["current_period_end"]:
@@ -287,6 +294,12 @@ class BillingService:
         now = self.now()
         done = {"trial_ended": 0, "renewed": 0, "ended": 0, "past_due": 0, "lapsed": 0, "usage_notices": 0}
         async with self.db.system_tx() as c:
+            for r in await (await c.execute(            # a heads-up three days before the free trial ends; one mail per trial (the key carries the end date)
+                    "SELECT business_id, trial_ends_at FROM subscriptions WHERE status='trialing' AND trial_ends_at > %s AND trial_ends_at <= %s",
+                    (now, now + timedelta(days=3)))).fetchall():
+                left = max(0, (r["trial_ends_at"] - now).days)
+                await enqueue(c, r["business_id"], "trial_ending", {"days_left": left, "ends_on": r["trial_ends_at"]},
+                              f"trial_ending:{r['business_id']}:{r['trial_ends_at']:%Y-%m-%d}")
             for r in await (await c.execute("SELECT business_id FROM subscriptions WHERE status='trialing' AND trial_ends_at <= %s FOR UPDATE", (now,))).fetchall():
                 await c.execute("UPDATE subscriptions SET status='canceled' WHERE business_id=%s", (r["business_id"],))
                 await self._lapse(c, r["business_id"], "free trial ended")

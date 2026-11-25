@@ -64,7 +64,7 @@ def advisories(s: Any) -> list[str]:
     """Optional settings that are not set. Printed as warnings; they never block a start."""
     out: list[str] = []
     if s.role in ("api", "scheduler", "all", "web") and not s.alert_emails:
-        out.append("ALERT_EMAIL_TO / SMTP_HOST are not set: platform alerts will appear in the console only, not by email.")
+        out.append("ALERT_EMAIL_TO (and SMTP_HOST or SES_REGION) are not set: platform alerts will appear in the console only, not by email.")
     if s.role in ("api", "all", "web") and str(getattr(s, "invoice_seller_name", "")).startswith("["):
         out.append("INVOICE_SELLER_NAME / ADDRESS / GSTIN still hold the placeholder text: invoices will show it.")
     if getattr(s, "uses_model", False) and all(s.llm_stage_provider(st) == "local" for st in ("planner", "writer", "check")):

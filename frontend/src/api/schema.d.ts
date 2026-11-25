@@ -132,7 +132,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** The authenticator code. Returns a session, or a ticket when a WhatsApp code is needed as well */
+        /** The authenticator code. Returns a session, or a ticket when more codes (WhatsApp, email) are needed as well */
         post: operations["sign_in_admin_v1_auth_sign_in_post"];
         delete?: never;
         options?: never;
@@ -149,8 +149,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Send the second-layer WhatsApp code to the founder (needs a ticket) */
+        /** Send one code, by WhatsApp or email, to the founder (needs a ticket) */
         post: operations["step_up_send_admin_v1_auth_step_up_send_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/v1/auth/step-up/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Where a sign-in stands (so a page refresh loses nothing). Sends nothing */
+        post: operations["step_up_status_admin_v1_auth_step_up_status_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -166,7 +183,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** The WhatsApp code. Returns the console session */
+        /** One code. Returns the console session, or the ticket's progress when more is needed */
         post: operations["step_up_verify_admin_v1_auth_step_up_verify_post"];
         delete?: never;
         options?: never;
@@ -1030,6 +1047,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/operator/alerts/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every attempt to tell the founder: when, which way, accepted or not (ADR 0053) */
+        get: operations["alert_deliveries_api_v1_operator_alerts_deliveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/operator/alerts/{alert_id}/resolve": {
         parameters: {
             query?: never;
@@ -1404,6 +1438,23 @@ export interface paths {
         put?: never;
         /** Confirm a bank transfer / UPI payment for an invoice */
         post: operations["mark_paid_api_v1_operator_invoices__invoice_id__mark_paid_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/operator/mail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Mail sent to shop owners: what, to which shop, and whether it went (ADR 0054) */
+        get: operations["shop_mail_api_v1_operator_mail_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2250,6 +2301,8 @@ export interface components {
         BusinessOut: {
             /** Ai Enabled */
             ai_enabled: boolean;
+            /** Billing Email */
+            billing_email?: string | null;
             /** Conversation Settings */
             conversation_settings: {
                 [key: string]: unknown;
@@ -2292,6 +2345,11 @@ export interface components {
         };
         /** BusinessPatch */
         BusinessPatch: {
+            /**
+             * Billing Email
+             * @description The one address for billing and support mail. Empty clears it.
+             */
+            billing_email?: string | null;
             conversation_settings?: components["schemas"]["ConversationSettingsIn"] | null;
             /** Name */
             name?: string | null;
@@ -2690,6 +2748,35 @@ export interface components {
             status: "pending" | "won" | "lost";
             /** Value */
             value: string | null;
+        };
+        /** DeliveryOut */
+        DeliveryOut: {
+            /** Alert Id */
+            alert_id: number | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Error */
+            error?: string | null;
+            /** Id */
+            id: number;
+            /**
+             * Items
+             * @default 1
+             */
+            items: number;
+            /** Kind */
+            kind: string;
+            /** Ok */
+            ok: boolean;
+            /** Provider Ref */
+            provider_ref?: string | null;
+            /** Severity */
+            severity: string;
+            /** Sink */
+            sink: string;
         };
         /** DeviceOut */
         DeviceOut: {
@@ -3776,6 +3863,8 @@ export interface components {
             language_default?: ("en" | "hi" | "hinglish") | null;
             /** May Mention Offers */
             may_mention_offers?: boolean | null;
+            /** Owner Title */
+            owner_title?: ("sir" | "madam") | null;
             /** Proactiveness */
             proactiveness?: ("low" | "medium" | "high") | null;
         };
@@ -3801,6 +3890,11 @@ export interface components {
              * @description the same value means the same browser
              */
             browser_id: string | null;
+            /**
+             * City
+             * @description only when the front proxy sends it
+             */
+            city?: string | null;
             /** Country */
             country: string | null;
             /**
@@ -3828,15 +3922,35 @@ export interface components {
             ip: string | null;
             /** Is Current */
             is_current: boolean;
+            /**
+             * Language
+             * @description the browser's preferred language
+             */
+            language?: string | null;
             /** Last Seen At */
             last_seen_at: string | null;
             /**
              * Method
-             * @description authenticator | authenticator+whatsapp | extended
+             * @description every proof used, e.g. authenticator+whatsapp+email, or extended
              */
             method: string | null;
             /** Network */
             network: string | null;
+            /**
+             * Proofs
+             * @description the proofs used, in order
+             */
+            proofs?: string | null;
+            /**
+             * Region
+             * @description only when the front proxy sends it
+             */
+            region?: string | null;
+            /**
+             * Risk
+             * @description routine | elevated | high: how much proof this login had to give
+             */
+            risk?: string | null;
             /**
              * Started At
              * Format: date-time
@@ -3858,6 +3972,32 @@ export interface components {
             usual_network: boolean;
             /** Where */
             where: string;
+        };
+        /** ShopMailOut */
+        ShopMailOut: {
+            /** Attempts */
+            attempts: number;
+            /** Business Name */
+            business_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Error */
+            error?: string | null;
+            /** Id */
+            id: number;
+            /** Provider Ref */
+            provider_ref?: string | null;
+            /** Purpose */
+            purpose: string;
+            /** Sent At */
+            sent_at?: string | null;
+            /** Status */
+            status: string;
+            /** Template */
+            template: string;
         };
         /** SignInIn */
         SignInIn: {
@@ -4003,8 +4143,23 @@ export interface components {
              */
             step: "details" | "whatsapp" | "assistant";
         };
+        /** StepUpSend */
+        StepUpSend: {
+            /**
+             * Channel
+             * @description where to send the code
+             */
+            channel: string;
+            /** Ticket */
+            ticket: string;
+        };
         /** StepUpVerify */
         StepUpVerify: {
+            /**
+             * Channel
+             * @description the channel the code came from
+             */
+            channel: string;
             /** Code */
             code: string;
             /** Ticket */
@@ -4767,12 +4922,47 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["salesai__api__routes__admin_auth__TicketIn"];
+                "application/json": components["schemas"]["StepUpSend"];
             };
         };
         responses: {
             /** @description Successful Response */
             202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    step_up_status_admin_v1_auth_step_up_status_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["salesai__api__routes__admin_auth__TicketIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6680,6 +6870,39 @@ export interface operations {
             };
         };
     };
+    alert_deliveries_api_v1_operator_alerts_deliveries_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     resolve_alert_api_v1_operator_alerts__alert_id__resolve_post: {
         parameters: {
             query?: never;
@@ -7521,6 +7744,39 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    shop_mail_api_v1_operator_mail_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShopMailOut"][];
                 };
             };
             /** @description Validation Error */

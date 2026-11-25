@@ -34,9 +34,9 @@ GRANT EXECUTE ON FUNCTION current_business_id() TO app_pricing;
 -- ---------------------------------------------------------------- app_system (platform work, BYPASSRLS)
 GRANT SELECT, INSERT, UPDATE ON
   accounts, otp_challenges, auth_sessions, business_keys, webhook_events, outbox, jobs,
-  rate_buckets, operator_alerts, sim_messages, heartbeats
+  rate_buckets, operator_alerts, sim_messages, heartbeats, alert_deliveries, mail_outbox
 TO app_system;
-GRANT DELETE ON accounts, otp_challenges, auth_sessions, webhook_events, outbox, jobs, rate_buckets, operator_alerts, sim_messages TO app_system;   -- retention and the hard delete of a shop
+GRANT DELETE ON accounts, otp_challenges, auth_sessions, webhook_events, outbox, jobs, rate_buckets, operator_alerts, sim_messages, alert_deliveries, mail_outbox TO app_system;   -- retention and the hard delete of a shop
 GRANT SELECT ON schema_migrations TO app_system;           -- `doctor` reads which migrations are applied, without the schema owner's login
 GRANT SELECT, INSERT, UPDATE, DELETE ON businesses TO app_system;   -- onboarding + hard delete
 GRANT SELECT ON business_users, whatsapp_numbers, conversations, customers TO app_system;
@@ -72,7 +72,8 @@ GRANT SELECT, DELETE ON channel_events TO app_system;           -- retention rem
 
 -- ---------------------------------------------------------------- admin plane (app_console only; ADR 0028, 0043)
 -- The console's sign-in secrets, sessions and break-glass grants are readable by its own login and by no other part's.
-GRANT SELECT, INSERT, UPDATE, DELETE ON admin_credentials, admin_sessions TO app_console;
+GRANT SELECT, INSERT, UPDATE, DELETE ON admin_credentials, admin_sessions, admin_email_codes TO app_console;
+GRANT USAGE ON SEQUENCE admin_email_codes_id_seq TO app_console;
 GRANT SELECT, INSERT, UPDATE ON break_glass_grants TO app_console;
 -- the boards count deals and sum their value; the customer's order details never leave the shop's own role
 GRANT SELECT (id, business_id, conversation_id, kind, value, status, created_at, closed_at) ON deals TO app_system;

@@ -4,6 +4,7 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\logs.ps1 -Follow             keep going: new lines from every service, live (Ctrl+C to stop)
 #   powershell -ExecutionPolicy Bypass -File scripts\logs.ps1 -Part agent -Follow -Tail 100
 #   powershell -ExecutionPolicy Bypass -File scripts\logs.ps1 -Errors             only warnings and errors (and the stack trace under them)
+#   powershell -ExecutionPolicy Bypass -File scripts\logs.ps1 -Chat 1a2b3c4d     one customer's conversation across every service (the code after c: in each line)
 #   powershell -ExecutionPolicy Bypass -File scripts\logs.ps1 -List               which services there are
 #   powershell -ExecutionPolicy Bypass -File scripts\logs.ps1 -Raw                the original JSON lines, untouched
 #
@@ -15,6 +16,7 @@ param(
   [switch]$Follow,
   [switch]$Errors,
   [switch]$Raw,
+  [string]$Chat = '',
   [switch]$List
 )
 $ErrorActionPreference = 'Continue'
@@ -35,12 +37,16 @@ function Show-Line([string]$name, [string]$color, [string]$line) {
   try {
     $j = $line | ConvertFrom-Json -ErrorAction Stop
     if ($Errors -and $j.level -notin 'WARNING', 'ERROR', 'CRITICAL') { return }
+    $cid = "$($j.conversation_id)"
+    if ($Chat -and -not $cid.StartsWith($Chat)) { return }                  # one customer's conversation only
     $t = if ($j.ts) { ([datetime]$j.ts).ToLocalTime().ToString('HH:mm:ss') } else { '        ' }
     $lvl = ("$($j.level)").PadRight(7)
+    $tag = if ($cid.Length -ge 8) { 'c:' + $cid.Substring(0, 8) } else { '          ' }     # the short code to follow one conversation with -Chat
     $txt = "$($j.msg)"; if ($j.exc) { $txt += "`n    " + (("$($j.exc)" -split "`n" | Select-Object -Last 6) -join "`n    ") }
     $c = switch ("$($j.level)") { 'ERROR' { 'Red' } 'CRITICAL' { 'Red' } 'WARNING' { 'Yellow' } default { $color } }
-    Write-Host ("{0,-16} {1} {2} {3}" -f $short, $t, $lvl, $txt) -ForegroundColor $c
+    Write-Host ("{0,-16} {1} {2} {3} {4}" -f $short, $t, $lvl, $tag, $txt) -ForegroundColor $c
   } catch {
+    if ($Chat) { return }
     if ($Errors -and $line -notmatch 'Traceback|Error|error|fail') { return }
     Write-Host ("{0,-16} {1}" -f $short, $line) -ForegroundColor $color
   }

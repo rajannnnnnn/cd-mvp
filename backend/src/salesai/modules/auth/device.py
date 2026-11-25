@@ -26,7 +26,10 @@ class ClientInfo:
     """Everything the console records about where a request came from."""
     ip: str | None = None
     user_agent: str | None = None
-    geo: str | None = None
+    geo: str | None = None              # the country, from the front proxy's header
+    city: str | None = None             # city and region, only when the proxy sends them (the console holds no location database)
+    region: str | None = None
+    language: str | None = None         # the browser's preferred language
 
 
 def describe_device(user_agent: str | None) -> str:
@@ -77,3 +80,15 @@ def clean_geo(value: str | None) -> str | None:
     """A two-letter country code from the proxy's header, or nothing (the header is untrusted text: keep only a plausible code)."""
     v = (value or "").strip().upper()
     return v if re.fullmatch(r"[A-Z]{2}", v) and v not in {"XX", "T1"} else None
+
+
+def clean_place(value: str | None) -> str | None:
+    """A city or region name from the proxy's header: untrusted text, so keep only letters, spaces and a few marks, and a sensible length."""
+    v = re.sub(r"[^\w .'\-]", "", (value or "").strip(), flags=re.UNICODE)[:60].strip()
+    return v or None
+
+
+def clean_language(value: str | None) -> str | None:
+    """The first language of Accept-Language, e.g. 'en-IN'."""
+    first = (value or "").split(",")[0].split(";")[0].strip()
+    return first[:20] if re.fullmatch(r"[A-Za-z]{1,8}(-[A-Za-z0-9]{1,8})*", first) else None

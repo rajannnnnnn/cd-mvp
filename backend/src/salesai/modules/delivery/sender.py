@@ -90,6 +90,7 @@ class OutboundSender:
                       last: bool, version: int) -> None:
         if res.ok:
             SEND_RESULTS.labels("ok").inc()
+            log.info("sent %s", "a reaction" if msg and msg.get("kind") == "reaction" else "a reply part")
             async with self.db.tenant(bid) as c:
                 if msg:
                     await c.execute("UPDATE messages SET status='sent', wa_message_id=%s, sent_at=now() WHERE id=%s", (res.message_id, msg["id"]))

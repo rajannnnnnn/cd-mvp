@@ -399,4 +399,32 @@ stack (CI will); latency with a real model (NFR-2 adds the model's time); behavi
     a stored and indexed search text for the catalog's trigram search (27 to 60 ms per agent turn at 400 products per shop), dropping `businesses.plan`.
     The boundary check reports `boards/service.py -> billing.PLANS` only on Windows (a case-insensitive file system finds `plans.py` for `PLANS`); Linux CI passes it.
     `tests/test_migrations.py::test_slug_backfill...` fails with "permission denied for schema public" here and fails the same way on the committed code: unrelated, not yet diagnosed.
+  - **Language-neutral turn detection and replies, the hand-over message, deployment summary and readable logs, 2026-11-24 (ADR 0051).** End-of-turn rules no longer hold any word list
+    (punctuation of any script, length, message kind, the AI's own question, the customer's rhythm); on the 61-burst corpus (now with Tamil, Bengali, Arabic, Marathi, Chinese, Telugu) 4.9 % are answered
+    early and the median wait after the last message is 2.7 s (it was under 1.5 s with Hinglish word lists): the price of being language-neutral, to be won back by speculative planning. Planner `language` and
+    `script` are free text; prompts planner@3, writer@5, checker@3 (answer in the customer's language and script, never translate); the script check works for any Unicode script; the English/Hindi
+    word patterns judge only those languages and any other language always gets the model check (which now also verifies "says it is an assistant"); the style profile reads scripts. Hand-over message
+    (`agent/holding.py`): one message that names who the customer is connected to ("Rajesh sir", "Priya madam", the name alone, or "the owner"), in the chat's last language or the script of the customer's message,
+    12 language texts (**native-speaker review needed**); title is the owner's `sales_settings.owner_title` (API accepts it, **no screen yet**). New: `scripts/info.ps1` (every address, port, who can reach it, database
+    without password, model), run at the end of `fresh-start.ps1` and `stack.ps1 ... up`; the easy database container is now bound to this computer only (older ones are recreated, data kept); `logs.ps1 -Chat <code>`
+    follows one conversation; one-line logs for a start (`logsummary.startup_line`), a message in, a turn (what happened, model calls, time per step, cost, how long it waited) and a send. **Not done:** see ADR 0051 "Not done"
+    (register word lists, price words, owner-facing languages, a shop-app screen for the title). **Open for the founder:** after a hand-over the AI currently resumes after `owner_pause_minutes` (120), it does not stay out
+    until the owner hands back. Tests: `test_language_free_form.py`, `test_holding_message.py`, `test_log_lines.py`, updated `test_eot_accuracy.py`, `test_customer_style.py`, `test_style_wiring.py`.
 
+  - **Founder and shop-owner mail, SES and OpenRouter as defaults, 2026-11-24 (ADR 0052, 0053, 0054).** `EMAIL_TRANSPORT` is `ses` by default (the Amazon SES API through boto3, an AWS key or the machine's role; SMTP
+    still works with `smtp`); `LLM_PROVIDER` is `openai_compat` with the OpenRouter address, so only the key is needed (tests pin the local stand-in in `conftest.py`). Every attempt to tell the founder is recorded
+    (`alert_deliveries`, with the SES message id, never an address or text), logged, and shown in the founder console under Alerts → "Sent to you". Mail to shop owners: one optional billing and support address per shop
+    (Settings → Shop), a `mail_outbox` written in the same transaction as the event and sent by the web scheduler right after the founder's alerts under a rate budget with retries (never blocks a payment or a ticket),
+    a sender per purpose (`CLIENT_EMAIL_FROM_BILLING` / `_SUPPORT` / `_ACCOUNT` / `_UPDATES`, fallback `CLIENT_EMAIL_FROM`), optional hidden copy to a real mailbox (`CLIENT_EMAIL_BCC_*`), all six templates in one
+    file (`modules/mail/templates.py`, shared design in `layout.py`, founder mail laid out with the same design), `python -m salesai mail-preview` to see them. Triggers: payment confirmed, payment failed (when a
+    gateway refuses), trial ending, request received, request replied (a link only, never the text), deletion scheduled. **Not done:** inbound replies are not attached to tickets; no bounce feedback from SES;
+    English only; `uv.lock` not refreshed (no `uv` here); the console's alert-delivery and shop-mail lists were type-checked but not opened in a browser. Tests: `test_alert_email_ses.py`, `test_client_mail.py`.
+  - **Founder login in the environment, risk-based proofs, session record, architecture page, 2026-11-25 (ADR 0056; ADR 0055 is a decision only).** The founder is `FOUNDER_PHONE`, `FOUNDER_EMAIL` and
+    `FOUNDER_TOTP_SECRET` (plus `ADMIN_EMAIL_FROM` for the code emails); the database holds none of them, and a session ends when any changes. A login proves what its risk needs: routine = authenticator;
+    elevated (new browser or place, a lock) = plus a WhatsApp or an email code; high (first sign-in, wrong codes before, new browser and place) = plus both. Email codes are 8 digits, hashed, single use,
+    10 minutes, 5 tries, sent directly with a 12 s limit. A refresh mid-login keeps its place and sends nothing (`/step-up/status`); a resend waits 30 s. Sessions record address, network, device, language,
+    country (city and region only when the proxy sends them), risk and every proof; a Security screen shows them and ends sessions. Migration 0039. `admin-enroll` shows the QR for the env secret,
+    `admin-enroll --new-secret` makes one and stores nothing. `docs/architecture.html` updated (content only, the style block is unchanged): Caddy, OpenRouter, SES, line 24, three new tables (53), new alerts.
+    Defaults changed: SES for mail, OpenRouter for the model. **Not done:** co-founder access (ADR 0055); a browser check of the login and Security screens; native-speaker review of the hand-over texts; the
+    hand-over "AI stays out" policy; `uv.lock`. **Test state:** the full suite fails only on tests that also fail on the committed code (anthropic adapter, slug backfill, worker restart, a Windows-only
+    boundary false positive) plus timing-sensitive owner-loop and API tests that pass alone. Migrations to commit: 0037, 0038, 0039.

@@ -47,7 +47,7 @@ async def test_a_sign_in_records_where_what_and_how(world, client):
     assert s["status"] == "active" and s["is_current"] is True
     assert s["device"] == "Chrome 142 on Windows" and s["user_agent"] == CHROME_WIN
     assert s["ip"] == "203.0.113.9" and s["network"] == "203.0.113.0/24" and s["where"] == "203.0.113.9"
-    assert s["method"] == "authenticator+whatsapp" and s["step_up_reason"] == "first_sign_in"      # the first sign-in after enrolment
+    assert s["method"] == "authenticator+whatsapp+email" and s["risk"] == "high" and s["step_up_reason"] == "first_sign_in"      # the first sign-in: both extra codes
     assert s["started_at"] and s["last_seen_at"] and s["expires_at"] and s["duration_s"] >= 0 and s["ended_at"] is None and s["browser_id"]
 
 
@@ -57,7 +57,7 @@ async def test_a_routine_sign_in_says_it_needed_only_the_authenticator(world, cl
     await fresh_step(world)
     second = (await sign_in(client, world.rt, secret, headers=as_(CHROME_WIN, "203.0.113.9"))).json()
     rows = await sessions(client, second, **as_(CHROME_WIN, "203.0.113.9"))
-    assert [r["method"] for r in rows] == ["authenticator", "authenticator+whatsapp"]               # newest first
+    assert [r["method"] for r in rows] == ["authenticator", "authenticator+whatsapp+email"]               # newest first
     assert rows[0]["step_up_reason"] is None and rows[0]["usual_network"] is True and rows[0]["browser_id"] == rows[1]["browser_id"]    # the same browser
 
 
@@ -171,7 +171,7 @@ async def test_ending_a_session_also_makes_that_browser_ask_for_whatsapp_again(w
     assert (await client.post(f"{A1}/auth/sessions/{target['id']}/revoke", headers=bearer(mine), json={"code": code_for(world.rt, secret)})).status_code == 204
     await fresh_step(world)
     again = (await sign_in(other, world.rt, secret, headers=as_(FIREFOX_LINUX, "198.51.100.77"))).json()
-    assert again["step_up"] == "whatsapp_code"                                                                   # its cookie no longer skips the second layer
+    assert again["step_up"] == "codes"                                                                   # its cookie no longer skips the second layer
     await other.aclose()
 
 

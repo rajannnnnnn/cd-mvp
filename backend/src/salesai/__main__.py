@@ -1,6 +1,6 @@
 """Process entrypoint. One build artifact, several roles selected by configuration:
     python -m salesai [api|ingress|web|admin|worker|scheduler|migrate|all]
-    python -m salesai admin-enroll     (set up the founder's authenticator, printed as a QR code; see docs/ADMIN_CONSOLE.md)
+    python -m salesai admin-enroll [--new-secret]  (show the founder's authenticator as a QR code, or make a new secret for the settings; see docs/ADMIN_CONSOLE.md)
 Every role exposes /healthz and /readyz; migrations are a separate one-off step."""
 from __future__ import annotations
 
@@ -31,15 +31,37 @@ def health_app(rt: Runtime, role: str) -> FastAPI:
     return app
 
 
-async def admin_enroll() -> None:
-    """Run on the server: the only way to set up (or replace) the founder's authenticator (ADR 0047). The founder is FOUNDER_PHONE; nothing is typed.
-    Prints a QR code to scan with an authenticator app (and the text secret and link as a fallback); the secret is shown once and never stored
-    in the clear. Running it again replaces the authenticator, signs out every console session and forgets every trusted browser."""
+def _print_enrolment(secret: str, account: str, *, headline: str) -> None:
     import sys
 
     from salesai.modules.auth import totp
-    from salesai.modules.auth.admin import ISSUER, enroll_admin
+    from salesai.modules.auth.admin import ISSUER
     from salesai.qr import printable_qr
+    uri = totp.provisioning_uri(secret, account, ISSUER)
+    NL = chr(10)
+    print(f"{NL}{headline}{NL}Scan this with an authenticator app (Google Authenticator, Authy, 1Password...):{NL}")  # noqa: T201
+    print(printable_qr(uri, sys.stdout.encoding))  # noqa: T201
+    print(f"Cannot scan? Type this key in instead (time-based, 6 digits):  {secret}{NL}{uri}{NL}")  # noqa: T201
+
+
+def admin_new_secret() -> None:
+    """Make a fresh authenticator secret to put in the deployment's settings (ADR 0056). It is printed once and stored nowhere: whoever holds the `.env`
+    holds it. Needs no database and no other setting."""
+    import os
+
+    from salesai.modules.auth import totp
+    secret = totp.new_secret()
+    who = os.environ.get("FOUNDER_EMAIL") or os.environ.get("FOUNDER_PHONE") or "founder"
+    _print_enrolment(secret, who, headline="A new authenticator secret. It is stored nowhere: put it in deploy/admin/.env and restart the console.")
+    NL = chr(10)
+    print(f"Put this line in deploy/admin/.env:{NL}FOUNDER_TOTP_SECRET={secret}{NL}Keep a copy of the key in a password manager or print it and lock it away: with it, a lost phone is not a lost console.{NL}")  # noqa: T201
+
+
+async def admin_enroll() -> None:
+    """Run on the server (ADR 0056). Shows the QR code for the authenticator secret in the deployment's settings, to add to a phone, and starts the founder's
+    sign-in state afresh: every console session ends and every trusted browser is forgotten. The secret, the number and the email are settings; this
+    command changes none of them and stores nothing secret. `--new-secret` makes a new secret to put in the settings (nothing else happens)."""
+    from salesai.modules.auth.admin import enroll_admin
     from salesai.runtime import Runtime
 
     s = get_settings()
@@ -48,12 +70,8 @@ async def admin_enroll() -> None:
         secret = await enroll_admin(rt.db, s)
     finally:
         await rt.close()
-    uri = totp.provisioning_uri(secret, s.founder_phone, ISSUER)
-    NL = chr(10)
-    print(f"{NL}Authenticator enrolled for the founder ({s.founder_phone}).{NL}Scan this with an authenticator app (Google Authenticator, Authy, 1Password...):{NL}")  # noqa: T201
-    print(printable_qr(uri, sys.stdout.encoding))  # noqa: T201
-    print(f"Cannot scan? Type this key in instead (time-based, 6 digits):  {secret}{NL}{uri}{NL}")  # noqa: T201
-    print("The first sign-in from each browser also asks for a WhatsApp code to this number. Every console session was signed out.")  # noqa: T201
+    _print_enrolment(secret, s.founder_email or s.founder_phone, headline=f"The authenticator for the founder ({s.founder_phone}, {s.founder_email}).")
+    print("The next sign-in from any browser is a first one: it asks for a WhatsApp code and an email code too. Every console session was signed out.")  # noqa: T201
 
 
 async def run(role: str) -> None:
@@ -98,7 +116,8 @@ async def run(role: str) -> None:
         tasks.append(asyncio.create_task(Scheduler(rt).run(stop)))
     from salesai.heartbeat import Heartbeat, unit_name
     tasks.append(asyncio.create_task(Heartbeat(rt.db, unit_name(role, s), role, s.heartbeat_every_s).run(stop)))   # ADR 0046
-    log.info("salesai role=%s queues=%s backend=%s", role, s.queues if role in ("worker", "all") else "-", s.queue_backend)
+    from salesai.logsummary import startup_line
+    log.info("%s", startup_line(s, role))
     await stop.wait()
     for sv in servers:
         sv.should_exit = True
@@ -110,11 +129,21 @@ def _dispatch(args: list[str]) -> int:
     """Runs the command; returns the exit code. The role comes from the command (api, worker, migrate ...), so settings are checked for that role."""
     import os
     if args[:1] == ["admin-enroll"]:
+        if args[1:] == ["--new-secret"]:
+            admin_new_secret()
+            return 0
         if len(args) != 1:
-            print("Usage: python -m salesai admin-enroll     (the founder's number is the FOUNDER_PHONE setting; nothing is typed)")
+            print("Usage: python -m salesai admin-enroll [--new-secret]   (the founder's number, email and authenticator secret are settings; nothing is typed)")
             return 2
         os.environ["ROLE"] = "admin"
         asyncio.run(admin_enroll())
+        return 0
+    if args[:1] == ["mail-preview"]:
+        from pathlib import Path
+
+        from salesai.mailpreview import build
+        files = build(Path(args[1] if len(args) > 1 else "mail-preview"))
+        print(f"Wrote {len(files)} files. Open {files[-1]} in a browser.")
         return 0
     if args[:1] == ["doctor"]:
         from salesai.doctor import render, run_checks

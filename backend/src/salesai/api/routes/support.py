@@ -15,6 +15,7 @@ from salesai.api.deps import RT, Operator, Tenant, tx
 from salesai.api.errors import ApiError
 from salesai.db import Conn
 from salesai.modules.catalog import repo
+from salesai.modules.mail import enqueue
 
 router = APIRouter(tags=["support"])
 
@@ -136,6 +137,7 @@ async def open_ticket(body: TicketIn, rt: RT, p: Tenant) -> TicketDetail:
     async with rt.db.system_tx() as s:      # support gets told right away
         await raise_alert(s, "low", "support_ticket", f"Support ticket #{row['number']} from {name}: {body.subject.strip()[:80]}", business_id=p.bid,
                           dedup_key=str(row["id"]), detail={"ticket_id": str(row["id"]), "number": row["number"]})
+        await enqueue(s, p.bid, "ticket_received", {"number": row["number"], "subject": body.subject.strip()[:150]}, f"ticket_received:{row['id']}")
     return out
 
 
@@ -245,8 +247,12 @@ async def answer(ticket_id: uuid.UUID, body: ReplyIn, rt: RT, p: Operator) -> Op
         t = await (await c.execute("UPDATE support_tickets SET status='answered', updated_at=now() WHERE id=%s RETURNING business_id", (ticket_id,))).fetchone()
         if t is None:
             raise ApiError(404, "not_found", "That ticket doesn't exist.")
-        await c.execute("INSERT INTO support_messages (business_id, ticket_id, author, author_account, body) VALUES (%s,%s,'support',%s,%s)",
-                        (t["business_id"], ticket_id, p.account_id, body.body.strip()))
+        msg = await (await c.execute(
+            "INSERT INTO support_messages (business_id, ticket_id, author, author_account, body) VALUES (%s,%s,'support',%s,%s) RETURNING id",
+            (t["business_id"], ticket_id, p.account_id, body.body.strip()))).fetchone()
+        head = await (await c.execute("SELECT number, subject FROM support_tickets WHERE id=%s", (ticket_id,))).fetchone()
+        await enqueue(c, t["business_id"], "ticket_replied",            # the mail links to the app: it never carries the reply's text
+                      {"number": head["number"], "subject": head["subject"][:150]}, f"ticket_replied:{msg['id']}")
         return await _op_detail(c, ticket_id)
 
 

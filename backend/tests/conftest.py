@@ -77,10 +77,14 @@ def env(pg_urls: dict[str, str]) -> dict[str, str]:
         "MIGRATION_DATABASE_URL": pg_urls["owner"],
         "SIMULATOR_ENABLED": "true",       # the test world plays customers through the product's in-process stand-in network; the product itself defaults to the real thing
         "OTP_CHANNEL": "simulator",
+        "LLM_PROVIDER": "local",             # the tests run the deterministic stand-in; the product itself defaults to OpenRouter
         "MASTER_KEY": base64.b64encode(b"k" * 32).decode(),
         "JWT_SECRET": "test-jwt-secret-0123456789abcdefghij",
         "OTP_SECRET": "test-otp-secret-0123456789abcdefghij",
         "ADMIN_JWT_SECRET": "test-admin-secret-0123456789abcdefgh",
+        "FOUNDER_EMAIL": "founder@chatdeal.example",         # the founder is three settings: number, email, authenticator secret (ADR 0056)
+        "FOUNDER_TOTP_SECRET": "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
+        "ADMIN_EMAIL_FROM": "ChatDeal Access <access@chatdeal.example>",
         "FOUNDER_PHONE": "+919999900000",    # the one founder (ADR 0047); the console admits no other number
         "META_APP_SECRET": "test-app-secret",
         "META_VERIFY_TOKEN": "test-verify-token",

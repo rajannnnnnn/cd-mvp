@@ -1,6 +1,6 @@
 """A hand-written corpus of customer bursts for judging end-of-turn detection (ADR 0036). Each burst is what one customer sent in one go:
 (milliseconds since their first message, text, kind). The label is built in: the AI should answer after the LAST message of the burst, not
-before it, and not long after. English and Hinglish, as WhatsApp customers write them.
+before it, and not long after. English, Hinglish and other Indian languages, as WhatsApp customers write them.
 
 Honest limits: written by the engineer, small, and clean. It is a regression gate and a way to compare predictors, not a measurement of
 production accuracy; real pilot chats replace it as soon as they exist."""
@@ -88,4 +88,13 @@ CORPUS: tuple[Burst, ...] = (
     # --- sentence-final words without punctuation, two messages
     seq("hinglish-two-part", (0, "mujhe ek saree chahiye"), (2000, "red colour me")),
     seq("english-two-part-no-punct", (0, "I want a saree"), (1900, "in red colour for my mother")),
+    # --- other Indian and foreign languages: nothing in the rules knows their words, only how a message ends and how long it is
+    one("ta-price", "இந்த புடவையின் விலை என்ன?"),
+    one("bn-price", "এই শাড়ির দাম কত?"),
+    one("ar-price", "كم سعر هذا الفستان؟"),
+    one("zh-long-no-punct", "我想买一件红色的丝绸纱丽给我妹妹的婚礼"),
+    one("mr-no-punct", "ही साडी किती रुपयांना आहे"),
+    one("te-answer", "ఎరుపు", ai_asked=True),
+    seq("ta-fragments", (0, "எனக்கு ஒரு சிவப்பு"), (2000, "புடவை வேண்டும்")),
+    seq("bn-greeting-then-question", (0, "নমস্কার"), (2400, "আপনার কাছে সিল্কের শাড়ি আছে?")),
 )

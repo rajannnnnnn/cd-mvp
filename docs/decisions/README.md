@@ -51,7 +51,17 @@ superseded by a new ADR, never rewritten. Status is `accepted` unless stated.
 | [0045](0045-mocks-live-outside-the-product.md) | Stand-ins for outside services live outside the product and are wired by settings only |
 | [0044](0044-deletion-has-a-grace-period.md) | Deleting a shop is scheduled: 60 days of grace, then the scheduler erases it |
 | [0043](0043-console-database-login.md) | The founder console gets its own database login; admin sign-in secrets and sessions leave the shared platform role |
+| [0047](0047-founder-sign-in.md) | Founder console sign-in: authenticator first, then a WhatsApp code from a new browser |
+| [0048](0048-console-sessions-and-security-activity.md) | Console sessions and the security activity screen |
+| [0049](0049-email-notifications-founder-and-client.md) | Email: one flow, founder at highest priority; mandatory client mail only (proposed) |
+| [0050](0050-database-and-deployment-hardening.md) | Database and deployment hardening: least-privilege grants, per-login limits, owner login only for migrations, private ports |
+| [0051](0051-language-neutral-turn-detection-and-replies.md) | Language-neutral turn detection and replies in the customer's language; the named hand-over message |
+| [0052](0052-amazon-ses-api-for-founder-mail.md) | Amazon SES API as a second way to send founder alert mail (`EMAIL_TRANSPORT`) |
+| [0053](0053-record-of-founder-alert-deliveries.md) | A record of every attempt to tell the founder, shown in the console ("Sent to you") |
+| [0054](0054-mail-to-shop-owners.md) | Mail to shop owners: one component, a database outbox, a sender per purpose |
+| [0055](0055-co-founder-access-by-email-with-expiry.md) | Co-founder console access by email, granted only by the founder, always with an expiry (proposed, not built) |
+| [0056](0056-founder-identity-in-the-environment.md) | The founder's identity (phone, email, authenticator) lives in the environment; a login proves as much as its risk needs; every session is recorded |
 
 **Numbering note.** Two ADRs share the number **0020** (`0020-support-tickets.md` and
 `0020-channel-gateway.md`). Published files are not renumbered; both are listed above. **0024** is
-reserved as noted. New ADRs continue from **0046**.
+reserved as noted. New ADRs continue from **0057**.

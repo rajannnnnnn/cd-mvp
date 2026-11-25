@@ -22,6 +22,7 @@ from salesai.modules.channels.base import (
 )
 from salesai.modules.handoffs import capture_owner_answer
 from salesai.obs import bind
+from salesai.obs import log as log_with
 from salesai.queue.base import Job, Queue
 from salesai.rules import is_opt_in, is_opt_out
 
@@ -123,6 +124,8 @@ class ConversationIntake:
                  not needs_reply, ev.timestamp))).fetchone()
             if ins is None:
                 return  # duplicate redelivery: ignored (INV-6)
+            log_with(log, logging.INFO, f"message in ({ev.kind})" + ("" if needs_reply else ", recorded without a reply (opt-out, personal contact or reaction)"),
+                     business_id=bid, conversation_id=conv_id)
 
             now = datetime.now(UTC)
             ts = min(ev.timestamp, now)

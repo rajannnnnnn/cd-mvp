@@ -28,8 +28,10 @@ def clock(world, when):
 
 @pytest.fixture(autouse=True)
 def _real_clock(world):
+    provider = world.rt.billing.provider
     yield
     world.rt.billing.now = lambda: datetime.now(UTC)
+    world.rt.billing.provider = provider            # a test that switched to bank transfer must not leave the next test on it
 
 
 async def test_plan_catalogue_is_public_and_the_frontend_copy_is_current(client):

@@ -1,9 +1,9 @@
-# ADMIN (ADR 0028): the founder's console. Its own application, on its own address, with its own sign-in (a WhatsApp code and an authenticator code), its own
+# ADMIN (ADR 0028): the founder's console. Its own application, on its own address, with its own sign-in (an authenticator code, plus a WhatsApp and/or email code when the login is risky: ADR 0056), its own
 # secret, and no route to the shop's API. It reads aggregates by default; reading a chat is a recorded, time-limited exception.
 #
 #   scripts/stack.sh admin
 #
-# Needs deploy/admin/.env (copy .env.example). Start the database job (deploy/db) first, and enrol your authenticator once (see deploy/README.md).
+# Needs deploy/admin/.env (copy .env.example). Start the database job (deploy/db) first, and put your three founder settings (phone, email, authenticator secret) in the .env (see docs/ADMIN_CONSOLE.md).
 # Holds: MASTER_KEY (to register a pilot number by hand), JWT_SECRET, OTP_SECRET (the shop-side sign-in it asks the gateway to send), ADMIN_JWT_SECRET.
 # It does NOT hold the Meta app secret or any model key. Published: the console on ADMIN_PORT (put a TLS proxy in front; give it its own address).
 name: chatdeal-admin
@@ -39,6 +39,21 @@ services:
       ADMIN_ALLOWED_ORIGINS: ${ADMIN_ALLOWED_ORIGINS:?set ADMIN_ALLOWED_ORIGINS in deploy/admin/.env}
       ADMIN_ALLOWED_IPS: ${ADMIN_ALLOWED_IPS:-}
       FOUNDER_PHONE: ${FOUNDER_PHONE:?set FOUNDER_PHONE in deploy/admin/.env}
+      FOUNDER_EMAIL: ${FOUNDER_EMAIL:?set FOUNDER_EMAIL in deploy/admin/.env}
+      FOUNDER_TOTP_SECRET: ${FOUNDER_TOTP_SECRET:?set FOUNDER_TOTP_SECRET in deploy/admin/.env (make one with python -m salesai admin-enroll --new-secret)}
+      ADMIN_EMAIL_FROM: ${ADMIN_EMAIL_FROM:?set ADMIN_EMAIL_FROM in deploy/admin/.env}
+      EMAIL_TRANSPORT: ${EMAIL_TRANSPORT:-ses}
+      SES_REGION: ${SES_REGION:-}
+      SES_ACCESS_KEY_ID: ${SES_ACCESS_KEY_ID:-}
+      SES_SECRET_ACCESS_KEY: ${SES_SECRET_ACCESS_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURITY: ${SMTP_SECURITY:-starttls}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SITE_URL: ${SITE_URL:-}
+      ADMIN_GEO_CITY_HEADER: ${ADMIN_GEO_CITY_HEADER:-}
+      ADMIN_GEO_REGION_HEADER: ${ADMIN_GEO_REGION_HEADER:-}
       ADMIN_DEVICE_TRUST_DAYS: ${ADMIN_DEVICE_TRUST_DAYS:-30}
       ADMIN_GEO_HEADER: ${ADMIN_GEO_HEADER:-}
       ADMIN_SESSION_MINUTES: ${ADMIN_SESSION_MINUTES:-30}

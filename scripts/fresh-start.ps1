@@ -24,6 +24,14 @@ $m =[Environment]::GetEnvironmentVariable('Path', 'Machine'); $u = [Environment]
 function Step([string]$t) { Write-Host "`n== $t" -ForegroundColor Cyan }
 function Dk { $ErrorActionPreference = 'Continue'; $o = & docker @args 2>&1; $o | ForEach-Object { "$_" } }   # docker writes progress and "no such volume" to stderr: never treat that as failure
 function Test-Engine { try { $null = docker version --format '{{.Server.Version}}' 2>$null; return ($LASTEXITCODE -eq 0) } catch { return $false } }
+function Test-PortFree([int]$p) {      # free on every address (a Postgres on 127.0.0.1:5432 blocks a container asking for 0.0.0.0:5432)
+  foreach ($a in [Net.IPAddress]::Any, [Net.IPAddress]::Loopback) { try { $l = New-Object Net.Sockets.TcpListener($a, $p); $l.Start(); $l.Stop() } catch { return $false } }
+  return $true
+}
+function Pick-Port([int]$want, [int[]]$taken) {   # the first free port at or above the one we would like
+  for ($p = $want; $p -lt $want + 300; $p++) { if (($taken -notcontains $p) -and (Test-PortFree $p)) { return $p } }
+  throw "No free port found near $want. Close some programs and run again."
+}
 function Full([string]$p) { if ([System.IO.Path]::IsPathRooted($p)) { $p } else { Join-Path $root $p } }
 function Set-EnvValue([string]$file, [string]$key, [string]$value) {
   $file = Full $file
@@ -61,11 +69,33 @@ if ($Reset) {
   Remove-Item 'tools\meta-sim\.env' -ErrorAction SilentlyContinue
 }
 
-Step "2/7  The database container (chatdeal-pg, port $PgPort)"
+Step 'Choosing ports (a busy port is skipped, the next free one is used)'
 $have = (Dk ps -a --filter name=^chatdeal-pg$ --format '{{.Names}}') -contains 'chatdeal-pg'
+$taken = @()
+# A port we chose on an earlier run belongs to this product (its containers hold it): keep it. Anything else that is busy belongs to another program: skip it.
+$prev = @{ Web = Get-EnvValue 'deploy\web\.env' 'WEB_PORT'; Recv = Get-EnvValue 'deploy\gateway\.env' 'RECEIVE_PORT'; Sim = Get-EnvValue 'tools\meta-sim\.env' 'SIM_PORT' }
+if ($have) {
+  $pub = (Dk port chatdeal-pg 5432/tcp) -join ' '
+  $m = [regex]::Match($pub, ':(\d+)'); if ($m.Success) { $PgPort = [int]$m.Groups[1].Value }
+  if ($pub -match '0\.0\.0\.0') {      # an older run published the database to the whole network: recreate it on this computer only (the data volume is kept)
+    Write-Host 'The database container was open to the network; recreating it for this computer only (your data is kept).' -ForegroundColor Yellow
+    Dk rm -f chatdeal-pg | Out-Null; $have = $false
+  }
+} else { $PgPort = Pick-Port $PgPort $taken }
+$taken += $PgPort
+foreach ($k in 'Web', 'Recv', 'Sim') {
+  $want = @{ Web = $WebPort; Recv = 8001; Sim = 9100 }[$k]
+  $chosen = if ($prev[$k] -match '^\d+$') { [int]$prev[$k] } else { Pick-Port $want $taken }
+  $taken += $chosen
+  Set-Variable -Name "Port$k" -Value $chosen
+}
+$WebPort = $PortWeb
+Write-Host ("database {0}   shop app {1}   webhook receive {2}   Meta simulator {3}" -f $PgPort, $PortWeb, $PortRecv, $PortSim) -ForegroundColor Green
+
+Step "2/7  The database container (chatdeal-pg, port $PgPort)"
 if (-not $have) {
-  Dk run -d --name chatdeal-pg --restart unless-stopped -e "POSTGRES_PASSWORD=$PgPassword" -p "${PgPort}:5432" -v chatdeal-pgdata:/var/lib/postgresql/data postgres:16 | Out-Null
-  if ($LASTEXITCODE -ne 0) { throw "Could not create the database container. Is port $PgPort already used (a Postgres installed on this PC)? Stop it, or pass -PgPort 5434." }
+  Dk run -d --name chatdeal-pg --restart unless-stopped -e "POSTGRES_PASSWORD=$PgPassword" -p "127.0.0.1:${PgPort}:5432" -v chatdeal-pgdata:/var/lib/postgresql/data postgres:16 | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw "Could not create the database container on port $PgPort. Run again: it will pick another port." }
 } else { Dk start chatdeal-pg | Out-Null }
 $ready = $false
 for ($i = 0; $i -lt 40 -and -not $ready; $i++) { Dk exec chatdeal-pg pg_isready -U postgres | Out-Null; if ($LASTEXITCODE -eq 0) { $ready = $true } else { Start-Sleep 2 } }
@@ -77,7 +107,7 @@ Step '3/7  Database, roles, .env files, tables (a few minutes the first time: bu
 if ($LASTEXITCODE -ne 0) { throw 'setup-db failed (see above).' }
 
 Step '4/7  Meta stand-in wiring'
-& powershell -ExecutionPolicy Bypass -File scripts\connect-meta-sim.ps1
+& powershell -ExecutionPolicy Bypass -File scripts\connect-meta-sim.ps1 -Port $PortSim
 if ($LASTEXITCODE -ne 0) { throw 'connect-meta-sim failed (see above).' }
 
 Step '5/7  Model and site settings'
@@ -95,7 +125,10 @@ Set-EnvValue $agent 'LLM_EFFORT_PLANNER' 'low'
 foreach ($k in 'LLM_MODEL_PLANNER', 'LLM_MODEL_WRITER', 'LLM_MODEL_CHECK') { Set-EnvValue $agent $k 'openai/gpt-oss-20b' }
 Set-EnvValue $web 'WEB_PORT' "$WebPort"
 Set-EnvValue $web 'ALLOWED_ORIGINS' "http://localhost:$WebPort"
-Set-EnvValue $web 'META_SDK_ORIGIN' 'http://localhost:9100'
+Set-EnvValue $web 'META_SDK_ORIGIN' "http://localhost:$PortSim"
+Set-EnvValue $web 'WEBHOOK_UPSTREAM' "host.docker.internal:$PortRecv"
+Set-EnvValue 'deploy\gateway\.env' 'RECEIVE_PORT' "$PortRecv"
+Set-EnvValue 'tools\meta-sim\.env' 'SIM_WEBHOOK_URL' "http://host.docker.internal:$PortRecv/webhooks/whatsapp"
 Write-Host 'done.' -ForegroundColor Green
 
 Step '6/7  Building and starting gateway, agent, web and the simulator (first build takes several minutes)'
@@ -114,7 +147,7 @@ if ($LASTEXITCODE -ne 0) { throw 'The simulator failed to start.' }
 Write-Host 'simulator started.'
 
 Step '7/7  Waiting for every address'
-$targets = [ordered]@{ 'Shop app (sign up here)' = "http://localhost:$WebPort/healthz"; 'Webhook receive' = 'http://localhost:8001/healthz'; 'Meta simulator (the phones)' = 'http://localhost:9100/' }
+$targets = [ordered]@{ 'Shop app (sign up here)' = "http://localhost:$WebPort/healthz"; 'Webhook receive' = "http://localhost:$PortRecv/healthz"; 'Meta simulator (the phones)' = "http://localhost:$PortSim/" }
 $deadline = (Get-Date).AddSeconds(180); $all = $true
 foreach ($k in $targets.Keys) {
   $ok = $false
@@ -122,5 +155,11 @@ foreach ($k in $targets.Keys) {
   if (-not $ok) { $all = $false }
   Write-Host ('{0,-30} {1,-32} {2}' -f $k, ($targets[$k] -replace '/healthz$', ''), $(if ($ok) { 'up' } else { 'NOT ANSWERING' })) -ForegroundColor $(if ($ok) { 'Green' } else { 'Red' })
 }
-if (-not $LlmKey) { Write-Host "`nNo model key set: customers get the safe holding message. Re-run with -LlmKey sk-or-..." -ForegroundColor Yellow }
-if ($all) { Write-Host "`nReady. Open http://localhost:$WebPort, sign up, click Connect with Meta, then chat from http://localhost:9100. Logs: scripts\logs.ps1 -Follow" -ForegroundColor Green } else { Write-Host "`nSomething did not answer: scripts\logs.ps1 -Errors" -ForegroundColor Red; exit 1 }
+& powershell -ExecutionPolicy Bypass -File scripts\info.ps1 -Quiet
+if (-not $LlmKey) { Write-Host "No model key set: customers get the safe holding message. Re-run with -LlmKey sk-or-..." -ForegroundColor Yellow }
+if ($all) {
+  Write-Host "READY. What to do now:" -ForegroundColor Green
+  Write-Host "  1. Open http://localhost:$WebPort and sign up (the login code is shown in the test phones)."
+  Write-Host "  2. Click Connect with Meta, then chat as a customer at http://localhost:$PortSim"
+  Write-Host "  3. Watch it work: scripts\logs.ps1 -Follow      Everything again: scripts\info.ps1"
+} else { Write-Host "Something did not answer (see NOT ANSWERING above). Run: scripts\logs.ps1 -Errors" -ForegroundColor Red; exit 1 }

@@ -73,3 +73,4 @@ if ($Stack -eq 'all') {
   $order = if ($Action -eq 'down') { @('agent', 'gateway', 'admin', 'web') } else { @('db', 'web', 'admin', 'gateway', 'agent') }
   foreach ($p in $order) { Write-Host "== $p =="; Invoke-Part $p }
 } else { Invoke-Part $Stack }
+if ($Action -eq 'up') { & (Join-Path $PSScriptRoot 'info.ps1') -Quiet }      # every start ends with the same clear picture: addresses, ports, database, model

@@ -42,7 +42,7 @@ services:
       PRICING_DATABASE_URL: ${PRICING_DATABASE_URL:?set PRICING_DATABASE_URL in deploy/agent/.env}
       WORKER_CONCURRENCY: ${AGENT_CONCURRENCY:-8}
       # The model: vendor, model and effort per step are settings (ADR 0034). Default: openai/gpt-oss-20b on every step.
-      LLM_PROVIDER: ${LLM_PROVIDER:?set LLM_PROVIDER in deploy/agent/.env}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai_compat}
       LLM_PROVIDER_PLANNER: ${LLM_PROVIDER_PLANNER:-}
       LLM_PROVIDER_WRITER: ${LLM_PROVIDER_WRITER:-}
       LLM_PROVIDER_CHECK: ${LLM_PROVIDER_CHECK:-}
@@ -57,7 +57,7 @@ services:
       LLM_PRICES: ${LLM_PRICES:-}
       LLM_JSON_MODE: ${LLM_JSON_MODE:-json_schema}
       LLM_TIMEOUT_S: ${LLM_TIMEOUT_S:-30}
-      OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL:-}
+      OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL:-https://openrouter.ai/api/v1}
       OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY:-}
       OPENAI_COMPAT_THINKING_TOKENS: ${OPENAI_COMPAT_THINKING_TOKENS:-0}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}

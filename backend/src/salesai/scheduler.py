@@ -203,7 +203,8 @@ class Scheduler:
         if "parts" in d:
             await self.tick_parts()
         if "alerts" in d:
-            await self.rt.alerts.dispatch()
+            await self.rt.alerts.dispatch()          # the founder first, always
+            await self.rt.mail.dispatch()            # then mail to shop owners, under its own rate budget
             await self.ping_outside()
         if "billing" in d:
             await self.rt.billing.run_cycle()

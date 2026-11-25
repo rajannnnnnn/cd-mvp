@@ -13,7 +13,7 @@ from salesai.events.relay import OutboxRelay
 from salesai.modules.agent import AgentService, Models
 from salesai.modules.agent.llm.factory import make_llm
 from salesai.modules.alerting import AlertRouter
-from salesai.modules.alerting.email_sink import EmailSink
+from salesai.modules.alerting.email_sink import EmailSink, ses_deliver, smtp_deliver
 from salesai.modules.alerting.router import WhatsAppSink
 from salesai.modules.alerting.webhook_sink import WebhookSink
 from salesai.modules.auth import AdminAuth, AuthService
@@ -29,6 +29,7 @@ from salesai.modules.conversations import ConversationIntake, HeuristicEOT, Turn
 from salesai.modules.conversations.recovery import Reconciler
 from salesai.modules.conversations.timers import TimerService
 from salesai.modules.delivery.sender import OutboundSender
+from salesai.modules.mail import MailDispatcher, founder_alert_html, founder_digest_html
 from salesai.modules.notifications import OwnerLoop
 from salesai.modules.pricing import PricingService
 from salesai.modules.tenants import TokenVault
@@ -39,11 +40,21 @@ from salesai.queue.worker import HandlerRegistry, StalenessResolver, WorkerRunne
 log = logging.getLogger("salesai.runtime")
 
 
+def _client_mail_transport(settings: Settings) -> Any:
+    """Mail to shop owners leaves the same way as the founder's: SES or SMTP, chosen by EMAIL_TRANSPORT."""
+    if settings.email_transport == "ses":
+        return ses_deliver(settings.ses_region, settings.ses_access_key_id, settings.ses_secret_access_key)
+    return smtp_deliver(settings.smtp_host, settings.smtp_port, settings.smtp_security, settings.smtp_username, settings.smtp_password)
+
+
 def build_alert_router(db: Database, channels: ChannelRegistry, settings: Settings) -> AlertRouter:
     sinks: list[Any] = []
     if settings.alert_emails:                  # the founder's inbox first (ADR 0029); these addresses are configuration, nothing else
+        deliver = (ses_deliver(settings.ses_region, settings.ses_access_key_id, settings.ses_secret_access_key)
+                   if settings.email_transport == "ses" else None)
         sinks.append(EmailSink(settings.smtp_host, settings.smtp_port, sender=settings.alert_email_from, to=settings.alert_emails,
-                               security=settings.smtp_security, username=settings.smtp_username, password=settings.smtp_password))
+                               security=settings.smtp_security, username=settings.smtp_username, password=settings.smtp_password, deliver=deliver,
+                               html_alert=founder_alert_html, html_digest=founder_digest_html))
     if settings.alert_webhook_url:
         sinks.append(WebhookSink(settings.alert_webhook_url))
     if settings.alert_numbers:
@@ -74,16 +85,19 @@ class Runtime:
                                          settings.llm_effort_planner, settings.llm_effort_writer, settings.llm_effort_check),
                                   llm_checks=settings.llm_stage_provider("check") != "local",
                                   skip_check_when_low_risk=settings.tiering_skip_check_when_low_risk)
-        self.turns = TurnWorker(db, self.agent, HeuristicEOT(), max_turns_per_10min=settings.max_ai_turns_per_conversation_10min)
+        self.turns = TurnWorker(db, self.agent, HeuristicEOT(), max_turns_per_10min=settings.max_ai_turns_per_conversation_10min,
+                               alert_turns_per_10min=settings.alert_ai_turns_per_conversation_10min)
         self.sender = OutboundSender(db, self.channels)
         self.otp = OtpSender(db, self.channels)
         self.connector = NumberConnector(db, self.vault, settings)
         self.owner_sender = OwnerSender(db, self.channels)
         self.owner = OwnerLoop(db, self.llm, settings.llm_model_check)
         self.auth = AuthService(db, settings, pump=self._pump)
-        self.admin_auth = AdminAuth(db, settings, self.auth)     # the founder's console sign-in (ADR 0028)
+        self.admin_auth = AdminAuth(db, settings, self.auth, deliver=_client_mail_transport(settings))     # the founder's console sign-in (ADR 0028)
         self.sim = SimulatorNetwork(db, settings.meta_app_secret)
         self.alerts = build_alert_router(db, self.channels, settings)
+        self.mail = MailDispatcher(db, deliver=_client_mail_transport(settings), sender_for=settings.client_sender, bcc_for=settings.client_bcc,
+                                   site_url=settings.owner_site_url, per_minute=settings.client_email_per_minute, enabled=settings.client_mail_enabled)
         self.billing = BillingService(db, ManualProvider(settings.payment_instructions) if settings.payment_provider == "manual" else TestGateway(), seller={"name": settings.invoice_seller_name, "address": settings.invoice_seller_address, "gstin": settings.invoice_seller_gstin})
         self.meta_usage = MetaUsage(db, rates_inr=settings.meta_rates, free_service_per_number=settings.meta_free_service_per_number)
         self.timers = TimerService(db)                           # the agent's own clock: follow-back and take-over (ADR 0038)

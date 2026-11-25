@@ -9,11 +9,12 @@ message plus handoff.
 from __future__ import annotations
 
 import re
+import unicodedata
+from collections import Counter
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-DEV = re.compile(r"[ऀ-ॿ]")
 MARK_BEFORE = re.compile(r"(?:₹|rs\.?|inr|rupees?|rupaye|rupay|रुपये|रु\.?)\s*$", re.I)
 MARK_AFTER = re.compile(r"^\s*(?:/-|rs\b|rs\.|inr\b|rupees?\b|rupaye\b|रुपये|रुपए|रु\b|only\b|ka\b|ke\b|mein\b|me\b|%|percent\b|off\b|discount\b|chhoot\b|छूट)", re.I)
 NUM = re.compile(r"(?<![\w.])(\d[\d,]*(?:\.\d+)?)\s*(k\b|thousand\b|hazar\b|hazaar\b|हज़ार|हजार|lakh\b|lac\b|लाख)?", re.I)
@@ -74,7 +75,8 @@ class CheckContext:
     allowed_numbers: frozenset[Decimal] = frozenset()   # numbers present in business facts / product data
     real_urgency: frozenset[str] = frozenset()     # {"low_stock","offer_ends"}
     sincere_identity_question: bool = False
-    customer_script: str = "latin"
+    customer_script: str = "latin"                 # the script the customer writes in, as a Unicode script name (latin, devanagari, tamil, arabic, ...)
+    language: str = "en"                           # what the planner says the customer speaks: any language, free text
     customer_style: dict[str, Any] = field(default_factory=dict)   # how this customer writes (agent/style.py); the voice check matches the reply to it
 
 
@@ -155,6 +157,48 @@ def check_urgency(text: str, ctx: CheckContext) -> list[Failure]:
             fails.append(Failure("urgency", f"{kind} urgency without a real stock level / offer end date"))
     return fails
 
+# The pattern checks in this file (price words, urgency, "I am a person", "I am an assistant") are written for English and Hindi. A reply in any other
+# language is not wrong because they do not recognise it, so for those the pipeline asks the model check instead (ADR 0051).
+_LEXICAL = frozenset({"en", "english", "hi", "hindi", "hinglish"})
+KNOWN_SCRIPTS = frozenset({"latin", "devanagari", "bengali", "gurmukhi", "gujarati", "oriya", "tamil", "telugu", "kannada", "malayalam", "sinhala", "arabic",
+                           "han", "hiragana", "katakana", "hangul", "thai", "cyrillic", "greek", "hebrew"})
+_SCRIPT_ALIASES = {"roman": "latin", "odia": "oriya", "urdu": "arabic", "persian": "arabic", "farsi": "arabic", "chinese": "han", "cjk": "han"}
+
+
+def lexical(language: str) -> bool:
+    """True when the English/Hindi word patterns can judge a reply in this language."""
+    lang = (language or "en").strip().lower()
+    return lang in _LEXICAL or lang.split("-")[0].split("_")[0] in {"en", "hi"}
+
+
+def script_of(ch: str) -> str:
+    """The Unicode script of one letter, by name: LATIN, DEVANAGARI, TAMIL, ARABIC ... (all Chinese, Japanese kanji and Korean hanja letters are HAN)."""
+    first = unicodedata.name(ch, "").split(" ")[0].lower()
+    return "han" if first == "cjk" else first
+
+
+def normalize_script(label: str) -> str | None:
+    s = _SCRIPT_ALIASES.get((label or "").strip().lower(), (label or "").strip().lower())
+    return s if s in KNOWN_SCRIPTS else None
+
+
+def check_script(text: str, customer_script: str) -> Failure | None:
+    """The reply is in the script the customer writes in, whatever that script is. Brand and product names are normally typed in Latin even inside a
+    sentence in another script, so for a non-Latin customer the reply passes with real words in their script, not only when most letters are."""
+    want = normalize_script(customer_script)
+    letters = [c for c in text if c.isalpha()]
+    if want is None or not letters:
+        return None                                       # an unknown or unlisted script is not judged by the rules
+    counts = Counter(script_of(c) for c in letters)
+    if want == "latin":
+        if 1 - counts["latin"] / len(letters) > 0.3:
+            return Failure("script", "customer writes Latin script; reply must not be mostly in another script")
+        return None
+    words = sum(1 for w in text.split() if any(script_of(ch) == want for ch in w if ch.isalpha()))
+    if counts[want] / len(letters) < 0.3 and words < 2:
+        return Failure("script", f"customer writes in {want.title()} script; the reply must too")
+    return None
+
 
 def run_checks(parts: list[str], ctx: CheckContext) -> CheckResult:
     res = CheckResult()
@@ -168,21 +212,16 @@ def run_checks(parts: list[str], ctx: CheckContext) -> CheckResult:
     res.failures += check_urgency(text, ctx)
     if HUMAN_CLAIM.search(text):
         res.failures.append(Failure("human_claim", "reply claims to be human / denies being an assistant"))
-    if ctx.sincere_identity_question and not DISCLOSURE.search(text):
+    # The word patterns above know English and Hindi only. In any other language they would reject a correct reply, so there the model check
+    # (the checker prompt, which the pipeline always runs for such replies) verifies the disclosure instead.
+    if ctx.sincere_identity_question and lexical(ctx.language) and not DISCLOSURE.search(text):
         res.failures.append(Failure("identity", "customer asked if this is a bot; reply must disclose the assistant"))
     if SENSITIVE.search(text):
         res.failures.append(Failure("sensitive", "must never ask for OTP, card numbers, passwords or PINs"))
     if INTERNAL.search(text):
         res.failures.append(Failure("internal", "reply leaks internal pricing rules or instructions"))
     res.failures += check_voice(parts, ctx.customer_style)
-    letters = [c for c in text if c.isalpha()]
-    if letters:
-        dev = sum(1 for c in letters if DEV.match(c)) / len(letters)
-        # product and brand names are normally written in Latin script even inside a Hindi sentence, so a
-        # Devanagari customer is answered in Devanagari when the reply has real Devanagari words, not only when most letters are
-        dev_words = sum(1 for w in text.split() if any(DEV.match(ch) for ch in w))
-        if ctx.customer_script == "devanagari" and dev < 0.3 and dev_words < 2:
-            res.failures.append(Failure("script", "customer writes Devanagari; reply must too"))
-        if ctx.customer_script == "latin" and dev > 0.3:
-            res.failures.append(Failure("script", "customer writes Latin script; reply must not be Devanagari"))
+    script_failure = check_script(text, ctx.customer_script)
+    if script_failure:
+        res.failures.append(script_failure)
     return res

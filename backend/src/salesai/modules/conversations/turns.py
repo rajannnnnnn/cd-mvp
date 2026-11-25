@@ -11,6 +11,7 @@ from typing import Any
 from salesai.alerts import raise_alert
 from salesai.db import Database, required
 from salesai.events.outbox import emit
+from salesai.logsummary import turn_line
 from salesai.modules.agent import AgentService
 from salesai.modules.conversations.eot import EndOfTurnPredictor, EotInput
 from salesai.modules.conversations.runs import finish_run, finish_with, record_instant, start_run
@@ -24,9 +25,10 @@ log = logging.getLogger("salesai.turns")
 
 
 class TurnWorker:
-    def __init__(self, db: Database, agent: AgentService, eot: EndOfTurnPredictor, *, max_turns_per_10min: int = 30):
+    def __init__(self, db: Database, agent: AgentService, eot: EndOfTurnPredictor, *, max_turns_per_10min: int = 0, alert_turns_per_10min: int = 60):
         self.db, self.agent, self.eot = db, agent, eot
-        self.max_turns_per_10min = max_turns_per_10min
+        self.max_turns_per_10min = max_turns_per_10min          # 0 = no limit: a customer is never refused a reply (founder, 2026-11-23)
+        self.alert_turns_per_10min = alert_turns_per_10min      # a conversation this active is told to the founder, never blocked
 
     async def eot_check(self, job: Job) -> None:
         p = job.spec.payload
@@ -82,12 +84,15 @@ class TurnWorker:
                                business_id=bid, ordering_key=f"conv:{cid}", entity_key=f"conversation:{cid}", entity_version=version,
                                run_at=now + timedelta(milliseconds=decision.wait_ms))
                 return
-            if await self._flooded(bid, cid):                  # abuse guard: record the messages, stop spending on replies
+            turns_10min = await self._recent_turns(bid, cid)
+            if self.max_turns_per_10min and turns_10min >= self.max_turns_per_10min:      # only when someone set a limit on purpose
                 FLOOD_GUARD.inc()
                 await self._release(bid, cid, version)
                 log.warning("conversation exceeded its AI turn budget; messages recorded, not answered")
                 await record_instant(self.db, bid, cid, "turn_detection", {"messages": len(msgs)}, "blocked", "flood_guard", msgs[0]["created_at"])
                 return
+            if self.alert_turns_per_10min and turns_10min >= self.alert_turns_per_10min:
+                await self._tell_founder_unusually_active(bid, cid, turns_10min)             # visible, never blocking
             signals: dict[str, Any] = {"eot": {"reason": decision.reason, "rechecks": rechecks,
                                "waited_ms": int((now - msgs[0]["created_at"]).total_seconds() * 1000), "messages": len(msgs)}}
             signals["read_sent"] = await self._read_now(bid, cid, version, biz, msgs, signals["eot"]["waited_ms"])
@@ -100,7 +105,7 @@ class TurnWorker:
                 await finish_run(self.db, bid, run, outcome="failed", reason=f"{type(e).__name__}: {e}")
                 raise
             await finish_with(self.db, bid, run, outcome)
-            log.info("turn %s (%s)", outcome.status, outcome.intent or outcome.reason)
+            log.info("%s", turn_line(outcome, signals["eot"]["reason"], signals["eot"]["waited_ms"]))
 
     async def _read_now(self, bid: uuid.UUID, cid: uuid.UUID, version: int, biz: dict[str, Any], msgs: list[dict[str, Any]], waited_ms: int) -> bool:
         """The customer has stopped writing and the AI will look at it: show the read ticks now, after the rest of a believable reading
@@ -132,11 +137,21 @@ class TurnWorker:
             raise
         await finish_with(self.db, bid, run, outcome)
 
-    async def _flooded(self, bid: uuid.UUID, cid: uuid.UUID) -> bool:
+    async def _recent_turns(self, bid: uuid.UUID, cid: uuid.UUID) -> int:
         async with self.db.tenant(bid) as c:
             n = (await (await c.execute(
                 "SELECT count(*) AS n FROM turns WHERE conversation_id=%s AND created_at > now() - interval '10 minutes'", (cid,))).fetchone())["n"]
-        return int(n) >= self.max_turns_per_10min
+        return int(n)
+
+    async def _tell_founder_unusually_active(self, bid: uuid.UUID, cid: uuid.UUID, turns: int) -> None:
+        """One alert per conversation while it stays this active. It carries counts only, never what was said. A failure to alert never touches the reply."""
+        try:
+            async with self.db.system_tx() as s:
+                await raise_alert(s, "medium", "conversation_unusually_active",
+                                  f"A conversation had {turns} AI turns in 10 minutes. Replies are not limited; check it is a person and not a loop between two automatic replies.",
+                                  business_id=bid, dedup_key=str(cid), detail={"conversation_id": str(cid), "turns_10min": turns})
+        except Exception:  # noqa: BLE001
+            log.exception("could not raise the unusually-active alert")
 
     async def _release(self, bid: uuid.UUID, cid: uuid.UUID, version: int) -> None:
         async with self.db.tenant(bid) as c:

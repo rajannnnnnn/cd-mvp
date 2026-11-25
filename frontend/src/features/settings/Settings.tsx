@@ -130,6 +130,26 @@ function groupHours(hours: DayHours) {
   return groups.map((g) => ({ label: g.days.length === 7 ? tr('Every day') : g.days.length > 1 ? `${short(g.days[0])}–${short(g.days[g.days.length - 1])}` : tr(g.days[0]), text: g.text, open: g.open }))
 }
 
+/* The one address for billing and support mail. Optional: without it we only notify in the app and on WhatsApp. */
+function BillingEmailSection({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }) {
+  const save = useSaveBusiness()
+  const stored = b.billing_email ?? ''
+  const [email, setEmail] = useState(stored)
+  const [editing, setEditing] = useState(false)
+  const valid = email.trim() === '' || /^[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+$/.test(email.trim())
+  const dirty = email.trim() !== stored
+  return (
+    <Section title={tr('Billing and support email')} sub={tr('We send payment receipts and support replies here. Optional: without it we only tell you in the app.')}
+      action={canEdit && !editing ? <KebabMenu label={tr('More actions for {what}', { what: tr('billing email') })} items={[{ label: tr('Edit'), icon: <Pencil className="h-4 w-4" />, onClick: () => setEditing(true) }]} /> : undefined}
+      footer={canEdit && editing && <><button className="btn btn-outline" onClick={() => { setEmail(stored); setEditing(false) }} disabled={save.isPending}>{tr('Cancel')}</button>
+        <SaveButton dirty={dirty} busy={save.isPending} disabled={!valid} label={tr('Save changes')} onClick={() => save.mutate({ billing_email: email.trim() }, { onSuccess: () => setEditing(false) })} /></>}>
+      {editing
+        ? <Field label={tr('Email address')} error={valid ? undefined : tr('That does not look like an email address')}><input type="email" autoComplete="email" maxLength={254} className="input" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
+        : <dl className="-my-2 divide-y divide-line/60"><Row label={tr('Email address')}>{stored ? <span className="font-medium">{stored}</span> : <span className="text-muted">{tr('Not added')}</span>}</Row></dl>}
+    </Section>
+  )
+}
+
 function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }) {
   const p = b.profile as any
   type ShopForm = { address: string; shopPhone: string; delivery: string; returns: string; pay: string[]; areas: string[]; facts: string[] }
@@ -207,6 +227,7 @@ function ShopTab({ b, canEdit }: { b: Schemas['BusinessOut']; canEdit: boolean }
         {editHours ? <HoursEditor hours={hours} setHours={setHours} errs={hoursErr} canEdit />
           : <dl className="-my-2 divide-y divide-line/60">{groupHours(hours).map((g) => <Row key={g.label} label={g.label}><span className={g.open ? 'font-medium' : 'text-muted'}>{g.text}</span></Row>)}</dl>}
       </Section>
+      <BillingEmailSection b={b} canEdit={canEdit} />
     </div>
   )
 }

@@ -10,7 +10,6 @@ from unittest import mock
 import httpx
 import jwt
 import pytest
-from cryptography.exceptions import InvalidTag
 
 from salesai.api.app import create_app
 from salesai.config import Settings
@@ -43,7 +42,7 @@ async def test_an_authenticator_code_opens_the_console(world, client):
 async def test_a_ticket_is_not_a_session(world, client):
     phone, secret = await make_admin(world)
     first = (await sign_in(client, world.rt, secret)).json()                       # a fresh browser: the second layer is required
-    assert first["step_up"] == "whatsapp_code" and "access_token" not in first
+    assert first["step_up"] == "codes" and "access_token" not in first
     t = first["ticket"]
     for headers in ({"Authorization": f"Bearer {t}"}, {}):
         assert (await client.get(f"{V1}/operator/businesses", headers=headers)).status_code in (401, 403)
@@ -95,7 +94,7 @@ async def test_a_wrong_authenticator_code_is_refused_and_five_lock_the_account(w
         await c.execute("UPDATE admin_credentials SET locked_until = now() - interval '1 second' WHERE account_id=(SELECT id FROM accounts WHERE phone=%s)", (phone,))
     r = await sign_in(client, world.rt, secret, steps_ahead=1)
     assert r.status_code == 200                                                   # a good code works again; having been guessed at, it also needs the WhatsApp code
-    assert r.json()["step_up"] == "whatsapp_code"
+    assert r.json()["step_up"] == "codes"
     assert await audit(world, "admin.locked") and await audit(world, "admin.sign_in_failed")
 
 
@@ -110,29 +109,37 @@ async def test_a_ticket_works_once(world, client):
     phone, secret = await make_admin(world)
     t = (await sign_in(client, world.rt, secret)).json()["ticket"]
     assert (await step_up(client, phone, t)).status_code == 200
-    again = await client.post(f"{A1}/auth/step-up/verify", json={"ticket": t, "code": "123456"})
+    again = await client.post(f"{A1}/auth/step-up/verify", json={"ticket": t, "code": "123456", "channel": "whatsapp"})
     assert again.status_code == 401
 
 
-async def test_the_secret_is_not_stored_in_the_clear(world):
+async def test_the_authenticator_secret_is_in_the_deployment_and_never_in_the_database(world):
+    """ADR 0056: the secret is FOUNDER_TOTP_SECRET. The database keeps only state, so a wiped or restored database loses nothing."""
     phone, secret = await make_admin(world)
+    assert secret == world.rt.settings.founder_totp_secret
     async with world.rt.db.console_tx() as c:
-        blob = (await (await c.execute("SELECT totp_secret_enc FROM admin_credentials WHERE account_id=(SELECT id FROM accounts WHERE phone=%s)", (phone,))).fetchone())["totp_secret_enc"]
-    assert secret.encode() not in bytes(blob)
-    import hashlib
-
-    from salesai import crypto
-    with pytest.raises(InvalidTag):                                               # the public secret is not the key
-        crypto.decrypt(hashlib.sha256(world.rt.settings.jwt_secret.encode()).digest(), bytes(blob))
+        row = (await (await c.execute("SELECT * FROM admin_credentials WHERE account_id=(SELECT id FROM accounts WHERE phone=%s)", (phone,))).fetchone())
+        everything = " ".join(str(v) for r in await (await c.execute("SELECT * FROM admin_credentials")).fetchall() for v in r.values())
+    assert row["totp_secret_enc"] is None and secret not in everything
 
 
-async def test_enrolling_again_replaces_the_secret_and_clears_a_lock(world, client):
-    phone, old = await make_admin(world)
-    new = await enroll_admin(world.rt.db, world.rt.settings)
-    assert new != old
-    assert (await sign_in(client, world.rt, old)).status_code == 401
-    assert (await sign_in(client, world.rt, new, steps_ahead=1)).status_code == 200
+async def test_enrolling_again_keeps_the_secret_ends_sessions_and_clears_a_lock(world, client):
+    phone, secret = await make_admin(world)
+    again = await enroll_admin(world.rt.db, world.rt.settings)
+    assert again == secret                                                          # the deployment's secret: this command changes nothing about it
+    assert (await sign_in(client, world.rt, secret)).status_code == 200
     assert len(await audit(world, "admin.enrolled")) >= 2
+
+
+async def test_changing_the_secret_in_the_deployment_replaces_it_at_once(world, client, monkeypatch):
+    phone, old = await make_admin(world)
+    tokens = await admin_login(client, world.rt, phone, old)
+    from salesai.modules.auth import totp
+    new = totp.new_secret()
+    monkeypatch.setattr(world.rt.settings, "founder_totp_secret", new)
+    assert (await client.get(f"{V1}/operator/businesses", headers=bearer(tokens))).status_code == 401      # the session ends: the identity changed
+    assert (await sign_in(client, world.rt, old, steps_ahead=1)).status_code == 401
+    assert (await sign_in(client, world.rt, new, steps_ahead=1)).status_code == 200
 
 
 # ---------------------------------------------------------------- the session
@@ -225,7 +232,8 @@ async def test_admin_cross_origin_calls_are_allowed_only_from_the_admin_origin(r
 
 def _settings(**kw) -> Settings:
     """Settings as a container would see them: only what it is given, not what the rest of the suite put in this process."""
-    base = dict(role="admin", founder_phone="+919999900000", master_key="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=", jwt_secret="j" * 32, otp_secret="o" * 32,
+    base = dict(role="admin", founder_phone="+919999900000", founder_email="founder@chatdeal.example", founder_totp_secret="JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
+                admin_email_from="ChatDeal Access <access@chatdeal.example>", ses_region="ap-south-1", master_key="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=", jwt_secret="j" * 32, otp_secret="o" * 32,
                 admin_jwt_secret="a" * 32, database_url="postgresql://x/x", pricing_database_url="postgresql://x/x",
                 system_database_url="postgresql://x/x", console_database_url="postgresql://x/x", migration_database_url="postgresql://x/x")
     with mock.patch.dict(os.environ, {}, clear=True):

@@ -22,16 +22,16 @@ DEPLOY = Path(__file__).resolve().parents[2] / "deploy"
 PARTS = ("db", "web", "gateway", "agent", "admin")
 
 SECRETS = {"MASTER_KEY", "JWT_SECRET", "OTP_SECRET", "META_APP_SECRET", "META_VERIFY_TOKEN", "PLATFORM_WA_ACCESS_TOKEN",
-           "OPENAI_COMPAT_API_KEY", "ANTHROPIC_API_KEY", "SMTP_PASSWORD", "ADMIN_JWT_SECRET"}
+           "OPENAI_COMPAT_API_KEY", "ANTHROPIC_API_KEY", "SMTP_PASSWORD", "ADMIN_JWT_SECRET", "FOUNDER_TOTP_SECRET", "SES_SECRET_ACCESS_KEY"}
 
 # What each service may hold. This table is the architecture, written as a test: a secret added to a service must be added here
 # deliberately, with a reason.
 EXPECTED_SECRETS: dict[str, set[str]] = {
     "db/migrate": set(),
     "web/api": {"JWT_SECRET", "OTP_SECRET"},                                   # no master key and no admin secret: the public app cannot reach the console (ADR 0028)
-    "admin/api": {"MASTER_KEY", "JWT_SECRET", "OTP_SECRET", "ADMIN_JWT_SECRET"},   # the console: master key for a pilot number by hand, its own secret
+    "admin/api": {"MASTER_KEY", "JWT_SECRET", "OTP_SECRET", "ADMIN_JWT_SECRET", "FOUNDER_TOTP_SECRET", "SMTP_PASSWORD", "SES_SECRET_ACCESS_KEY"},   # the console: master key for a pilot number by hand, its own secret, the founder's authenticator secret, and what it needs to email a sign-in code (ADR 0056)
     "admin/site": set(),
-    "web/scheduler": {"PLATFORM_WA_ACCESS_TOKEN", "SMTP_PASSWORD"},            # platform alerts: email to the founder, and Critical on WhatsApp (ADR 0029)
+    "web/scheduler": {"PLATFORM_WA_ACCESS_TOKEN", "SMTP_PASSWORD", "SES_SECRET_ACCESS_KEY"},            # platform alerts: email to the founder, and Critical on WhatsApp (ADR 0029)
     "gateway/receive": {"META_APP_SECRET", "META_VERIFY_TOKEN"},
     "gateway/inbound": set(),
     "gateway/send": {"MASTER_KEY", "META_APP_SECRET", "PLATFORM_WA_ACCESS_TOKEN"},
@@ -41,7 +41,8 @@ EXPECTED_SECRETS: dict[str, set[str]] = {
 }
 
 DUMMY = {
-    "FOUNDER_PHONE": "+919876543210", "ENV": "production", "MASTER_KEY": "a" * 43 + "=", "JWT_SECRET": "j" * 40, "OTP_SECRET": "o" * 40, "META_APP_SECRET": "m" * 24,
+    "FOUNDER_PHONE": "+919876543210", "FOUNDER_EMAIL": "founder@example.com", "FOUNDER_TOTP_SECRET": "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP",
+    "ADMIN_EMAIL_FROM": "ChatDeal Access <access@example.com>", "SES_REGION": "ap-south-1", "ENV": "production", "MASTER_KEY": "a" * 43 + "=", "JWT_SECRET": "j" * 40, "OTP_SECRET": "o" * 40, "META_APP_SECRET": "m" * 24,
     "META_VERIFY_TOKEN": "v" * 24, "PLATFORM_WA_ACCESS_TOKEN": "EAAplatformtoken", "OPENAI_COMPAT_API_KEY": "gsk_example",
     "ANTHROPIC_API_KEY": "sk-ant-example", "OPENAI_COMPAT_BASE_URL": "https://llm.example/v1", "LLM_PROVIDER": "openai_compat",
     "ALLOWED_ORIGINS": "https://app.example.com", "ADMIN_JWT_SECRET": "z" * 40, "ADMIN_ALLOWED_ORIGINS": "https://admin.example.com", "META_GRAPH_VERSION": "v26.0", "OTP_CHANNEL": "whatsapp_cloud",
@@ -69,7 +70,7 @@ def _resolve(key: str, template: Any) -> str:
     if default:
         return default
     if default == "":                                                              # optional: empty unless it is a value the .env supplies
-        return DUMMY.get(key, "") if key in SECRETS | {"OPENAI_COMPAT_BASE_URL"} else ""
+        return DUMMY.get(key, "") if key in SECRETS | {"OPENAI_COMPAT_BASE_URL", "SES_REGION"} else ""
     return DB_URL if key.endswith("_DATABASE_URL") else DUMMY.get(key, "x")       # required: the .env supplies it
 
 

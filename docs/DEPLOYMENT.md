@@ -88,7 +88,7 @@ For each machine:
 | `ADMIN_JWT_SECRET` | admin only; **must differ** from `JWT_SECRET` | `openssl rand -base64 48` |
 | `MASTER_KEY` | gateway **and** admin, the same value | `openssl rand -base64 32`. **Back it up (a password manager plus one offline copy): if it is lost, every shop must reconnect its WhatsApp.** |
 | `META_VERIFY_TOKEN` | gateway | make up 32+ random characters; paste the same value into Meta's webhook form |
-| Your authenticator for the console | on your phone | `python -m salesai admin-enroll +91XXXXXXXXXX`, scan the code in any authenticator app |
+| Your authenticator secret for the console | `FOUNDER_TOTP_SECRET` in `deploy/admin/.env`, and the same key in your phone | `python -m salesai admin-enroll --new-secret` prints it once (and a QR to scan). Keep a copy in a password manager. Your number and email are `FOUNDER_PHONE` and `FOUNDER_EMAIL` |
 
 **You obtain these from other services:**
 
@@ -110,4 +110,4 @@ and its webhook address is your gateway's `receive`. When you have real credenti
 
 Run `python -m salesai doctor` with each part's settings loaded (inside a container: `docker compose -f deploy/<part>/docker-compose.yml --env-file deploy/<part>/.env run --rm <service> doctor <role>`, where the role is the service's command: `agent` -> `worker`, `api` -> `api`, `receive` -> `ingress`, admin `api` -> `admin`; this form is untested until your first run). It checks database logins, migrations, the login separation, the model, mail and the Meta token, and names the setting to fix. Each service also answers `/healthz`. If a part cannot start it prints, in plain words, every mandatory setting that is missing (and exits), never a stack trace; `scripts/stack.ps1 <part>` also prints a warning about empty mandatory settings before it starts anything.
 
-Order for a first go-live: database and roles, `.env` files, `db`, `gateway` (then register the webhook in Meta), `web`, `agent`, `admin` (then enrol your authenticator), `doctor` on each, register your first pilot shop from the console, send a test WhatsApp message. The full checklist is `docs/GO_LIVE_CHECKLIST.md`.
+Order for a first go-live: database and roles, `.env` files, `db`, `gateway` (then register the webhook in Meta), `web`, `agent`, `admin` (with your three founder settings in its `.env`), `doctor` on each, register your first pilot shop from the console, send a test WhatsApp message. The full checklist is `docs/GO_LIVE_CHECKLIST.md`.

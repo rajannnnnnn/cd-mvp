@@ -104,21 +104,58 @@ function Tenants() {
 /* ------------------------------------------------------------------ alerts */
 function Alerts() {
   const qc = useQueryClient(); const toast = useToast()
-  const [resolved, setResolved] = useState(false)
-  const q = useQuery({ queryKey: ['op-alerts', resolved], queryFn: () => ok(api.GET('/api/v1/operator/alerts', { params: { query: { resolved } } })), refetchInterval: 15_000 })
+  const [view, setView] = useState<'o' | 'r' | 's'>('o')
+  const resolved = view === 'r'
+  const q = useQuery({ queryKey: ['op-alerts', resolved], enabled: view !== 's', queryFn: () => ok(api.GET('/api/v1/operator/alerts', { params: { query: { resolved } } })), refetchInterval: 15_000 })
   const resolve = useMutation({ mutationFn: (id: number) => ok(api.POST('/api/v1/operator/alerts/{alert_id}/resolve', { params: { path: { alert_id: id } } })), onSuccess: () => { qc.invalidateQueries({ queryKey: ['op-alerts'] }); toast('Resolved') } })
   return (
     <div className="space-y-4">
-      <Segmented value={resolved ? 'r' : 'o'} onChange={(v) => setResolved(v === 'r')} options={[{ value: 'o', label: 'Open' }, { value: 'r', label: 'Resolved' }]} />
-      {q.error && <ErrorNote error={q.error} retry={() => q.refetch()} />}
-      {q.isLoading && <Skeleton className="h-32 rounded-2xl" />}
-      {!q.isLoading && !q.data?.length && <div className="card"><EmptyState icon={<AlertOctagon className="h-6 w-6" />} title={resolved ? 'Nothing resolved yet' : 'All clear'} body={resolved ? undefined : 'No open alerts. Disconnections, dead letters and quality drops appear here.'} /></div>}
-      <div className="space-y-2.5">{q.data?.map((a) => (
+      <Segmented value={view} onChange={(v) => setView(v as 'o' | 'r' | 's')} options={[{ value: 'o', label: 'Open' }, { value: 'r', label: 'Resolved' }, { value: 's', label: 'Sent to you' }]} />
+      {view === 's' && <SentAlerts />}
+      {view !== 's' && q.error && <ErrorNote error={q.error} retry={() => q.refetch()} />}
+      {view !== 's' && q.isLoading && <Skeleton className="h-32 rounded-2xl" />}
+      {view !== 's' && !q.isLoading && !q.data?.length && <div className="card"><EmptyState icon={<AlertOctagon className="h-6 w-6" />} title={resolved ? 'Nothing resolved yet' : 'All clear'} body={resolved ? undefined : 'No open alerts. Disconnections, dead letters and quality drops appear here.'} /></div>}
+      <div className="space-y-2.5">{view !== 's' && q.data?.map((a) => (
         <div key={a.id} className="card card-pad flex flex-wrap items-center gap-3">
           <Badge tone={sevTone(a.severity)}>{a.severity}</Badge>
           <div className="min-w-0 flex-1"><div className="text-sm font-semibold">{a.message}</div><div className="text-[12.5px] text-muted">{a.kind}{a.business_name ? ` · ${a.business_name}` : ''}{a.occurrences > 1 ? ` · happened ${a.occurrences} times` : ''} · {ago(a.last_seen_at ?? a.created_at)}</div></div>
           {!a.resolved_at && <button className="btn btn-outline btn-sm" onClick={() => resolve.mutate(a.id)}>Resolve</button>}
         </div>))}</div>
+    </div>
+  )
+}
+
+/* Every attempt to tell the founder, read from the database (ADR 0053): when, which way, accepted or refused, and the provider's reference
+   (for email through SES, the message id to look up in the SES console). It never shows an address or the text of an alert. */
+function SentAlerts() {
+  const q = useQuery({ queryKey: ['op-deliveries'], queryFn: () => ok(api.GET('/api/v1/operator/alerts/deliveries', { params: { query: { limit: 100 } } })), refetchInterval: 15_000 })
+  const shops = useQuery({ queryKey: ['op-shop-mail'], queryFn: () => ok(api.GET('/api/v1/operator/mail', { params: { query: { limit: 100 } } })), refetchInterval: 15_000 })
+  const tone = (s: string) => (s === 'sent' ? 'green' : s === 'failed' ? 'red' : s === 'pending' ? 'amber' : 'gray')
+  return (
+    <div className="space-y-2.5">
+      <h3 className="pt-1 text-[13px] font-bold uppercase tracking-wide text-muted">Mail to shop owners</h3>
+      {shops.error && <ErrorNote error={shops.error} retry={() => shops.refetch()} />}
+      {!shops.isLoading && !shops.data?.length && <div className="card"><EmptyState icon={<Inbox className="h-6 w-6" />} title="No shop mail yet" body="Payment receipts and support notices to shop owners appear here." /></div>}
+      {shops.data?.map((m) => (
+        <div key={m.id} className="card card-pad flex flex-wrap items-center gap-3">
+          <Badge tone={tone(m.status)}>{m.status}</Badge>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold">{m.template.replace(/_/g, ' ')} · {m.purpose}{m.business_name ? ` · ${m.business_name}` : ''}</div>
+            <div className="text-[12.5px] text-muted">{ago(m.sent_at ?? m.created_at)}{m.provider_ref ? ` · id ${m.provider_ref}` : ''}{m.attempts > 0 ? ` · ${m.attempts} tries` : ''}{m.error ? ` · ${m.error}` : ''}</div>
+          </div>
+        </div>))}
+      <h3 className="pt-3 text-[13px] font-bold uppercase tracking-wide text-muted">Alerts to you</h3>
+      {q.error && <ErrorNote error={q.error} retry={() => q.refetch()} />}
+      {q.isLoading && <Skeleton className="h-32 rounded-2xl" />}
+      {!q.isLoading && !q.data?.length && <div className="card"><EmptyState icon={<Inbox className="h-6 w-6" />} title="Nothing sent yet" body="Each alert mail, digest and message to you appears here, with whether it was accepted." /></div>}
+      {q.data?.map((d) => (
+        <div key={d.id} className="card card-pad flex flex-wrap items-center gap-3">
+          <Badge tone={d.ok ? 'green' : 'red'}>{d.ok ? 'accepted' : 'failed'}</Badge>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold">{d.sink} · {d.kind}{d.items > 1 ? ` · ${d.items} alerts` : ''} · {d.severity}</div>
+            <div className="text-[12.5px] text-muted">{ago(d.created_at)}{d.provider_ref ? ` · id ${d.provider_ref}` : ''}{d.error ? ` · ${d.error}` : ''}</div>
+          </div>
+        </div>))}
     </div>
   )
 }

@@ -115,7 +115,7 @@ tr:last-child td { border-bottom:0; }
 <main>
 <header>
   <h1>ChatDeal architecture</h1>
-  <span class="meta">chatdeal-mvp-launch-ready, 014e748, 2026-11-08</span>
+  <span class="meta">chatdeal-mvp-launch-ready, 029c97d plus uncommitted work, 2026-11-25</span>
 </header>
 <p class="sub">Top to bottom: who is exposed to us, outside services we do not manage, our services, the database. Each arrow runs from the component that makes the call to the one it calls. A mock sits behind the real thing it replaces and uses the same numbered line. Our components hand work to each other through a queue, never by calling each other directly; the database only answers.</p>
 <div class="legend">
@@ -148,7 +148,7 @@ tr:last-child td { border-bottom:0; }
 <text class="mt" x="1166" y="121" text-anchor="start">QA, any OTP</text>
 <rect class="ext" x="1110" y="30" width="180" height="70" rx="10"/>
 <text class="h" x="1124" y="55" text-anchor="start">Shop owner</text>
-<text class="t" x="1124" y="73" text-anchor="start">browser</text>
+<text class="t" x="1124" y="73" text-anchor="start">browser; gets mail</text>
 <g class="ic"><path d="M1261 48 L1263 43 H1273 L1275 48 Z"/><path d="M1262 48 V57 H1274 V48"/><rect x="1266" y="52" width="4" height="5"/></g>
 <rect class="ext" x="1700" y="30" width="160" height="70" rx="10"/>
 <text class="h" x="1714" y="55" text-anchor="start">Founder</text>
@@ -166,12 +166,12 @@ tr:last-child td { border-bottom:0; }
 <text class="mt" x="706" y="261" text-anchor="start">Local model, bridge 9200</text>
 <rect class="ext" x="640" y="160" width="260" height="80" rx="10"/>
 <text class="h" x="654" y="185" text-anchor="start">Model host (LLM)</text>
-<text class="t" x="654" y="203" text-anchor="start">Groq gpt-oss-20b</text>
+<text class="t" x="654" y="203" text-anchor="start">OpenRouter, gpt-oss-20b</text>
 <rect class="mdl" x="865" y="175" width="18" height="18" rx="4"/><path class="mdl2" d="M874 179 C874.5 182.5 875.5 183.5 879 184 C875.5 184.5 874.5 185.5 874 189 C873.5 185.5 872.5 184.5 869 184 C872.5 183.5 873.5 182.5 874 179 Z"/><path class="mdlp" d="M870 175 V172 M878 175 V172 M870 193 V196 M878 193 V196 M865 180 H862 M865 188 H862 M883 180 H886 M883 188 H886"/>
 <text class="cap" x="940" y="230" text-anchor="start">OUTSIDE SERVICES WE DO NOT MANAGE</text>
 <rect class="ext" x="1440" y="160" width="200" height="80" rx="10"/>
 <text class="h" x="1454" y="185" text-anchor="start">Mail service</text>
-<text class="t" x="1454" y="203" text-anchor="start">SMTP, any provider</text>
+<text class="t" x="1454" y="203" text-anchor="start">Amazon SES, or SMTP</text>
 <g class="ic"><rect x="1610" y="174" width="16" height="12" rx="2"/><path d="M1610 175 L1618 181 L1626 175"/></g>
 <rect class="ours" x="8" y="306" width="1884" height="394" rx="18"/>
 <text class="oursl" x="720" y="326" text-anchor="start">OUR SERVICES</text>
@@ -236,8 +236,9 @@ tr:last-child td { border-bottom:0; }
 <text class="h" x="1122" y="402" text-anchor="start">frontend</text>
 <text class="pe" x="1122" y="419" text-anchor="start">port 8080</text>
 <g class="ige"><circle cx="1198.8" cy="415" r="5"/><path d="M1193.8 415 H1203.8 M1198.8 410 a3 5 0 0 1 0 10 a3 5 0 0 1 0 -10"/></g>
-<text class="t" x="1122" y="438" text-anchor="start">owner app</text>
-<text class="t" x="1122" y="452" text-anchor="start">and pages</text>
+<text class="t" x="1122" y="438" text-anchor="start">owner app and pages,</text>
+<text class="t" x="1122" y="452" text-anchor="start">served by Caddy;</text>
+<text class="t" x="1122" y="466" text-anchor="start">proxies /api, /webhooks</text>
 <g class="ic"><rect x="1242" y="391" width="16" height="13" rx="2"/><line x1="1242" y1="395" x2="1258" y2="395"/></g>
 <rect class="comp" x="1110" y="540" width="200" height="120" rx="10"/>
 <text class="h" x="1122" y="562" text-anchor="start">backend (api)</text>
@@ -258,14 +259,16 @@ tr:last-child td { border-bottom:0; }
 <text class="pn" x="1372" y="579" text-anchor="start">port 8000</text>
 <g class="ign"><rect x="1444.3" y="574" width="9" height="7" rx="1.5"/><path d="M1446.3 574 V572.5 a2.5 2.5 0 0 1 5 0 V574"/></g>
 <text class="t" x="1372" y="598" text-anchor="start">billing, trials,</text>
-<text class="t" x="1372" y="612" text-anchor="start">deletions, alerts</text>
+<text class="t" x="1372" y="612" text-anchor="start">deletions, alerts,</text>
+<text class="t" x="1372" y="626" text-anchor="start">owner mail</text>
 <g class="ics"><circle cx="1490" cy="558" r="7"/><path d="M1490 554 V558 L1493 560"/></g>
 <g class="icb"><path d="M1488 648 V643 a4 4 0 0 1 8 0 V648 Z M1486.5 648 H1497.5 M1490.5 650.5 H1493.5"/></g>
 <rect class="comp" x="1620" y="380" width="240" height="100" rx="10"/>
 <text class="h" x="1632" y="402" text-anchor="start">frontend</text>
 <text class="pe" x="1632" y="419" text-anchor="start">port 8082</text>
 <g class="ige"><circle cx="1708.8" cy="415" r="5"/><path d="M1703.8 415 H1713.8 M1708.8 410 a3 5 0 0 1 0 10 a3 5 0 0 1 0 -10"/></g>
-<text class="t" x="1632" y="438" text-anchor="start">founder console</text>
+<text class="t" x="1632" y="438" text-anchor="start">founder console, served by Caddy</text>
+<text class="t" x="1632" y="452" text-anchor="start">optional IP allow-list</text>
 <g class="ic"><rect x="1832" y="391" width="16" height="13" rx="2"/><line x1="1832" y1="395" x2="1848" y2="395"/></g>
 <rect class="comp" x="1620" y="540" width="240" height="120" rx="10"/>
 <text class="h" x="1632" y="562" text-anchor="start">backend (api)</text>
@@ -273,6 +276,8 @@ tr:last-child td { border-bottom:0; }
 <g class="ign"><rect x="1704.3" y="574" width="9" height="7" rx="1.5"/><path d="M1706.3 574 V572.5 a2.5 2.5 0 0 1 5 0 V574"/></g>
 <text class="t" x="1632" y="598" text-anchor="start">boards, agent audit,</text>
 <text class="t" x="1632" y="612" text-anchor="start">read a chat, confirm payments</text>
+<text class="t" x="1632" y="626" text-anchor="start">sign-in proofs by risk, emails</text>
+<text class="t" x="1632" y="640" text-anchor="start">its codes, records each session</text>
 <g class="ic"><rect x="1832" y="551" width="16" height="6" rx="1.5"/><rect x="1832" y="559" width="16" height="6" rx="1.5"/><circle cx="1836" cy="554" r="0.9"/><circle cx="1836" cy="562" r="0.9"/></g>
 <line class="f c" x1="110" y1="100" x2="110" y2="158" marker-end="url(#ar)"/>
 <circle class="bdg" cx="110" cy="128" r="7"/>
@@ -354,7 +359,9 @@ tr:last-child td { border-bottom:0; }
 <text class="bn" x="1490" y="333" text-anchor="middle">19</text>
 <path class="f c" fill="none" d="M1640 200 H1730 V102" marker-end="url(#ar)"/>
 <path class="f c" fill="none" d="M1440 200 H1320 V70 H1292" marker-end="url(#ar)"/>
-<text class="tbd" x="1326" y="122" text-anchor="start">tbd</text>
+<path class="f c" fill="none" d="M1620 590 H1560 V242" marker-end="url(#ar)"/>
+<circle class="bdg" cx="1560" cy="330" r="7"/>
+<text class="bn" x="1560" y="333" text-anchor="middle">24</text>
 <rect class="stag" x="344" y="220" width="46" height="14" rx="7"/>
 <g class="skey"><circle cx="352" cy="227" r="2.6"/><path d="M354.5 227 H359 M357.5 227 V229.5"/></g>
 <text class="stt" x="362" y="230.2" text-anchor="start">setup</text>
@@ -389,7 +396,7 @@ tr:last-child td { border-bottom:0; }
 <rect class="pg" x="20" y="744" width="1860" height="340" rx="14"/>
 <g class="icbig"><ellipse cx="50" cy="766" rx="9" ry="3.5"/><path d="M41 766 V779 a9 3.5 0 0 0 18 0 V766"/><path d="M41 772.5 a9 3.5 0 0 0 18 0"/></g>
 <text class="pgh" x="72" y="778" text-anchor="start">PostgreSQL 16</text>
-<text class="t" x="196" y="778" text-anchor="start">50 tables in 8 groups, each table in one group only; 5 logins</text>
+<text class="t" x="196" y="778" text-anchor="start">53 tables in 8 groups, each table in one group only; 5 logins</text>
 <text class="t" x="1860" y="778" text-anchor="end">external in production; it only answers calls</text>
 <text class="cap" x="40" y="810" text-anchor="start">LOGINS (ROLES)</text>
 <rect class="role" x="40" y="818" width="480" height="40" rx="8"/>
@@ -407,7 +414,7 @@ tr:last-child td { border-bottom:0; }
 <rect class="role" x="40" y="956" width="480" height="40" rx="8"/>
 <text class="rn" x="54" y="974" text-anchor="start">app_console</text>
 <text class="rw" x="172" y="974" text-anchor="start">admin backend only</text>
-<text class="t" x="54" y="989" text-anchor="start">console sign-in, sessions, grants</text>
+<text class="t" x="54" y="989" text-anchor="start">console sign-in, sessions, email codes, grants</text>
 <rect class="role" x="40" y="1002" width="480" height="40" rx="8"/>
 <text class="rn" x="54" y="1020" text-anchor="start">app_owner</text>
 <text class="rw" x="172" y="1020" text-anchor="start">the migrate job only</text>
@@ -432,11 +439,12 @@ tr:last-child td { border-bottom:0; }
 <text class="tn" x="1232" y="878" text-anchor="start">learning_observations, config_proposals</text>
 <rect class="grp" x="1550" y="796" width="322" height="136" rx="10"/>
 <text class="gh" x="1562" y="816" text-anchor="start">Plumbing and health</text>
-<text class="gn" x="1860" y="816" text-anchor="end">8</text>
+<text class="gn" x="1860" y="816" text-anchor="end">10</text>
 <text class="tn" x="1562" y="836" text-anchor="start">webhook_events, outbox, jobs,</text>
 <text class="tn" x="1562" y="850" text-anchor="start">idempotency_keys, rate_buckets,</text>
 <text class="tn" x="1562" y="864" text-anchor="start">number_connect_requests, sim_messages,</text>
-<text class="tn" x="1562" y="878" text-anchor="start">heartbeats</text>
+<text class="tn" x="1562" y="878" text-anchor="start">heartbeats, alert_deliveries,</text>
+<text class="tn" x="1562" y="892" text-anchor="start">mail_outbox</text>
 <rect class="grp" x="560" y="940" width="322" height="136" rx="10"/>
 <text class="gh" x="572" y="960" text-anchor="start">Sign-in</text>
 <text class="gn" x="870" y="960" text-anchor="end">3</text>
@@ -454,10 +462,11 @@ tr:last-child td { border-bottom:0; }
 <text class="tn" x="1232" y="994" text-anchor="start">support_attachments</text>
 <rect class="grp" x="1550" y="940" width="322" height="136" rx="10"/>
 <text class="gh" x="1562" y="960" text-anchor="start">Founder console and audit</text>
-<text class="gn" x="1860" y="960" text-anchor="end">6</text>
+<text class="gn" x="1860" y="960" text-anchor="end">7</text>
 <text class="tn" x="1562" y="980" text-anchor="start">admin_credentials, admin_sessions,</text>
 <text class="tn" x="1562" y="994" text-anchor="start">break_glass_grants, operator_alerts,</text>
 <text class="tn" x="1562" y="1008" text-anchor="start">audit_log, platform_audit_log</text>
+<text class="tn" x="1562" y="1022" text-anchor="start">admin_email_codes</text>
 </svg>
 </div>
 
@@ -475,20 +484,21 @@ tr:last-child td { border-bottom:0; }
 <tr><td><span class="nb c">11</span></td><td>web backend</td><td>agent worker</td><td>Queue <code>conversation.events</code>: the owner paused or took over a chat</td></tr>
 <tr><td><span class="nb c">12</span></td><td>agent worker</td><td>Model host (or local model)</td><td>Planner, writer and reply check on each turn. The local model runs inside the worker; <code>tools/llm-bridge</code> listens on 9200</td></tr>
 <tr><td><span class="nb s">13</span></td><td>agent scheduler</td><td>agent worker</td><td>Queue <code>conversation.turns</code>: a due follow-back or take-over timer fires</td></tr>
-<tr><td><span class="nb c">14</span></td><td>Shop owner (or QA tester)</td><td>web frontend</td><td>Opens the owner app; QA signs in with any code when <code>OTP_ACCEPT_ANY</code> is on</td></tr>
-<tr><td><span class="nb c">15</span></td><td>web frontend</td><td>web backend</td><td>Proxies <code>/api</code></td></tr>
+<tr><td><span class="nb c">14</span></td><td>Shop owner (or QA tester)</td><td>web frontend</td><td>Opens the owner app, which Caddy serves (with a certificate of its own for a real hostname); QA signs in with any code when <code>OTP_ACCEPT_ANY</code> is on</td></tr>
+<tr><td><span class="nb c">15</span></td><td>web frontend</td><td>web backend</td><td>Caddy proxies <code>/api</code>, and <code>/webhooks</code> straight to gateway receive when one address serves both</td></tr>
 <tr><td><span class="nb c">16</span></td><td>Shop owner's browser</td><td>Meta (or mock Meta)</td><td>Embedded Signup popup straight from Meta; its result goes to the web backend, then line 10</td></tr>
-<tr><td><span class="nb c">17</span></td><td>Founder</td><td>admin frontend</td><td>Opens the console</td></tr>
-<tr><td><span class="nb c">18</span></td><td>admin frontend</td><td>admin backend</td><td>Proxies <code>/admin/v1</code></td></tr>
-<tr><td><span class="nb s">19</span></td><td>web scheduler</td><td>Mail service</td><td>Sends open founder alerts by email; the mail service delivers them straight to the founder (owner email is planned, tbd). WhatsApp and webhook copies go out directly; see the list below</td></tr>
+<tr><td><span class="nb c">17</span></td><td>Founder</td><td>admin frontend</td><td>Opens the console, which Caddy serves; an address allow-list can be set at Caddy and at the API</td></tr>
+<tr><td><span class="nb c">18</span></td><td>admin frontend</td><td>admin backend</td><td>Caddy proxies <code>/admin/v1</code> and <code>/api/v1/operator</code></td></tr>
+<tr><td><span class="nb s">19</span></td><td>web scheduler</td><td>Mail service</td><td>Sends open founder alerts by email, and every attempt is recorded (<code>alert_deliveries</code>). Then, under its own rate budget, the mail to shop owners (payment receipts, support notices, from the sender for each purpose) taken from <code>mail_outbox</code>, which was written in the same transaction as the event so it never holds a payment or a ticket up. WhatsApp and webhook copies go out directly; see the list below</td></tr>
 <tr><td><span class="nb s">20</span></td><td>gateway scheduler</td><td>the queue</td><td>Relays written events onto the queues (every scheduler does this), keeps the raw webhook log, applies retention</td></tr>
 <tr><td><span class="nb c">21</span></td><td>agent worker</td><td>agent scheduler</td><td>Writes, moves or cancels timer rows (<code>agent_timers</code>) whenever a chat changes; the scheduler reads the due ones</td></tr>
 <tr><td><span class="nb c">22</span></td><td>web backend</td><td>web scheduler</td><td>Rows the scheduler acts on later: deletion requests, subscriptions and invoices</td></tr>
 <tr><td><span class="nb s">23</span></td><td>web scheduler</td><td>agent worker</td><td>Queue <code>owner.notifications</code>: usage warnings at 80 and 100 percent</td></tr>
+<tr><td><span class="nb c">24</span></td><td>admin backend</td><td>Mail service</td><td>Emails the founder a one-time sign-in code when a login is risky (a code is sent only after the authenticator code passed). The one mail sent on a request path; the sender is its own address, with no reply address</td></tr>
 </tbody></table></div>
 
 <h2>What sends the founder an alert</h2>
-<p class="sub">Any component records the problem as one open alert per cause (repeats only add a count). The web scheduler sends them: critical at once to email, WhatsApp and the webhook, repeated until resolved; high at once, then only if it happens again; medium in a rollup email; low in a digest email. Critical and high also send a notice when resolved. Part-down and stalled-queue alerts close themselves when the part or queue recovers.</p>
+<p class="sub">Any component records the problem as one open alert per cause (repeats only add a count). The web scheduler sends them: critical at once to email, WhatsApp and the webhook, repeated until resolved; high at once, then only if it happens again; medium in a rollup email; low in a digest email. Critical and high also send a notice when resolved. Part-down and stalled-queue alerts close themselves when the part or queue recovers. Every attempt to tell the founder is recorded, and the console shows it under Alerts, Sent to you.</p>
 <div class="table-wrap"><table>
 <thead><tr><th>Severity</th><th>Raised by</th><th>When</th></tr></thead>
 <tbody>
@@ -502,6 +512,9 @@ tr:last-child td { border-bottom:0; }
 <tr><td><span class="sev medium">medium</span></td><td>web scheduler</td><td>An invoice is overdue</td></tr>
 <tr><td><span class="sev low">low</span></td><td>web scheduler</td><td>A subscription lapsed</td></tr>
 <tr><td><span class="sev low">low</span></td><td>web backend</td><td>A shop opened a support ticket</td></tr>
+<tr><td><span class="sev medium">medium</span></td><td>agent worker</td><td>One conversation had a very high number of AI turns in 10 minutes (possibly a loop between two automatic replies)</td></tr>
+<tr><td><span class="sev high">high</span></td><td>admin backend</td><td>Three or more wrong console codes since the last good sign-in; or a console sign-in that needed extra proof (a new browser or place, wrong codes before it)</td></tr>
+<tr><td><span class="sev critical">critical</span></td><td>admin backend</td><td>The console was locked after repeated wrong sign-in codes</td></tr>
 <tr><td><span class="sev critical">critical</span></td><td>any scheduler</td><td>A customer-path part stopped checking in for 2 minutes: gateway receive, inbound or send, the agent worker</td></tr>
 <tr><td><span class="sev high">high</span></td><td>any scheduler</td><td>Any other part stopped checking in: a scheduler, the web or admin backend</td></tr>
 <tr><td><span class="sev critical">critical</span></td><td>any scheduler</td><td>A customer queue's oldest job has waited 5 minutes (inbound.events, conversation.events); other queues are high</td></tr>
@@ -509,11 +522,13 @@ tr:last-child td { border-bottom:0; }
 
 <h2>Notes</h2>
 <ul class="notes">
-<li>Database: 50 tables, each in exactly one group (checked against the migrations when this page was built). Columns are left out; they would not fit legibly.</li>
+<li>Database: 53 tables, each in exactly one group (checked against the migrations when this page was built). Columns are left out; they would not fit legibly.</li>
 <li>The event queue is Postgres jobs by default, Redis by setting (<code>QUEUE_BACKEND</code>). A change and its event are written together; any scheduler relays the event onto the queue.</li>
 <li>Mocks: <code>tools/meta-sim</code> (port 9100, this machine only) plays Meta and the phones; the local model runs inside the agent worker, <code>tools/llm-bridge</code> on port 9200; the in-process simulator runs inside the gateway. "dev: any OTP", "dev: test pay" and "dev: /sim chat" are switches in the web backend. Production refuses to start with the in-product ones on.</li>
-<li>Not drawn: the worker also queues handoff and deal alerts for its own owner loop; the web frontend can forward Meta's webhook path to receive so one address serves both.</li>
-<li>Not built: voice-note transcription (deferred, ADR 0015), console passkeys, a card or UPI gateway. Nothing has run against real Meta, a real model or real SMTP.</li>
+<li>Mail: one component, two paths. The founder's alerts and the console's sign-in codes go straight out and never wait behind other mail; mail to shop owners goes through the outbox. Amazon SES (the API) is the default, SMTP a choice; the sender is chosen by purpose (billing, support, account, access); a hidden copy can go to a real mailbox. Every template is in <code>modules/mail/templates.py</code>.</li>
+<li>Founder sign-in: the founder is three settings of the console (phone, email, authenticator secret), never stored. A routine login needs the authenticator code; a riskier one adds a WhatsApp or email code; the riskiest adds both. Every session records its address, device, language, place when the proxy sends it, risk and every proof used.</li>
+<li>Not drawn: the worker also queues handoff and deal alerts for its own owner loop. Each frontend is a Caddy server: it serves the static build, adds the security headers, can restrict who reaches it, and reverse-proxies; the owner app's Caddy forwards <code>/webhooks</code> to gateway receive so one address serves both, and it obtains a TLS certificate by itself when it is given a real hostname.</li>
+<li>Not built: voice-note transcription (deferred, ADR 0015), console passkeys, a card or UPI gateway. Nothing has run end to end against real Meta, a real model or real SES from this system.</li>
 </ul>
 </main>
 

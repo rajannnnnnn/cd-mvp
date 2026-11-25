@@ -33,26 +33,29 @@ class EndOfTurnPredictor(Protocol):
     async def decide(self, inp: EotInput) -> EotDecision: ...
 
 
+# Language-neutral on purpose (founder, 2026-11-24): customers write in every Indian language, and no list of words in the code can know them all.
+# Only signals that mean the same in every language are used: the message kind, how it ends (punctuation of any script), how long it is, whether
+# the AI just asked something, and how this customer types. Reading the meaning of a half-finished message is the model's job, not a rule's.
 _ELLIPSIS = re.compile(r"(\.{2,}|…)\s*$")
-_TERMINAL = re.compile(r"[.?!।]\s*$|[\U0001F300-\U0001FAFF☀-➿]\s*$")
-_CONTINUES = re.compile(
-    r"(,|;|:|-)\s*$|\b(and|or|but|because|so|also|aur|ya|lekin|kyunki|toh|to|with|for|the|a|an|my|your|ka|ki|ke|ko|mein|se|par|"
-    r"about|of|in|on|at|from|into|if|that|which|jo|wo|woh|ye|yeh|is|are|was|tell me|show me|give me|send me|batao mujhe)\s*$", re.I)
-# a sentence that starts by asking for something is rarely the whole request: the colour, the size or the occasion usually follows
-_DESIRE = re.compile(r"^(i (want|need|would like|wanna|am looking|'?m looking)|looking for|mujhe|hume|humein|i'd like)\b", re.I)
-# the words a sentence ends on, in the way customers write English and Hinglish without punctuation
-_FINAL = re.compile(
-    r"\b(hai|hain|hu|hoon|chahiye|chahiyein|batao|bataiye|bataye|dikhao|dikhaiye|dikhana|bhejo|bhejiye|dena|dijiye|milega|milegi|milenge|hoga|hogi|honge|"
-    r"kya|kaise|kab|kitna|kitne|kitni|kidhar|kahan|kaun|nahi|nahin|haan|ha|theek|thik|accha|achha|please|pls|plz|thanks|thank you|thankyou|ok|okay|"
-    r"done|price|rate|available|stock|discount|photo|photos|pics|link|address|location|timing|timings|open|aaya|aayi|chalega|chalegi)\s*$", re.I)
-_QUESTION_STEM = re.compile(r"^(can|could|would|will|do|does|is|are|how|what|when|where|which|who|why|kya|kitna|kab|kaise)\b", re.I)
-_GREETING = re.compile(r"^(hi+|hello+|hey+|hii+|namaste|namaskar|good (morning|evening|afternoon)|hlo|helo|namaskaram|vanakkam|नमस्ते)[\s!.,]*(sir|madam|ji|bhaiya|bhai|team)?[\s!.]*$", re.I)
+# a sentence end in any script: . ? ! | Devanagari danda | Arabic/Urdu full stop and question mark | CJK full stops | Armenian | Ethiopic, or a closing emoji
+_TERMINAL = re.compile(r"[.?!।॥۔؟。？！．‼‽։።፧។]\s*$|[🌀-🫿☀-➿]\s*$")
+# a trailing mark that says "more follows": comma, semicolon, colon, dash, in Latin, Arabic and CJK forms
+_CONTINUES = re.compile(r"[,;:\-–—،؛、，；：]\s*$")
+# scripts written without spaces between words: a "word" count would call a whole sentence one word, so count by characters instead
+_NO_SPACES = re.compile(r"[฀-໿က-႟ក-៿぀-ヿ㐀-鿿가-힯]")
+UNSURE_EXTRA = 1.25   # no word list can say a short unpunctuated message is finished, so it waits this much longer than a certain one, as a share of the shop's own quiet time (1.25 x 1200 ms = the 1500 ms measured in ADR 0051)
+COMPLETE_UNITS = 8                                          # a message this long with no punctuation is usually a whole thought
+
+
+def units(text: str) -> int:
+    """How many words the message holds, counting two characters as one word in scripts that do not separate words."""
+    return sum(max(1, len(tok) // 2) if _NO_SPACES.search(tok) else 1 for tok in text.split())
 
 
 def classify(text: str, kind: str, *, ai_asked: bool = False, first: bool = True) -> str:
-    """'complete' (answer now), 'open' (clearly more to come), 'partial' (a request that usually gets details) or 'unsure'. A rule over the
-    words, not a model: cheap, instant and the same every time. Only the last message of a burst is classified; the quiet time asked for
-    depends on the class. `first`: it is the burst's only message so far (a lone one-word message is a greeting or a fragment; a one-word
+    """'complete' (answer now), 'open' (clearly more to come) or 'unsure'. A rule over punctuation and length, not a model and not a word list:
+    cheap, instant, the same every time and the same in every language. Only the last message of a burst is classified; the quiet time asked for
+    depends on the class. `first`: it is the burst's only message so far (a lone one- or two-word message is a greeting or a fragment; a short
     addition to an earlier message is not)."""
     t = (text or "").strip()
     if kind == "audio":
@@ -63,23 +66,17 @@ def classify(text: str, kind: str, *, ai_asked: bool = False, first: bool = True
         return "open"
     if _ELLIPSIS.search(t):
         return "open"                                       # "so I was thinking..." is the start of something
-    if _GREETING.match(t):
-        return "open"                                       # a bare greeting is usually followed by the real question
     if _TERMINAL.search(t):
         return "complete"
     if _CONTINUES.search(t):
         return "open"
-    words = t.split()
-    if _FINAL.search(t):
+    n = units(t)
+    if ai_asked and n <= 4:
+        return "complete"                                   # a short reply to the question we just asked is the answer, not a fragment
+    if n >= COMPLETE_UNITS:
         return "complete"
-    if ai_asked and len(words) <= 4:
-        return "complete"                                   # "red", "yes", "tomorrow evening": the answer to what we just asked
-    if len(words) >= 8:
-        return "complete"
-    if _DESIRE.match(t) and len(words) <= 6:
-        return "partial"
-    if (len(words) <= 2 and first) or (_QUESTION_STEM.match(t) and len(words) < 5):
-        return "open"
+    if n <= 2 and first:
+        return "open"                                       # a lone short message is a greeting or the start of something
     return "unsure"
 
 
@@ -120,13 +117,11 @@ class HeuristicEOT:
         if cls == "complete":
             need = min(max(min_c, int(0.4 * gap) if gap else 0, 1500 if rapid else 0), 3000)
         elif cls == "unsure":
-            need = min(max(min_c + 600, int(0.9 * gap) if gap else 0), 3500)
-        elif cls == "partial":
-            need = min(max(min_c + 1400, int(1.1 * gap) if gap else 0), 3500)
+            need = min(max(int(min_c * (1 + UNSURE_EXTRA)), int(0.9 * gap) if gap else 0), 3500)
         else:
             floor = max(min_i, 4000) if kind == "image" and not (inp.texts[-1] or "").strip() else min_i      # a photo is often followed by its question
             need = min(max(floor, int(1.3 * gap) if gap else 0), min(max_wait, 10_000))
-        label = {"complete": "complete", "unsure": "unsure", "partial": "partial", "open": "incomplete"}[cls]
+        label = {"complete": "complete", "unsure": "unsure", "open": "incomplete"}[cls]
         if waited >= max_wait:
             return EotDecision(True, 0, "max_wait")
         if quiet >= need:

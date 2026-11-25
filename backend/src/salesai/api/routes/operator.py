@@ -241,6 +241,46 @@ async def alerts(rt: RT, p: Operator, resolved: bool = False, limit: Annotated[i
                WHERE (a.resolved_at IS NOT NULL) = %s ORDER BY a.last_seen_at DESC LIMIT %s""", (resolved, limit))).fetchall()
 
 
+class DeliveryOut(BaseModel):
+    id: int
+    alert_id: int | None
+    kind: str                                # alert | digest | recovery
+    severity: str
+    sink: str                                # email | webhook | whatsapp
+    ok: bool
+    provider_ref: str | None = None          # for email through SES: the message id to look up in the SES console
+    error: str | None = None
+    items: int = 1
+    created_at: datetime
+
+
+@router.get("/alerts/deliveries", response_model=list[DeliveryOut], summary="Every attempt to tell the founder: when, which way, accepted or not (ADR 0053)")
+async def alert_deliveries(rt: RT, p: Operator, limit: Annotated[int, Query(ge=1, le=200)] = 50) -> Any:
+    async with rt.db.system_tx() as c:
+        return await (await c.execute("SELECT * FROM alert_deliveries ORDER BY id DESC LIMIT %s", (limit,))).fetchall()
+
+
+class ShopMailOut(BaseModel):
+    id: int
+    business_name: str | None
+    purpose: str                             # billing | support | account | updates
+    template: str
+    status: str                              # pending | sent | failed | skipped
+    attempts: int
+    provider_ref: str | None = None
+    error: str | None = None                 # why it failed or was skipped; never an address
+    created_at: datetime
+    sent_at: datetime | None = None
+
+
+@router.get("/mail", response_model=list[ShopMailOut], summary="Mail sent to shop owners: what, to which shop, and whether it went (ADR 0054)")
+async def shop_mail(rt: RT, p: Operator, limit: Annotated[int, Query(ge=1, le=200)] = 50) -> Any:
+    async with rt.db.system_tx() as c:
+        return await (await c.execute(
+            """SELECT o.id, b.name AS business_name, o.purpose, o.template, o.status, o.attempts, o.provider_ref, o.error, o.created_at, o.sent_at
+               FROM mail_outbox o LEFT JOIN businesses b ON b.id = o.business_id ORDER BY o.id DESC LIMIT %s""", (limit,))).fetchall()
+
+
 @router.post("/alerts/{alert_id}/resolve", status_code=204)
 async def resolve_alert(alert_id: int, rt: RT, p: Operator) -> None:
     async with rt.db.system_tx() as c:

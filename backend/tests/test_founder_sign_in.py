@@ -60,8 +60,14 @@ async def test_only_the_number_in_the_deployment_setting_can_ever_sign_in(world,
     tokens = await admin_login(client, world.rt, phone, secret)
     assert (await client.get(f"{V1}/operator/businesses", headers=bearer(tokens))).status_code == 200
     monkeypatch.setattr(world.rt.settings, "founder_phone", "+919000011111")              # the deployment names somebody else
-    assert (await client.get(f"{V1}/operator/businesses", headers=bearer(tokens))).status_code == 401
-    assert (await sign_in(client, world.rt, secret, steps_ahead=1)).status_code == 401
+    assert (await client.get(f"{V1}/operator/businesses", headers=bearer(tokens))).status_code == 401      # the old session ends at once
+    r = (await sign_in(client, world.rt, secret, steps_ahead=1)).json()                    # the deployment's own settings decide who the founder is: now that number
+    assert r["step_up"] == "codes"
+    done = (await step_up(client, "+919000011111", r["ticket"])).json()
+    assert (await client.get(f"{A1}/auth/me", headers=bearer(done))).json()["phone"] == "+919000011111"
+    async with world.rt.db.console_tx() as c:
+        ops = {x["phone"] for x in await (await c.execute("SELECT phone FROM accounts WHERE platform_role='operator'")).fetchall()}
+    assert ops == {"+919000011111"}                                                          # and nobody else is an operator
 
 
 async def test_editing_the_founders_number_in_the_database_locks_them_out_and_lets_nobody_in(world, client):
@@ -71,8 +77,18 @@ async def test_editing_the_founders_number_in_the_database_locks_them_out_and_le
     async with world.rt.db.system_tx() as c:                          # an attacker with database access renames the account to a number they hold
         await c.execute("UPDATE accounts SET phone=%s WHERE phone=%s", (other, phone))
     assert (await client.get(f"{V1}/operator/businesses", headers=bearer(tokens))).status_code == 401      # the session ends: the number is not the deployment's
-    assert (await sign_in(client, world.rt, secret, steps_ahead=1)).status_code == 401                     # and nobody can sign in as the renamed account
-    async with world.rt.db.system_tx() as c:
+    async def sessions_of_renamed() -> int:
+        async with world.rt.db.console_tx() as c:
+            return int((await (await c.execute("SELECT count(*) AS n FROM admin_sessions s JOIN accounts a ON a.id=s.account_id WHERE a.phone=%s", (other,))).fetchone())["n"])
+    before = await sessions_of_renamed()
+    r = (await sign_in(client, world.rt, secret, steps_ahead=1)).json()                                    # the founder (who holds the secret) gets back in, on the row the deployment names
+    assert r["step_up"] == "codes"
+    async with world.rt.db.console_tx() as c:
+        renamed = await (await c.execute("SELECT platform_role FROM accounts WHERE phone=%s", (other,))).fetchone()
+    assert renamed["platform_role"] is None and await sessions_of_renamed() == before                     # the renamed account is nobody: no role, and no new session
+    async with world.rt.db.console_tx() as c:
+        await c.execute("DELETE FROM admin_credentials WHERE account_id IN (SELECT id FROM accounts WHERE phone=%s)", (phone,))     # the row the deployment's settings recreated
+        await c.execute("DELETE FROM accounts WHERE phone=%s", (phone,))
         await c.execute("UPDATE accounts SET phone=%s WHERE phone=%s", (phone, other))
 
 
@@ -81,10 +97,9 @@ async def test_another_operator_account_is_not_a_founder_even_with_an_authentica
     other = f"+9192{uuid.uuid4().int % 10**8:08d}"
     async with world.rt.db.console_tx() as c:
         acct = await (await c.execute("INSERT INTO accounts (phone, name, platform_role) VALUES (%s,'Second','operator') RETURNING id", (other,))).fetchone()
-        mine = await (await c.execute("SELECT totp_secret_enc FROM admin_credentials WHERE account_id=(SELECT id FROM accounts WHERE phone=%s)", (phone,))).fetchone()
-        await c.execute("INSERT INTO admin_credentials (account_id, totp_secret_enc) VALUES (%s,%s)", (acct["id"], mine["totp_secret_enc"]))   # a valid secret: the same one
+        await c.execute("INSERT INTO admin_credentials (account_id) VALUES (%s)", (acct["id"],))        # state for it too: the only secret there is, is the deployment's
     r = await sign_in(client, world.rt, secret)
-    assert r.status_code == 200 and r.json().get("step_up") == "whatsapp_code"           # the founder gets in (with the second layer, fresh browser)
+    assert r.status_code == 200 and r.json().get("step_up") == "codes"           # the founder gets in (with the second layer, fresh browser)
     t = r.json()["ticket"]
     async with world.rt.db.console_tx() as c:
         sub = (await (await c.execute("SELECT account_id FROM admin_sessions ORDER BY created_at DESC LIMIT 1")).fetchone())["account_id"]
@@ -142,19 +157,20 @@ async def test_the_whatsapp_code_is_only_sent_to_someone_holding_a_ticket(world,
     phone, secret = await make_admin(world)
     before = await otp_rows(world)
     for bad in ("not-a-ticket-" + "x" * 30, "a" * 60):
-        assert (await client.post(f"{A1}/auth/step-up/send", json={"ticket": bad})).status_code == 401
+        assert (await client.post(f"{A1}/auth/step-up/send", json={"ticket": bad, "channel": "whatsapp"})).status_code == 401
+        assert (await client.post(f"{A1}/auth/step-up/send", json={"ticket": bad, "channel": "email"})).status_code == 401
     tokens = await admin_login(client, world.rt, phone, secret)                              # a full session is not a ticket either
-    assert (await client.post(f"{A1}/auth/step-up/send", json={"ticket": tokens["access_token"]})).status_code == 401
+    assert (await client.post(f"{A1}/auth/step-up/send", json={"ticket": tokens["access_token"], "channel": "whatsapp"})).status_code == 401
     assert await otp_rows(world) == before + 1                                               # only the legitimate step-up sent one code
 
 
 async def test_a_wrong_whatsapp_code_is_refused_and_counts_toward_the_same_lock(world, client):
     phone, secret = await make_admin(world)
     t = (await sign_in(client, world.rt, secret)).json()["ticket"]
-    assert (await client.post(f"{A1}/auth/step-up/send", json={"ticket": t})).status_code == 202
+    assert (await client.post(f"{A1}/auth/step-up/send", json={"ticket": t, "channel": "whatsapp"})).status_code == 202
     for _ in range(5):
-        assert (await client.post(f"{A1}/auth/step-up/verify", json={"ticket": t, "code": "000000"})).status_code == 401
-    r = await client.post(f"{A1}/auth/step-up/verify", json={"ticket": t, "code": await whatsapp_code(client, phone)})
+        assert (await client.post(f"{A1}/auth/step-up/verify", json={"ticket": t, "code": "000000", "channel": "whatsapp"})).status_code == 401
+    r = await client.post(f"{A1}/auth/step-up/verify", json={"ticket": t, "code": await whatsapp_code(client, phone), "channel": "whatsapp"})
     assert r.status_code == 429                                                                 # even the right code, while locked
     assert (await sign_in(client, world.rt, secret, steps_ahead=1)).status_code == 429
 
@@ -164,7 +180,7 @@ async def test_a_wrong_whatsapp_code_is_refused_and_counts_toward_the_same_lock(
 async def test_the_first_sign_in_asks_for_the_whatsapp_code_and_then_the_browser_is_trusted(world, client):
     phone, secret = await make_admin(world)
     first = (await sign_in(client, world.rt, secret)).json()
-    assert first["step_up"] == "whatsapp_code" and first["reason"] == "first_sign_in" and "access_token" not in first
+    assert first["step_up"] == "codes" and first["reason"] == "first_sign_in" and "access_token" not in first
     done = await step_up(client, phone, first["ticket"])
     assert done.status_code == 200 and "access_token" in done.json()
     again = (await sign_in(client, world.rt, secret, steps_ahead=1)).json()                     # same browser, same place, nothing odd
@@ -176,7 +192,7 @@ async def test_a_browser_the_founder_has_not_signed_in_from_needs_the_whatsapp_c
     await admin_login(client, world.rt, phone, secret)
     async with another_browser(client) as other:
         r = (await sign_in(other, world.rt, secret, steps_ahead=1)).json()
-        assert r["step_up"] == "whatsapp_code" and r["reason"] == "new_device"
+        assert r["step_up"] == "codes" and r["reason"] == "new_device"
 
 
 async def test_wrong_codes_since_the_last_good_sign_in_make_the_next_one_ask_for_whatsapp_even_on_a_trusted_browser(world, client):
@@ -185,7 +201,7 @@ async def test_wrong_codes_since_the_last_good_sign_in_make_the_next_one_ask_for
     await fresh_step(world)
     assert (await client.post(f"{A1}/auth/sign-in", json={"code": "000000"})).status_code == 401       # someone guessed
     r = (await sign_in(client, world.rt, secret)).json()
-    assert r["step_up"] == "whatsapp_code" and r["reason"] == "wrong_codes"
+    assert r["step_up"] == "codes" and r["reason"] == "wrong_codes"
     assert (await step_up(client, phone, r["ticket"])).status_code == 200
     await fresh_step(world)
     assert "access_token" in (await sign_in(client, world.rt, secret)).json()                          # proven again: back to routine
@@ -200,7 +216,7 @@ async def test_a_new_network_asks_for_the_whatsapp_code_but_the_same_neighbourho
     assert "access_token" in near                                                                    # same /24
     await fresh_step(world)
     far = (await sign_in(client, world.rt, secret, headers={"X-Forwarded-For": "198.51.100.7"})).json()
-    assert far["step_up"] == "whatsapp_code" and far["reason"] == "new_network"
+    assert far["step_up"] == "codes" and far["reason"] == "new_network"
 
 
 def test_networks_are_compared_by_neighbourhood_not_exact_address():
@@ -217,7 +233,7 @@ async def test_a_lock_makes_the_next_good_sign_in_ask_for_whatsapp(world, client
     async with world.rt.db.console_tx() as c:
         await c.execute("UPDATE admin_credentials SET locked_until = now() - interval '1 second'")
     r = (await sign_in(client, world.rt, secret, steps_ahead=1)).json()
-    assert r["step_up"] == "whatsapp_code"
+    assert r["step_up"] == "codes"
     assert (await step_up(client, phone, r["ticket"])).status_code == 200
     assert (await credentials(world))["was_locked"] is False                                         # a full sign-in clears it
 
@@ -228,7 +244,7 @@ async def test_a_trusted_browser_is_forgotten_after_the_trust_period(world, clie
     later = datetime.now(UTC).timestamp() + (world.rt.settings.admin_device_trust_days + 1) * 86400
     monkeypatch.setattr(world.rt.admin_auth, "clock", lambda: later)
     r = (await sign_in(client, world.rt, secret)).json()
-    assert r["step_up"] == "whatsapp_code" and r["reason"] == "new_device"
+    assert r["step_up"] == "codes" and r["reason"] == "new_device"
 
 
 async def test_at_most_five_browsers_stay_trusted_and_the_oldest_is_dropped(world, client):
@@ -253,11 +269,12 @@ async def test_at_most_five_browsers_stay_trusted_and_the_oldest_is_dropped(worl
 async def test_enrolling_again_forgets_every_trusted_browser_and_signs_everyone_out(world, client):
     phone, secret = await make_admin(world)
     tokens = await admin_login(client, world.rt, phone, secret)
-    new = await enroll_admin(world.rt.db, world.rt.settings)
+    again = await enroll_admin(world.rt.db, world.rt.settings)
+    assert again == secret
     assert (await client.get(f"{V1}/operator/businesses", headers=bearer(tokens))).status_code == 401
     assert (await credentials(world))["trusted_devices"] == []
-    r = (await sign_in(client, world.rt, new, steps_ahead=1)).json()
-    assert r["step_up"] == "whatsapp_code" and r["reason"] == "first_sign_in"
+    r = (await sign_in(client, world.rt, secret, steps_ahead=1)).json()
+    assert r["step_up"] == "codes" and r["reason"] == "first_sign_in" and r["risk"] == "high"
 
 
 # ---------------------------------------------------------------- the trusted-browser cookie
@@ -265,9 +282,7 @@ async def test_enrolling_again_forgets_every_trusted_browser_and_signs_everyone_
 async def test_the_trusted_browser_cookie_is_locked_down_and_only_its_hash_is_stored(world, client):
     phone, secret = await make_admin(world)
     first = (await sign_in(client, world.rt, secret)).json()
-    sent = await client.post(f"{A1}/auth/step-up/send", json={"ticket": first["ticket"]})
-    assert sent.status_code == 202
-    done = await client.post(f"{A1}/auth/step-up/verify", json={"ticket": first["ticket"], "code": await whatsapp_code(client, phone)})
+    done = await step_up(client, phone, first["ticket"])
     cookie = done.headers["set-cookie"]
     assert "admin_device=" in cookie and "HttpOnly" in cookie and "SameSite=strict" in cookie and "Path=/admin/v1/auth" in cookie
     token = re.search(r"admin_device=([^;]+)", cookie).group(1)
@@ -318,9 +333,10 @@ async def test_the_enrol_command_prints_the_qr_the_secret_and_the_link_and_the_s
     from salesai.__main__ import admin_enroll
     await admin_enroll()
     out = capsys.readouterr().out
-    assert "Authenticator enrolled for the founder (+919999900000)" in out and "otpauth://totp/" in out
+    assert "The authenticator for the founder (+919999900000, founder@chatdeal.example)" in out and "otpauth://totp/" in out
     secret = re.search(r"secret=([A-Z2-7]+)", out).group(1)
+    assert secret == world.rt.settings.founder_totp_secret                  # the QR is the deployment's own secret: nothing new is made or stored
     assert secret in out                                                    # the typed fallback
     assert any(ch in out for ch in "█▀▄#")                                  # the QR drawing
     r = await client.post(f"{A1}/auth/sign-in", json={"code": code_for(world.rt, secret)})
-    assert r.status_code == 200 and r.json()["step_up"] == "whatsapp_code"  # the first sign-in after enrolment
+    assert r.status_code == 200 and r.json()["step_up"] == "codes" and r.json()["risk"] == "high"  # the first sign-in after enrolment: both extra codes

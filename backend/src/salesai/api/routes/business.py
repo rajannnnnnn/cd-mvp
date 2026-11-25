@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -15,6 +16,7 @@ from salesai.events.outbox import emit
 from salesai.gateway_wait import wait_for_gateway
 from salesai.modules.auth import Principal
 from salesai.modules.catalog import repo
+from salesai.modules.mail import enqueue
 from salesai.modules.tenants import (
     add_simulated_number,
     cancel_deletion,
@@ -36,6 +38,7 @@ class SalesSettingsIn(BaseModel):
     proactiveness: Literal["low", "medium", "high"] | None = None
     may_mention_offers: bool | None = None
     honorific: str | None = Field(default=None, max_length=12)
+    owner_title: Literal["sir", "madam"] | None = None        # how customers are told to address the owner when the chat is handed over ("Rajesh sir")
     handoff_value_threshold: Decimal | None = Field(default=None, ge=0, le=Decimal("100000000"))
     handover_instructions: str | None = Field(default=None, max_length=1000)     # the owner's own words: when the assistant must hand the chat over
     language_default: Literal["en", "hi", "hinglish"] | None = None
@@ -92,6 +95,7 @@ class BusinessPatch(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=120)
     slug: str | None = Field(default=None, max_length=40, description="The shop's web address: /app/<slug>")
     timezone: str | None = Field(default=None, max_length=60)
+    billing_email: str | None = Field(default=None, max_length=254, description="The one address for billing and support mail. Empty clears it.")
     profile: ProfileIn | None = None
     sales_settings: SalesSettingsIn | None = None
     conversation_settings: ConversationSettingsIn | None = None
@@ -114,6 +118,7 @@ class BusinessOut(BaseModel):
     name: str
     slug: str
     timezone: str
+    billing_email: str | None = None
     status: str
     ai_enabled: bool
     plan: str
@@ -149,7 +154,7 @@ async def _load(rt: Runtime, p: Principal) -> BusinessOut:
     async with tx(rt, p) as c:
         b = await (await c.execute("SELECT * FROM businesses WHERE id=%s", (p.bid,))).fetchone()
         ns = await (await c.execute("SELECT * FROM whatsapp_numbers ORDER BY created_at")).fetchall()
-    return BusinessOut(deletion_scheduled_for=await deletion_date(rt.db, p.bid), **{k: b[k] for k in ("id", "name", "slug", "timezone", "status", "ai_enabled", "plan", "profile", "sales_settings", "conversation_settings", "timing_params", "limits")},
+    return BusinessOut(deletion_scheduled_for=await deletion_date(rt.db, p.bid), **{k: b[k] for k in ("id", "name", "slug", "timezone", "billing_email", "status", "ai_enabled", "plan", "profile", "sales_settings", "conversation_settings", "timing_params", "limits")},
                        numbers=[NumberOut(**{k: n[k] for k in ("id", "channel", "display_phone", "verified_name", "status", "quality_rating", "status_reason", "coexistence")}) for n in ns])
 
 
@@ -174,6 +179,12 @@ async def patch_business(body: BusinessPatch, rt: RT, p: Owner) -> BusinessOut:
                 raise ApiError(409, "slug_taken", "That web address is already used. Try another.")
             await c.execute("UPDATE businesses SET slug=%s WHERE id=%s", (d["slug"], p.bid))
             await repo.audit(c, p.bid, p.account_id, "owner", "slug.changed", "business", str(p.bid), {"slug": d["slug"]})
+        if "billing_email" in d:
+            email = (d["billing_email"] or "").strip()
+            if email and not re.fullmatch(r"[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+", email):
+                raise ApiError(422, "invalid_email", "That does not look like an email address.")
+            await c.execute("UPDATE businesses SET billing_email=%s WHERE id=%s", (email or None, p.bid))
+            await repo.audit(c, p.bid, p.account_id, "owner", "billing_email.changed", "business", str(p.bid), {"set": bool(email)})
         if "timezone" in d and d["timezone"]:
             from zoneinfo import ZoneInfo
             try:
@@ -342,6 +353,8 @@ async def delete_my_business(rt: RT, p: Owner, confirm_name: Annotated[str, Quer
     if row["name"] != confirm_name:
         raise ApiError(422, "confirmation_mismatch", "Type the shop name exactly to confirm deletion.")
     when = await request_deletion(rt.db, p.bid, p.account_id, rt.settings.deletion_grace_days)
+    async with rt.db.system_tx() as s:
+        await enqueue(s, p.bid, "deletion_requested", {"delete_on": when}, f"deletion_requested:{p.bid}:{when:%Y-%m-%d}")
     return {"scheduled_for": when, "grace_days": rt.settings.deletion_grace_days}
 
 

@@ -18,6 +18,7 @@ dependencies = [
   "python-multipart>=0.0.12",
   "sse-starlette>=2.1",
   "anthropic>=1.0",
+  "boto3>=1.35",                # Amazon SES API for founder alert mail (ADR 0052); only loaded when EMAIL_TRANSPORT=ses
   "segno>=1.6",                 # the founder sign-in QR code (ADR 0047): pure Python, no dependencies
 ]
 
@@ -80,6 +81,11 @@ module = [
 ]
 disable_error_code = ["index", "union-attr"]
 warn_return_any = false
+
+# boto3 ships no type information (Amazon SES alert mail, ADR 0052).
+[[tool.mypy.overrides]]
+module = ["boto3", "botocore", "botocore.*"]
+ignore_missing_imports = true
 
 # Demo-data loader: development tooling, not product logic.
 [[tool.mypy.overrides]]

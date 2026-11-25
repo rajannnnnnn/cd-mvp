@@ -82,6 +82,7 @@ async def build_plan(ctx: ctxmod.TurnContext, out: PlannerOutput, pricing: Prici
     sales = ctx.business["sales_settings"] or {}
     qual: dict[str, Any] = dict(ctx.qualification)
     qual.update({k: v for k, v in out.qualification.items() if v not in (None, "")})
+    qual["last_language"] = out.language                  # kept with the chat: the one message sent when the AI cannot answer is in this language
     plan = Plan(intent=out.intent, language=out.language, script=out.script,
                 sincere_identity_question=out.sincere_identity_question)
     plan.selling_stopped = out.selling_stopped or ctx.conv["selling_stopped"]

@@ -42,11 +42,25 @@ async def sign_in(client, rt, secret: str, *, steps_ahead: int = 0, headers: dic
     return await client.post(f"{A1}/auth/sign-in", json={"code": code_for(rt, secret, steps_ahead=steps_ahead)}, headers=headers)
 
 
-async def step_up(client, phone: str, ticket: str, *, headers: dict | None = None):
-    """The second layer: ask for the WhatsApp code, read it on the founder's phone, send it back."""
-    sent = await client.post(f"{A1}/auth/step-up/send", json={"ticket": ticket}, headers=headers)
-    assert sent.status_code == 202, sent.text
-    return await client.post(f"{A1}/auth/step-up/verify", json={"ticket": ticket, "code": await whatsapp_code(client, phone)}, headers=headers)
+async def email_code(client, phone: str) -> str:
+    """The emailed code. In the simulator it lands in the same inbox as the WhatsApp one (nothing is really sent)."""
+    inbox = (await client.get("/api/v1/sim/inbox", params={"phone": phone})).json()
+    return re.search(r"([0-9]{8})", [m for m in inbox if m["template_name"] == "admin_login_code_email"][-1]["body"]).group(1)
+
+
+async def step_up(client, phone: str, ticket: str, *, headers: dict | None = None, channels: tuple[str, ...] = ("whatsapp", "email")):
+    """The extra proof: for each channel in turn ask for the code, read it where the founder would, send it back. Stops at the first session (an elevated
+    sign-in needs one channel, a high one needs both). Returns the last response."""
+    last = None
+    for channel in channels:
+        sent = await client.post(f"{A1}/auth/step-up/send", json={"ticket": ticket, "channel": channel}, headers=headers)
+        assert sent.status_code == 202, sent.text
+        code = await (whatsapp_code(client, phone) if channel == "whatsapp" else email_code(client, phone))
+        last = await client.post(f"{A1}/auth/step-up/verify", json={"ticket": ticket, "code": code, "channel": channel}, headers=headers)
+        assert last.status_code == 200, last.text
+        if "access_token" in last.json():
+            return last
+    return last
 
 
 async def admin_login(client, rt, phone: str, secret: str, *, steps_ahead: int = 0, headers: dict | None = None) -> dict:

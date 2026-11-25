@@ -19,7 +19,7 @@ async def test_the_writer_is_given_the_customers_style_and_it_is_kept_with_the_c
         await settle(world, shop, phone, want=2)
         writer = [r for r in rec.requests if r.stage == "writer"][-1].input
         assert writer["customer_style"]["register"] in ("very_casual", "casual") and writer["customer_style"]["uses_emoji"] is True
-        assert writer["customer_style"]["dominant_language"] == "hinglish"
+        assert writer["customer_style"]["script"] == "latin"
         assert writer["reply_hint"]["emoji"] == "one_is_fine" and writer["reply_hint"]["max_words"] <= 20
         planner = [r for r in rec.requests if r.stage == "planner"][-1].input
         assert planner["customer"]["style"]["register"] == writer["customer_style"]["register"]

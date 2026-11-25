@@ -35,19 +35,18 @@ def test_a_plain_customer_is_neutral():
 
 
 def test_language_and_script():
+    """The script is read from the letters; the language is the model's to read (ADR 0051), so no language is guessed here."""
     h = style_of(HINGLISH)
-    assert h["language"]["hinglish"] > 0.6 and h["script"] == "latin" and h["dominant_language"] == "hinglish"
+    assert h["script"] == "latin" and h["scripts"] == {"latin": 1.0} and "language" not in h
     d = style_of(HINDI)
-    assert d["script"] == "devanagari" and d["dominant_language"] == "hi"
-    e = style_of(NEUTRAL)
-    assert e["dominant_language"] == "en" and e["language"]["en"] > 0.8
-    mixed = style_of(HINGLISH + NEUTRAL)
-    assert mixed["language"]["hinglish"] > 0.2 and mixed["language"]["en"] > 0.2          # a customer who switches is described as one
+    assert d["script"] == "devanagari" and d["scripts"] == {"devanagari": 1.0}
+    mixed = style_of(HINDI + NEUTRAL)
+    assert set(mixed["scripts"]) == {"devanagari", "latin"}                 # a customer who switches script is described as one
 
 
 def test_nothing_known_yet_is_neutral_and_says_so():
     s = style_of([])
-    assert s["messages"] == 0 and s["register"] == "neutral" and s["uses_emoji"] is False and s["dominant_language"] == "en"
+    assert s["messages"] == 0 and s["register"] == "neutral" and s["uses_emoji"] is False and s["script"] == "latin"
 
 
 def test_only_the_recent_messages_count_so_a_customer_who_changes_tone_is_followed():

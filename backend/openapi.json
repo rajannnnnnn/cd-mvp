@@ -530,6 +530,17 @@
             "title": "Ai Enabled",
             "type": "boolean"
           },
+          "billing_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Billing Email"
+          },
           "conversation_settings": {
             "additionalProperties": true,
             "title": "Conversation Settings",
@@ -621,6 +632,19 @@
       "BusinessPatch": {
         "additionalProperties": false,
         "properties": {
+          "billing_email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The one address for billing and support mail. Empty clears it.",
+            "title": "Billing Email"
+          },
           "conversation_settings": {
             "anyOf": [
               {
@@ -1832,6 +1856,84 @@
           "customer"
         ],
         "title": "DealOut",
+        "type": "object"
+      },
+      "DeliveryOut": {
+        "properties": {
+          "alert_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alert Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "items": {
+            "default": 1,
+            "title": "Items",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "provider_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Ref"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "sink": {
+            "title": "Sink",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "alert_id",
+          "kind",
+          "severity",
+          "sink",
+          "ok",
+          "created_at"
+        ],
+        "title": "DeliveryOut",
         "type": "object"
       },
       "DeviceOut": {
@@ -4784,6 +4886,21 @@
             ],
             "title": "May Mention Offers"
           },
+          "owner_title": {
+            "anyOf": [
+              {
+                "enum": [
+                  "sir",
+                  "madam"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Title"
+          },
           "proactiveness": {
             "anyOf": [
               {
@@ -4851,6 +4968,18 @@
             ],
             "description": "the same value means the same browser",
             "title": "Browser Id"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "only when the front proxy sends it",
+            "title": "City"
           },
           "country": {
             "anyOf": [
@@ -4920,6 +5049,18 @@
             "title": "Is Current",
             "type": "boolean"
           },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the browser's preferred language",
+            "title": "Language"
+          },
           "last_seen_at": {
             "anyOf": [
               {
@@ -4941,7 +5082,7 @@
                 "type": "null"
               }
             ],
-            "description": "authenticator | authenticator+whatsapp | extended",
+            "description": "every proof used, e.g. authenticator+whatsapp+email, or extended",
             "title": "Method"
           },
           "network": {
@@ -4954,6 +5095,42 @@
               }
             ],
             "title": "Network"
+          },
+          "proofs": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "the proofs used, in order",
+            "title": "Proofs"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "only when the front proxy sends it",
+            "title": "Region"
+          },
+          "risk": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "routine | elevated | high: how much proof this login had to give",
+            "title": "Risk"
           },
           "started_at": {
             "format": "date-time",
@@ -5019,6 +5196,91 @@
           "duration_s"
         ],
         "title": "SessionOut",
+        "type": "object"
+      },
+      "ShopMailOut": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "business_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Name"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "provider_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Ref"
+          },
+          "purpose": {
+            "title": "Purpose",
+            "type": "string"
+          },
+          "sent_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sent At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "template": {
+            "title": "Template",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "business_name",
+          "purpose",
+          "template",
+          "status",
+          "attempts",
+          "created_at"
+        ],
+        "title": "ShopMailOut",
         "type": "object"
       },
       "SignInIn": {
@@ -5425,8 +5687,36 @@
         "title": "StepAction",
         "type": "object"
       },
+      "StepUpSend": {
+        "properties": {
+          "channel": {
+            "description": "where to send the code",
+            "pattern": "^(whatsapp|email)$",
+            "title": "Channel",
+            "type": "string"
+          },
+          "ticket": {
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Ticket",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticket",
+          "channel"
+        ],
+        "title": "StepUpSend",
+        "type": "object"
+      },
       "StepUpVerify": {
         "properties": {
+          "channel": {
+            "description": "the channel the code came from",
+            "pattern": "^(whatsapp|email)$",
+            "title": "Channel",
+            "type": "string"
+          },
           "code": {
             "maxLength": 12,
             "minLength": 1,
@@ -5442,7 +5732,8 @@
         },
         "required": [
           "ticket",
-          "code"
+          "code",
+          "channel"
         ],
         "title": "StepUpVerify",
         "type": "object"
@@ -7178,7 +7469,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "The authenticator code. Returns a session, or a ticket when a WhatsApp code is needed as well",
+        "summary": "The authenticator code. Returns a session, or a ticket when more codes (WhatsApp, email) are needed as well",
         "tags": [
           "admin-auth"
         ]
@@ -7191,7 +7482,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/salesai__api__routes__admin_auth__TicketIn"
+                "$ref": "#/components/schemas/StepUpSend"
               }
             }
           },
@@ -7221,7 +7512,50 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Send the second-layer WhatsApp code to the founder (needs a ticket)",
+        "summary": "Send one code, by WhatsApp or email, to the founder (needs a ticket)",
+        "tags": [
+          "admin-auth"
+        ]
+      }
+    },
+    "/admin/v1/auth/step-up/status": {
+      "post": {
+        "operationId": "step_up_status_admin_v1_auth_step_up_status_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/salesai__api__routes__admin_auth__TicketIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Step Up Status Admin V1 Auth Step Up Status Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Where a sign-in stands (so a page refresh loses nothing). Sends nothing",
         "tags": [
           "admin-auth"
         ]
@@ -7264,7 +7598,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "The WhatsApp code. Returns the console session",
+        "summary": "One code. Returns the console session, or the ticket's progress when more is needed",
         "tags": [
           "admin-auth"
         ]
@@ -10653,6 +10987,71 @@
         ]
       }
     },
+    "/api/v1/operator/alerts/deliveries": {
+      "get": {
+        "operationId": "alert_deliveries_api_v1_operator_alerts_deliveries_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DeliveryOut"
+                  },
+                  "title": "Response Alert Deliveries Api V1 Operator Alerts Deliveries Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Every attempt to tell the founder: when, which way, accepted or not (ADR 0053)",
+        "tags": [
+          "operator"
+        ]
+      }
+    },
     "/api/v1/operator/alerts/{alert_id}/resolve": {
       "post": {
         "operationId": "resolve_alert_api_v1_operator_alerts__alert_id__resolve_post",
@@ -12275,6 +12674,71 @@
           }
         },
         "summary": "Confirm a bank transfer / UPI payment for an invoice",
+        "tags": [
+          "operator"
+        ]
+      }
+    },
+    "/api/v1/operator/mail": {
+      "get": {
+        "operationId": "shop_mail_api_v1_operator_mail_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ShopMailOut"
+                  },
+                  "title": "Response Shop Mail Api V1 Operator Mail Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mail sent to shop owners: what, to which shop, and whether it went (ADR 0054)",
         "tags": [
           "operator"
         ]

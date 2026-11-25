@@ -338,7 +338,8 @@ def test_the_alert_path_cannot_even_look_up_a_subscribers_address():
         for node in ast.walk(ast.parse(f.read_text())):
             if isinstance(node, ast.Constant) and isinstance(node.value, str) and re.search(r"\b(SELECT|INSERT|UPDATE|DELETE)\b", node.value):
                 seen |= {t.lower() for t in table.findall(node.value)} - {"set"}     # `DO UPDATE SET` is not a table
-    assert seen == {"operator_alerts", "businesses"}, seen
+    # alert_deliveries (ADR 0053) is the platform's own record of what was sent: sink, outcome, provider id. It holds no address or text.
+    assert seen == {"operator_alerts", "businesses", "alert_deliveries"}, seen
     for f in files:
         text = f.read_text()
         assert "business_users" not in text and "owner_phone" not in text and "display_phone" not in text, f.name
@@ -347,7 +348,7 @@ def test_the_alert_path_cannot_even_look_up_a_subscribers_address():
 # ---------------------------------------------------------------- configuration
 
 def _settings(**kw) -> Settings:
-    base = dict(role="all", master_key="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=", jwt_secret="j" * 32, otp_secret="o" * 32,
+    base = dict(email_transport="smtp", llm_provider="local", role="all", master_key="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=", jwt_secret="j" * 32, otp_secret="o" * 32,
                 meta_app_secret="m" * 12, meta_verify_token="v" * 12)
     return Settings(**{**base, **kw})
 

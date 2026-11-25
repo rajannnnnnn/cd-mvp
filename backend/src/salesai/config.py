@@ -108,6 +108,11 @@ class Settings(BaseSettings):
     admin_jwt_secret: str = Field("", description="at least 32 characters, different from JWT_SECRET. Admin part only")
     admin_session_minutes: int = 30           # how long a console session lasts; there is no refresh, only a fresh authenticator code
     founder_phone: str = Field("", description="the one founder's WhatsApp number, set at deployment; the only number the console ever admits (ADR 0047). Admin part only")
+    founder_email: str = Field("", description="the founder's email: the second out-of-band channel for the console sign-in (ADR 0056). Admin part only")
+    founder_totp_secret: str = Field("", description="the founder's authenticator secret (base32, from `python -m salesai admin-enroll --new-secret`); the database never holds it. Admin part only")
+    admin_email_from: str = Field("", description="the sender of the console's sign-in code emails, e.g. ChatDeal Access <access@yourcompany.example>; verified in SES. Admin part only")
+    admin_geo_city_header: str = Field("", description="the proxy's header carrying the visitor's city (Cloudflare: CF-IPCity), recorded on each console session; empty = not recorded")
+    admin_geo_region_header: str = Field("", description="the proxy's header carrying the visitor's region (Cloudflare: CF-Region), recorded on each console session; empty = not recorded")
     admin_device_trust_days: int = Field(30, ge=1, le=90)   # how long a browser the founder has signed in from stays trusted (no WhatsApp code needed there)
     admin_geo_header: str = Field("", description="the front proxy's country header, e.g. CF-IPCountry; shown as the sign-in's country (no IP lookup is ever made, ADR 0048)")
     admin_allowed_origins: str = ""           # the console's own origin(s), e.g. https://admin.yourcompany.example
@@ -129,7 +134,7 @@ class Settings(BaseSettings):
     tiering_enabled: bool = True
     tiering_planner_intents: str = ""          # comma-separated intents the rules may decide alone; empty = the built-in safe list
     tiering_skip_check_when_low_risk: bool = True    # skip the optional model check for replies that state nothing risky (greetings, thanks, questions back)
-    llm_provider: Literal["local", "anthropic", "openai_compat"] = "local"
+    llm_provider: Literal["local", "anthropic", "openai_compat"] = "openai_compat"   # OpenRouter by default (the base URL below decides the vendor); `local` is the test stand-in only
     llm_provider_planner: Literal["", "local", "anthropic", "openai_compat"] = ""   # "" = llm_provider
     llm_provider_writer: Literal["", "local", "anthropic", "openai_compat"] = ""
     llm_provider_check: Literal["", "local", "anthropic", "openai_compat"] = ""
@@ -137,7 +142,7 @@ class Settings(BaseSettings):
     llm_fallback_model: str = ""                       # model the fallback runs; "" = each stage's own model
     anthropic_api_key: str = ""
     anthropic_base_url: str = "https://api.anthropic.com"
-    openai_compat_base_url: str = ""                   # e.g. https://api.groq.com/openai/v1, or a self-hosted vLLM
+    openai_compat_base_url: str = "https://openrouter.ai/api/v1"   # OpenRouter by default; e.g. https://api.groq.com/openai/v1, or a self-hosted vLLM
     openai_compat_api_key: str = ""
     openai_compat_thinking_tokens: int = Field(0, ge=0, le=32000)   # extra tokens per reply for a thinking model (Gemini 2.5, gpt-oss); billed only as used
     llm_json_mode: Literal["json_schema", "json_object"] = "json_schema"   # json_object for hosts without schema support
@@ -174,6 +179,21 @@ class Settings(BaseSettings):
     deletion_grace_days: int = Field(60, ge=0, le=365, description="days between an owner asking to delete their shop and the erasure; the owner can cancel until then")
     alert_email_to: str = ""                # comma-separated addresses, e.g. you@yourcompany.example
     alert_email_from: str = ""              # the sender address the mail provider allows, e.g. alerts@yourcompany.example
+    email_transport: Literal["smtp", "ses"] = Field("ses", description="how alert mail leaves: any SMTP server, or the Amazon SES API (ADR 0052)")
+    ses_region: str = Field("", description="the AWS region where the sender address or domain is verified, e.g. ap-south-1. Used when EMAIL_TRANSPORT=ses")
+    ses_access_key_id: str = Field("", description="AWS access key for SES. Leave empty to use the machine's IAM role. Web part only")
+    ses_secret_access_key: str = Field("", description="secret for SES_ACCESS_KEY_ID. Web part only")
+    client_email_from: str = Field("", description="the default sender for mail to shop owners (payment, support). Empty with no per-purpose sender = no client mail")
+    client_email_from_billing: str = Field("", description="sender for payment and trial mail, e.g. billing@yourcompany.example; empty = CLIENT_EMAIL_FROM")
+    client_email_from_support: str = Field("", description="sender for support-request mail, e.g. support@yourcompany.example; empty = CLIENT_EMAIL_FROM")
+    client_email_from_account: str = Field("", description="sender for account mail (deletion notices); empty = CLIENT_EMAIL_FROM")
+    client_email_from_updates: str = Field("", description="sender for product notices; empty = CLIENT_EMAIL_FROM")
+    client_email_bcc_billing: str = Field("", description="a real mailbox that gets a hidden copy of billing mail (mail sent through SES never reaches a Google Sent folder)")
+    client_email_bcc_support: str = Field("", description="a real mailbox that gets a hidden copy of support mail, e.g. the Google Workspace support@ inbox")
+    client_email_bcc_account: str = ""
+    client_email_bcc_updates: str = ""
+    client_email_per_minute: int = Field(60, ge=1, le=1000, description="the most shop-owner mails sent per minute: a share of the provider's rate, so founder alerts always have room")
+    site_url: str = Field("", description="the public address of the owner app, used in mail links. Empty = the first ALLOWED_ORIGINS entry")
     smtp_host: str = ""
     smtp_port: int = Field(587, ge=1, le=65535)
     smtp_security: Literal["starttls", "ssl", "none"] = "starttls"
@@ -201,7 +221,8 @@ class Settings(BaseSettings):
     # --- safety bounds
     max_turn_wait_ms_ceiling: int = 60_000
     default_owner_pause_minutes: int = 120
-    max_ai_turns_per_conversation_10min: int = 30   # flood guard: beyond this the AI stops replying in that chat for a while
+    max_ai_turns_per_conversation_10min: int = Field(0, ge=0)    # 0 = never limit a conversation. A number here stops the AI replying in that chat once it is reached (a deliberate safety only)
+    alert_ai_turns_per_conversation_10min: int = Field(60, ge=0)  # tell the founder when one conversation is this active (a loop between two auto-replies?); never blocks. 0 = off
 
     # --- channel gateway raw webhook log (ADR 0020)
     raw_webhook_retention_days: int = Field(30, ge=1)          # verified requests
@@ -239,6 +260,22 @@ class Settings(BaseSettings):
         except ValueError as e:
             raise ValueError("FOUNDER_PHONE must be a phone number like +919876543210") from e
 
+    @field_validator("founder_email")
+    @classmethod
+    def _founder_email_is_an_address(cls, v: str) -> str:
+        v = v.strip().lower()
+        if v and not re.fullmatch(r"[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+", v):
+            raise ValueError("FOUNDER_EMAIL must be an email address")
+        return v
+
+    @field_validator("founder_totp_secret")
+    @classmethod
+    def _founder_totp_secret_is_base32(cls, v: str) -> str:
+        v = v.replace(" ", "").replace("-", "").strip().upper()
+        if v and not re.fullmatch(r"[A-Z2-7]{20,128}", v):
+            raise ValueError("FOUNDER_TOTP_SECRET must be a base32 key of at least 20 characters: make one with `python -m salesai admin-enroll --new-secret`")
+        return v
+
     @model_validator(mode="after")
     def _required_secrets(self) -> Settings:
         """INV-11 / ADR 0020: each role gets the secrets it uses and no more; a required one that is missing stops startup."""
@@ -248,7 +285,7 @@ class Settings(BaseSettings):
         elif self.role == "api":                       # the public web part holds no Meta secret and no master key (ADR 0025, 0028)
             need |= {"jwt_secret", "otp_secret"}
         elif self.role == "admin":                     # the founder's console: the master key is for registering a pilot number by hand
-            need |= {"master_key", "jwt_secret", "otp_secret", "admin_jwt_secret", "founder_phone"}
+            need |= {"master_key", "jwt_secret", "otp_secret", "admin_jwt_secret", "founder_phone", "founder_email", "founder_totp_secret", "admin_email_from"}
         elif self.role == "ingress":
             need |= {"meta_app_secret", "meta_verify_token"}
         elif self.role == "worker" and set(self.queues) & SENDING_QUEUES:
@@ -270,6 +307,11 @@ class Settings(BaseSettings):
             v = getattr(self, name)
             if v and len(v) < minimum:
                 raise ValueError(f"{name.upper()} must be at least {minimum} characters")
+        if self.role == "admin" and self.otp_channel != "simulator":        # the console sends its own sign-in code emails, so it needs a way to send them
+            if self.email_transport == "ses" and not self.ses_region:
+                raise ValueError("SES_REGION is required for the console's sign-in code emails when EMAIL_TRANSPORT=ses")
+            if self.email_transport == "smtp" and not self.smtp_host:
+                raise ValueError("SMTP_HOST is required for the console's sign-in code emails when EMAIL_TRANSPORT=smtp")
         if self.admin_jwt_secret and self.admin_jwt_secret == self.jwt_secret:
             raise ValueError("ADMIN_JWT_SECRET must differ from JWT_SECRET: the public application must not be able to sign admin sessions")
         if not 5 <= self.admin_session_minutes <= 480:
@@ -290,6 +332,21 @@ class Settings(BaseSettings):
     def uses_model(self) -> bool:
         """Whether this process can call a model: the agent's workers, or everything-in-one. The web and gateway parts never do."""
         return self.role == "all" or (self.role == "worker" and bool(set(self.queues) & MODEL_QUEUES))
+
+    @property
+    def client_mail_enabled(self) -> bool:
+        return bool(self.client_email_from or self.client_email_from_billing or self.client_email_from_support
+                    or self.client_email_from_account or self.client_email_from_updates)
+
+    def client_sender(self, purpose: str) -> str:
+        return str(getattr(self, f"client_email_from_{purpose}", "") or self.client_email_from)
+
+    def client_bcc(self, purpose: str) -> list[str]:
+        return [a.strip() for a in str(getattr(self, f"client_email_bcc_{purpose}", "")).split(",") if a.strip()]
+
+    @property
+    def owner_site_url(self) -> str:
+        return (self.site_url or self.allowed_origins.split(",")[0]).strip().rstrip("/")
 
     @model_validator(mode="before")
     @classmethod
@@ -366,10 +423,23 @@ class Settings(BaseSettings):
             if not re.fullmatch(r"[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+", e):
                 raise ValueError(f"ALERT_EMAIL_TO entry {e!r} is not an email address")
         if self.alert_emails:
-            if not self.smtp_host:
+            if self.email_transport == "smtp" and not self.smtp_host:
                 raise ValueError("SMTP_HOST is required when ALERT_EMAIL_TO is set")
+            if self.email_transport == "ses" and not self.ses_region:
+                raise ValueError("SES_REGION is required when EMAIL_TRANSPORT=ses")
             if not self.alert_email_from:
                 raise ValueError("ALERT_EMAIL_FROM is required when ALERT_EMAIL_TO is set")
+        if self.client_mail_enabled:
+            if self.email_transport == "ses" and not self.ses_region:
+                raise ValueError("SES_REGION is required for client mail when EMAIL_TRANSPORT=ses")
+            if self.email_transport == "smtp" and not self.smtp_host:
+                raise ValueError("SMTP_HOST is required for client mail when EMAIL_TRANSPORT=smtp")
+        for purpose in ("billing", "support", "account", "updates"):
+            for addr in self.client_bcc(purpose):
+                if not re.fullmatch(r"[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+", addr):
+                    raise ValueError(f"CLIENT_EMAIL_BCC_{purpose.upper()} entry {addr!r} is not an email address")
+        if bool(self.ses_access_key_id) != bool(self.ses_secret_access_key):
+            raise ValueError("SES_ACCESS_KEY_ID and SES_SECRET_ACCESS_KEY must be set together (or both left empty to use the IAM role)")
         if self.smtp_username and not self.smtp_password:
             raise ValueError("SMTP_PASSWORD is required when SMTP_USERNAME is set")
         for n in self.alert_numbers:

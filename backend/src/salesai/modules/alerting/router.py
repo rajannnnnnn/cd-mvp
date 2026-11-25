@@ -90,7 +90,7 @@ class AlertRouter:
                     ORDER BY a.id LIMIT 50""", (self.max_attempts, sevs, self.reminder, self.high_cooldown))).fetchall()
         sent = 0
         for a in rows:
-            ok, errors = await self._fan_out(a, alert_text(a))
+            ok, errors = await self._fan_out(a, alert_text(a), kind="alert")
             async with self.db.system_tx() as c:
                 if ok:
                     await c.execute("""UPDATE operator_alerts SET notified_at = now(), notified_occurrences = %s, notify_attempts = 0,
@@ -101,7 +101,7 @@ class AlertRouter:
                                     ("; ".join(errors), a["id"]))
         return sent
 
-    async def _fan_out(self, alert: dict[str, Any], text: str) -> tuple[bool, list[str]]:
+    async def _fan_out(self, alert: dict[str, Any], text: str, kind: str = "alert") -> tuple[bool, list[str]]:
         errors: list[str] = []
         ok = False
         for s in self.sinks:
@@ -110,10 +110,25 @@ class AlertRouter:
             try:
                 await s.send(alert, text)
                 ok = True
+                await self._record(s, kind, alert["severity"], alert["id"], True, None)
             except Exception as e:  # noqa: BLE001
                 errors.append(f"{s.name}: {e}"[:200])
                 log.warning("alert sink %s failed: %s", s.name, e)
+                await self._record(s, kind, alert["severity"], alert["id"], False, str(e))
         return ok, errors
+
+    async def _record(self, sink: Any, kind: str, severity: str, alert_id: int | None, ok: bool, error: str | None, items: int = 1) -> None:
+        """One row and one log line per attempt, so "did it go out?" has an answer. It never carries the alert's text or an address, and a
+        failure to write it never stops the alert."""
+        ref = getattr(sink, "last_ref", None) if ok else None
+        log.info("alert %s via %s %s%s", kind, sink.name, "sent" if ok else "FAILED", f" (ref {ref})" if ref else "")
+        try:
+            async with self.db.system_tx() as c:
+                await c.execute(
+                    "INSERT INTO alert_deliveries (alert_id, kind, severity, sink, ok, provider_ref, error, items) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                    (alert_id, kind, severity, sink.name, ok, ref, (error or None) and error[:300], items))
+        except Exception:  # noqa: BLE001
+            log.exception("could not record the delivery")
 
     # ------------------------------------------------------------------ medium and low: gathered into one email
     async def _digest(self, severity: str) -> int:
@@ -140,9 +155,11 @@ class AlertRouter:
                 try:
                     await s.send_digest(severity, pending)
                     ok = True
+                    await self._record(s, "digest", severity, None, True, None, len(pending))
                 except Exception as e:  # noqa: BLE001
                     errors.append(f"{s.name}: {e}"[:200])
                     log.warning("alert digest via %s failed: %s", s.name, e)
+                    await self._record(s, "digest", severity, None, False, str(e), len(pending))
         async with self.db.system_tx() as c:
             ids = [a["id"] for a in pending]
             if ok:
@@ -163,7 +180,7 @@ class AlertRouter:
                       AND a.severity = ANY(%s) AND a.resolved_at > now() - interval '1 day' ORDER BY a.id LIMIT 50""", (sevs,))).fetchall()
         sent = 0
         for a in rows:
-            ok, _ = await self._fan_out({**a, "recovered": True}, alert_text({**a, "recovered": True}))
+            ok, _ = await self._fan_out({**a, "recovered": True}, alert_text({**a, "recovered": True}), kind="recovery")
             if ok:
                 async with self.db.system_tx() as c:
                     await c.execute("UPDATE operator_alerts SET recovery_notified_at = now() WHERE id = %s", (a["id"],))

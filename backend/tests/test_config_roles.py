@@ -26,7 +26,8 @@ def _clean_environment(monkeypatch):
 
 def build(role: str, *, keep: tuple[str, ...] = (), **over: str) -> Settings:
     """Settings for `role` carrying only the named secrets (plus any override)."""
-    env = {**DB, "ROLE": role, "SIMULATOR_ENABLED": "false", "OTP_CHANNEL": "simulator", **{k: v for k, v in SECRETS.items() if k in keep}, **over}   # these tests are about secrets; the channel is stated, not defaulted
+    admin = {"FOUNDER_EMAIL": "founder@example.com", "FOUNDER_TOTP_SECRET": "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP", "ADMIN_EMAIL_FROM": "access@example.com", "SES_REGION": "ap-south-1"} if role == "admin" else {}
+    env = {**DB, **admin, "ROLE": role, "SIMULATOR_ENABLED": "false", "OTP_CHANNEL": "simulator", "LLM_PROVIDER": "local", **{k: v for k, v in SECRETS.items() if k in keep}, **over}   # these tests are about secrets; the channel is stated, not defaulted
     return Settings(_env_file=None, **{k.lower(): v for k, v in env.items()})  # type: ignore[arg-type]
 
 

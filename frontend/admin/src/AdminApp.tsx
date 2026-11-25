@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useState, useSyncExternalStore } from 'react'
 import { BrowserRouter, NavLink, Navigate, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { Activity, BadgeIndianRupee, Eye, HeartPulse, LogOut, ScrollText, Settings2, Timer, TrendingUp } from 'lucide-react'
+import { Activity, BadgeIndianRupee, Eye, HeartPulse, LogOut, ScrollText, Settings2, ShieldCheck, Timer, TrendingUp } from 'lucide-react'
 import { Logo, Modal, Spinner, ToastProvider, useToast } from '@/ui'
 import { api, ok } from './adminApi'
 import { clock } from './format'
@@ -12,12 +12,13 @@ const Boards = lazy(() => import('./boards/Boards'))
 const Audit = lazy(() => import('./audit/Audit'))
 const BreakGlass = lazy(() => import('./breakglass/BreakGlass'))
 const Console = lazy(() => import('./console/Console'))
+const Security = lazy(() => import('./security/Security'))
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } })
 const NAV = [
   { to: '/sales', label: 'Sales', icon: TrendingUp }, { to: '/growth', label: 'Growth', icon: Activity }, { to: '/money', label: 'Money', icon: BadgeIndianRupee },
   { to: '/health', label: 'Health', icon: HeartPulse }, { to: '/audit', label: 'Agent audit', icon: ScrollText }, { to: '/shops', label: 'Shops & support', icon: Settings2 },
-  { to: '/break-glass', label: 'Read a chat', icon: Eye },
+  { to: '/break-glass', label: 'Read a chat', icon: Eye }, { to: '/security', label: 'Security', icon: ShieldCheck },
 ]
 
 /** The time left in this session, ticking. At zero the console signs itself out: a session is short on purpose. */
@@ -81,6 +82,7 @@ function Frame() {
             {(['sales', 'growth', 'money', 'health'] as const).map((b) => <Route key={b} path={`/${b}`} element={<Boards board={b} />} />)}
             <Route path="/audit/*" element={<Audit />} />
             <Route path="/break-glass" element={<BreakGlass />} />
+            <Route path="/security" element={<Security />} />
             <Route path="/shops/*" element={<Console />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

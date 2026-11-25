@@ -1,6 +1,6 @@
-"""Sign-in to the founder's console (ADR 0047) and its security screen (ADR 0048). Mounted only by the admin application. The first proof is an
-authenticator code; the answer is either a session or, when the sign-in looks suspicious, a ticket that needs a WhatsApp code too. No request carries a
-phone number: there is one founder, set at deployment, so there is nothing to type, enumerate or trigger. Every wrong answer looks the same.
+"""Sign-in to the founder's console (ADR 0047, 0056) and its security screen (ADR 0048). Mounted only by the admin application. The first proof is an
+authenticator code; the answer is either a session or, when the sign-in looks risky, a ticket that needs one or two more codes (WhatsApp, email). No request
+carries a phone number or email: there is one founder, set at deployment, so there is nothing to type, enumerate or trigger. Every wrong answer looks the same.
 Seeing sessions and attempts needs a session; ending someone else's session also needs a fresh authenticator code."""
 from __future__ import annotations
 
@@ -13,18 +13,22 @@ from pydantic import BaseModel, Field
 
 from salesai.api.deps import RT, Operator, client_ip
 from salesai.api.errors import ApiError  # noqa: F401
-from salesai.modules.auth.admin import SignIn
-from salesai.modules.auth.device import ClientInfo, clean_geo
+from salesai.modules.auth import ClientInfo, SignIn, clean_geo, clean_language, clean_place
 
 router = APIRouter(prefix="/admin/v1/auth", tags=["admin-auth"])
 DEVICE_COOKIE = "admin_device"
 
 
 def client_info(rt: Any, request: Request) -> ClientInfo:
-    """Where a request came from: the address (behind the trusted proxy), the browser's own description, and the proxy's country header when one is configured."""
-    header = rt.settings.admin_geo_header
-    return ClientInfo(ip=client_ip(request), user_agent=(request.headers.get("user-agent") or "")[:300] or None,
-                      geo=clean_geo(request.headers.get(header)) if header else None)
+    """Where a request came from: the address (behind the trusted proxy), the browser's own description and language, and what the proxy says about the
+    place (country, and city and region when it sends them). The console holds no location database of its own."""
+    s = rt.settings
+    h = request.headers
+    return ClientInfo(ip=client_ip(request), user_agent=(h.get("user-agent") or "")[:300] or None,
+                      geo=clean_geo(h.get(s.admin_geo_header)) if s.admin_geo_header else None,
+                      city=clean_place(h.get(s.admin_geo_city_header)) if s.admin_geo_city_header else None,
+                      region=clean_place(h.get(s.admin_geo_region_header)) if s.admin_geo_region_header else None,
+                      language=clean_language(h.get("accept-language")))
 
 
 class SignInIn(BaseModel):
@@ -35,8 +39,13 @@ class TicketIn(BaseModel):
     ticket: str = Field(min_length=10, max_length=2000)
 
 
+class StepUpSend(TicketIn):
+    channel: str = Field(pattern="^(whatsapp|email)$", description="where to send the code")
+
+
 class StepUpVerify(TicketIn):
     code: str = Field(min_length=1, max_length=12)
+    channel: str = Field(pattern="^(whatsapp|email)$", description="the channel the code came from")
 
 
 class ExtendIn(BaseModel):
@@ -65,7 +74,12 @@ class SessionOut(BaseModel):
     country: str | None
     where: str
     usual_network: bool = Field(description="the network the founder's last good sign-in came from")
-    method: str | None = Field(description="authenticator | authenticator+whatsapp | extended")
+    method: str | None = Field(description="every proof used, e.g. authenticator+whatsapp+email, or extended")
+    risk: str | None = Field(None, description="routine | elevated | high: how much proof this login had to give")
+    proofs: str | None = Field(None, description="the proofs used, in order")
+    city: str | None = Field(None, description="only when the front proxy sends it")
+    region: str | None = Field(None, description="only when the front proxy sends it")
+    language: str | None = Field(None, description="the browser's preferred language")
     step_up_reason: str | None
     started_at: datetime
     last_seen_at: datetime | None
@@ -89,24 +103,30 @@ def _answer(rt: Any, response: Response, result: SignIn) -> dict[str, Any]:
                                 samesite="strict", secure=rt.settings.env != "dev", path="/admin/v1/auth")
         return {"access_token": result.session.access_token, "expires_in": result.session.expires_in, "role": result.session.role}
     assert result.ticket is not None
-    return {"step_up": "whatsapp_code", "reason": result.reason, "ticket": result.ticket.access_token, "expires_in": result.ticket.expires_in}
+    return {"step_up": "codes", "risk": result.risk, "reason": result.reason, "needs": result.needs, "channels": result.channels, "done": result.done,
+            "ticket": result.ticket.access_token, "expires_in": result.ticket.expires_in}
 
 
-@router.post("/sign-in", summary="The authenticator code. Returns a session, or a ticket when a WhatsApp code is needed as well")
+@router.post("/sign-in", summary="The authenticator code. Returns a session, or a ticket when more codes (WhatsApp, email) are needed as well")
 async def sign_in(body: SignInIn, rt: RT, request: Request, response: Response) -> dict[str, Any]:
     result = await rt.admin_auth.sign_in(body.code, client_info(rt, request), request.cookies.get(DEVICE_COOKIE))
     return _answer(rt, response, result)
 
 
-@router.post("/step-up/send", status_code=202, summary="Send the second-layer WhatsApp code to the founder (needs a ticket)")
-async def step_up_send(body: TicketIn, rt: RT, request: Request) -> dict[str, Any]:
-    await rt.admin_auth.send_step_up_code(body.ticket, client_info(rt, request))
-    return {"status": "sent"}
+@router.post("/step-up/status", summary="Where a sign-in stands (so a page refresh loses nothing). Sends nothing")
+async def step_up_status(body: TicketIn, rt: RT, response: Response) -> dict[str, Any]:
+    return _answer(rt, response, await rt.admin_auth.ticket_status(body.ticket))
 
 
-@router.post("/step-up/verify", summary="The WhatsApp code. Returns the console session")
+@router.post("/step-up/send", status_code=202, summary="Send one code, by WhatsApp or email, to the founder (needs a ticket)")
+async def step_up_send(body: StepUpSend, rt: RT, request: Request) -> dict[str, Any]:
+    wait = await rt.admin_auth.send_step_up_code(body.ticket, body.channel, client_info(rt, request))
+    return {"status": "sent", "channel": body.channel, "resend_in": wait}
+
+
+@router.post("/step-up/verify", summary="One code. Returns the console session, or the ticket's progress when more is needed")
 async def step_up_verify(body: StepUpVerify, rt: RT, request: Request, response: Response) -> dict[str, Any]:
-    result = await rt.admin_auth.verify_step_up(body.ticket, body.code, client_info(rt, request), request.cookies.get(DEVICE_COOKIE))
+    result = await rt.admin_auth.verify_step_up(body.ticket, body.code, body.channel, client_info(rt, request), request.cookies.get(DEVICE_COOKIE))
     return _answer(rt, response, result)
 
 
@@ -123,7 +143,7 @@ async def logout(rt: RT, p: Operator) -> None:
 
 @router.get("/me", summary="Who is signed in and until when")
 async def me(rt: RT, p: Operator) -> dict[str, Any]:
-    return {"phone": p.phone, "role": p.role, "expires_at": await rt.admin_auth.expires_at(p)}
+    return {"phone": p.phone, "email": rt.settings.founder_email, "role": p.role, "expires_at": await rt.admin_auth.expires_at(p)}
 
 
 @router.get("/sessions", response_model=list[SessionOut], summary="Every console session: where from, on what, how it was proven, for how long")

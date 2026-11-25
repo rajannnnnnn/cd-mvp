@@ -37,7 +37,7 @@ def _clean(monkeypatch):
 
 
 def settings(**over: str) -> Settings:
-    env = {**DB, **SECRETS, "ADMIN_JWT_SECRET": "a" * 40, "ROLE": "all", "SIMULATOR_ENABLED": "false", **over}   # the suite exports a test-looking admin secret: set one
+    env = {**DB, **SECRETS, "ADMIN_JWT_SECRET": "a" * 40, "ROLE": "all", "SIMULATOR_ENABLED": "false", "LLM_PROVIDER": "local", **over}   # the suite exports a test-looking admin secret: set one
     return Settings(_env_file=None, **{k.lower(): v for k, v in env.items()})  # type: ignore[arg-type]
 
 
@@ -47,6 +47,14 @@ def test_the_founders_default_is_gpt_oss_20b_on_every_stage_at_medium_effort():
     s = settings()
     assert [getattr(s, f"llm_model_{st}") for st in ("planner", "writer", "check")] == ["openai/gpt-oss-20b"] * 3
     assert (s.llm_effort_planner, s.llm_effort_writer) == ("medium", "medium")
+
+
+def test_the_product_defaults_to_openrouter_so_only_a_key_is_needed():
+    fields = Settings.model_fields                               # the defaults themselves, whatever any test or developer .env says
+    assert fields["llm_provider"].default == "openai_compat" and fields["openai_compat_base_url"].default == "https://openrouter.ai/api/v1"
+    with pytest.raises(ValidationError, match="OPENAI_COMPAT_API_KEY"):
+        settings(LLM_PROVIDER="openai_compat", OPENAI_COMPAT_BASE_URL="https://openrouter.ai/api/v1")
+    settings(LLM_PROVIDER="openai_compat", OPENAI_COMPAT_BASE_URL="https://openrouter.ai/api/v1", OPENAI_COMPAT_API_KEY="sk-or-test")
 
 
 # ---------------------------------------------------------------- per-stage routing

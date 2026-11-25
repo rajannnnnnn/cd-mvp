@@ -26,7 +26,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-COMPOSITION_ROOTS = {"runtime", "seed", "scheduler", "__main__", "doctor"}     # doctor: the operator's configuration check looks across every part by design
+COMPOSITION_ROOTS = {"runtime", "seed", "scheduler", "__main__", "doctor", "mailpreview"}     # doctor: the operator's configuration check looks across every part by design
 FOUNDATION = {"config", "db", "obs", "phone", "rules", "templates", "crypto", "ratelimit", "migrate", "events", "queue"}
 
 # B1: module -> modules it may import (besides FOUNDATION). Keep this table equal to the architecture diagram.
@@ -37,17 +37,18 @@ ALLOWED_DEPS: dict[str, set[str]] = {
     "sales": set(),
     "handoffs": set(),
     "channels": {"tenants"},
-    "auth": {"channels", "tenants"},        # the admin sign-in writes the platform audit trail
+    "auth": {"channels", "mail", "tenants"},        # the admin sign-in writes the platform audit trail
     "boards": {"billing"},                  # the founder's boards read plan prices and the Meta usage estimate
     "delivery": {"channels", "handoffs"},
     "agent": {"catalog", "delivery", "handoffs", "pricing", "sales"},
     "conversations": {"agent", "channels", "delivery", "handoffs"},
     "notifications": {"agent", "catalog", "channels", "handoffs", "sales"},
     "alerting": {"channels"},
-    "billing": set(),
+    "billing": {"mail"},                    # a paid invoice queues its confirmation mail in the same transaction (ADR 0054)
+    "mail": set(),
 }
 # api is the HTTP layer: it may use these module interfaces (never the reverse).
-API_MAY_USE = {"auth", "billing", "boards", "catalog", "channels", "handoffs", "pricing", "sales", "tenants"}
+API_MAY_USE = {"auth", "billing", "mail", "boards", "catalog", "channels", "handoffs", "pricing", "sales", "tenants"}
 
 # B2: submodules that are part of a module's public interface (everything else is internal)
 PUBLIC_SUBMODULES: dict[str, set[str]] = {
@@ -57,6 +58,7 @@ PUBLIC_SUBMODULES: dict[str, set[str]] = {
     "channels": {"base", "ingress"},
     "alerting": set(),
     "billing": set(),
+    "mail": set(),
     "boards": set(),
 }
 
@@ -113,6 +115,8 @@ VENDOR_ADAPTERS = {
               "modules/agent/llm/openai_compat_provider.py", "modules/alerting/webhook_sink.py"},
     "redis": {"queue/redis_backend.py"},
     "smtplib": {"modules/alerting/email_sink.py"},
+    "boto3": {"modules/alerting/email_sink.py"},
+    "botocore": {"modules/alerting/email_sink.py"},
 }
 # B5
 QUEUE_BACKENDS = {"salesai.queue.postgres", "salesai.queue.redis_backend"}
@@ -204,9 +208,8 @@ def check(root: Path, baseline: frozenset[str] | None = None) -> list[Violation]
                     me = src.split(".")[1]
                     if tgt not in ALLOWED_DEPS.get(me, set()):
                         v.append(Violation("B1", rels, line, f"module '{me}' may not depend on '{tgt}' (allowed: {sorted(ALLOWED_DEPS.get(me, set()))})"))
-                elif src == "api":
-                    if tgt not in API_MAY_USE:
-                        v.append(Violation("B1", rels, line, f"the API layer may not use module '{tgt}'"))
+                elif src == "api" and tgt not in API_MAY_USE:
+                    v.append(Violation("B1", rels, line, f"the API layer may not use module '{tgt}'"))
                 for r in reached - PUBLIC_SUBMODULES.get(tgt, set()):                        # B2
                     v.append(Violation("B2", rels, line, f"'{tgt}.{r}' is internal to the {tgt} module; import it from 'salesai.modules.{tgt}' or add it to PUBLIC_SUBMODULES"))
                 if tgt == "channels" and sub in {"whatsapp", "simulator"}:                   # B3
