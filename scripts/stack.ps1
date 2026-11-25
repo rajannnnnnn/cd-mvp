@@ -9,7 +9,8 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 all                       db, then web, admin, gateway and agent: everything on one machine
 #   powershell -ExecutionPolicy Bypass -File scripts\stack.ps1 gateway -Only receive,inbound   start only some of a part's services (also with -Action logs | down)
 #   ... -Action logs | ps | down           -Build to rebuild the image first
-# Each part reads only its own deploy\<part>\.env (copy .env.example), so it is handed only its own secrets.
+# Each part reads its own deploy\<part>\.env (copy .env.example) and, first, the optional shared deploy\all.env (copy all.env.example): one file for an easy deploy, the part's own
+# file wins. Either way a part is handed only the settings its own compose file names, so it gets only its own secrets.
 # The parts share the database and nothing else, so you can run any subset, on any machines.   Frontend alone: scripts\dev-frontend.ps1
 param(
   [Parameter(Mandatory)][ValidateSet('db', 'web', 'gateway', 'agent', 'admin', 'all')][string]$Stack,
@@ -21,10 +22,22 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $deploy = Join-Path $PSScriptRoot '..\deploy'
+$shared = Join-Path $deploy 'all.env'      # optional: one file for an easy deploy; each part's own .env is read after it and wins
 
 # Before anything starts: which settings of this part are still empty. Mandatory ones are named so you know what to fill in; nothing is blocked here
 # (the part itself prints the exact report if it cannot start, and `python -m salesai doctor <role>` checks everything).
-function Show-EnvReport([string]$part, [string]$envFile) {
+# Layered settings: the shared file first, then the part's own; a later file wins, but an EMPTY value never blanks one set earlier (a part's .env copied from its
+# example is full of empty lines, and docker compose would otherwise treat each as "set to nothing" and wipe what you filled in once in deploy\all.env).
+function Merge-Env([string[]]$files, [string]$part) {
+  $o = [ordered]@{}
+  foreach ($f in $files) { foreach ($l in [System.IO.File]::ReadAllLines($f)) {
+    if ($l -match '^\s*([A-Z][A-Z0-9_]*)=(.*)$') { $k = $Matches[1]; $v = $Matches[2]; $t = $v.Trim(); if ($t.StartsWith('#')) { $t = '' }; if ($t -ne '' -or -not $o.Contains($k)) { $o[$k] = $v } } } }
+  $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("chatdeal-$part-" + [guid]::NewGuid().ToString('N') + '.env')
+  [System.IO.File]::WriteAllLines($tmp, [string[]]@($o.Keys | ForEach-Object { "$_=$($o[$_])" }), (New-Object System.Text.UTF8Encoding($false)))
+  return $tmp
+}
+
+function Show-EnvReport([string]$part, [string[]]$envFiles) {
   try {
     $db = 'DATABASE_URL', 'SYSTEM_DATABASE_URL'
     $need = @{
@@ -41,7 +54,7 @@ function Show-EnvReport([string]$part, [string]$envFile) {
       admin = @(); db = @()
     }
     $values = @{}
-    foreach ($line in Get-Content $envFile) { if ($line -match '^\s*([A-Z][A-Z0-9_]*)=(.*)$') { $v = $Matches[2].Trim(); if ($v.StartsWith('#')) { $v = '' }; $values[$Matches[1]] = $v } }
+    foreach ($line in ($envFiles | ForEach-Object { Get-Content $_ })) { if ($line -match '^\s*([A-Z][A-Z0-9_]*)=(.*)$') { $v = $Matches[2].Trim(); if ($v.StartsWith('#')) { $v = '' }; if ($v -or -not $values.ContainsKey($Matches[1])) { $values[$Matches[1]] = $v } } }
     $missing = @($need[$part] | Where-Object { -not $values[$_] })
     $optional = @($nice[$part] | Where-Object { -not $values[$_] })
     if ($part -eq 'agent' -and $values['LLM_PROVIDER'] -eq 'openai_compat' -and -not $values['OPENAI_COMPAT_API_KEY']) { $missing += 'OPENAI_COMPAT_API_KEY (the model key)' }
@@ -55,9 +68,13 @@ function Show-EnvReport([string]$part, [string]$envFile) {
 function Invoke-Part([string]$part) {
   $dir = Join-Path $deploy $part
   $envFile = Join-Path $dir '.env'
-  if (-not (Test-Path $envFile)) { throw "Missing $envFile. Copy $dir\.env.example to $dir\.env and fill it in (the demo's deploy\.env is not used)." }
-  Show-EnvReport $part $envFile
-  $base = @('compose', '--env-file', $envFile, '-f', (Join-Path $dir 'docker-compose.yml'))
+  $files = @(); if (Test-Path $shared) { $files += $shared }; if (Test-Path $envFile) { $files += $envFile }
+  if ($files.Count -eq 0) { throw "Missing $envFile. Copy $dir\.env.example to $dir\.env and fill it in, or fill in the one shared file: copy deploy\all.env.example to deploy\all.env (the demo's deploy\.env is not used)." }
+  Show-EnvReport $part $files
+  $merged = $null
+  $envArg = if ($files.Count -gt 1) { $merged = Merge-Env $files $part; $merged } else { $files[0] }
+  $base = @('compose', '--env-file', $envArg, '-f', (Join-Path $dir 'docker-compose.yml'))
+  try {
   switch ($Action) {
     'up' {
       if ($part -eq 'db') { if ($Build) { docker @base build }; docker @base run --rm migrate }
@@ -67,6 +84,7 @@ function Invoke-Part([string]$part) {
     'logs' { if ($part -ne 'db') { $l = @('logs', '-f', '--tail', '50'); if ($Only) { $l += $Only }; docker @base @l } }
     'ps'   { if ($part -ne 'db') { docker @base ps } }
   }
+  } finally { if ($merged) { Remove-Item -LiteralPath $merged -ErrorAction SilentlyContinue } }      # the merged copy holds every secret: it never outlives the command
 }
 
 if ($Stack -eq 'all') {

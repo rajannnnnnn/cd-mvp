@@ -1,5 +1,6 @@
 .env
 .env.*
+deploy/all.env
 !.env.example
 __pycache__/
 *.pyc

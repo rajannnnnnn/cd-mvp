@@ -47,6 +47,40 @@ python -m salesai doctor     # (run with the same settings; see section 5)
 
 **Who can reach each port.** The site (`:8080`) and the console (`:8082`) are reachable on every network address of the machine, so a phone or another PC on your network can open them. The webhook receiver (`:8001`) and Postgres are published to the machine itself only; a tunnel or proxy on the same machine reaches the receiver. To narrow the site or console, set `WEB_BIND` / `ADMIN_BIND` in that part's `.env` (`127.0.0.1` for this machine only, or a private address). Before go-live set `ADMIN_ALLOWED_IPS` so only your own address can open the console, and keep the machine's firewall on. The agent publishes no port.\n\nPut a TLS proxy (Caddy, Nginx, or a Cloudflare tunnel) in front of three public hostnames: `app.` -> `:8080`, `hooks.` -> `:8001` (or leave Meta's webhook on `app.` and set `WEBHOOK_UPSTREAM`), `admin.` -> `:8082`.
 
+### One file for an easy deploy: `deploy/all.env`
+
+Instead of filling in five `.env` files, copy `deploy/all.env.example` to `deploy/all.env` and fill it in once: the database addresses, the shared secrets, Meta, the model key, the SES keys and addresses, and your three founder settings.
+`scripts\stack.ps1` and `scripts/stack.sh` read it first and then the part's own `deploy/<part>/.env`; **the part's own file wins** where it has a value, and an empty line in a part's file never blanks a value you set in
+`all.env`. A part is still handed only the settings its own compose file names, so the web part's containers never receive the gateway's Meta secret even though it sits in the same file.
+`fresh-start.ps1` keeps writing the per-part files (they override `all.env`; delete a value there to let `all.env` decide). The file is git-ignored; never commit or paste it. One file on disk holds every secret:
+fine on your own machine, but a real server keeps separate per-part files or a secrets manager. (`deploy/.env` is a different file: the older all-in-one demo stack, `scripts/up.sh`, writes it.)
+
+### After `git pull`
+
+```powershell
+git pull
+```
+
+- **Easy local deploy (what `fresh-start.ps1` set up):** run it again, *without* `-Reset`. It keeps your secrets and data, rebuilds the images, applies any new database migrations, and restarts everything. Then `scripts\info.ps1`.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\fresh-start.ps1
+```
+
+- **Part by part (a real server, or when you only changed one part):** migrations first, then each part with `-Build` so it runs the new code. Check what you filled in with `doctor`.
+
+```powershell
+scripts\stack.ps1 db -Build        # applies new migrations (always first)
+scripts\stack.ps1 gateway -Build
+scripts\stack.ps1 agent -Build
+scripts\stack.ps1 web -Build
+scripts\stack.ps1 admin -Build     # only if you run the founder console
+```
+
+  On Linux or macOS use `scripts/stack.sh <part> --build` the same way. Migrations are append-only and checked: never edit one that has been applied.
+- **What to look at in a release:** `git log` and `docs/PROGRESS.md` say what changed; a **new or changed setting** is added to the matching `deploy/<part>/.env.example` (and to `deploy/all.env.example`), so compare your file with the example. The release that added the founder login needs `FOUNDER_PHONE`, `FOUNDER_EMAIL`, `FOUNDER_TOTP_SECRET` and `ADMIN_EMAIL_FROM` for the admin part, and the SES settings for sending mail.
+- **Roll back:** `git checkout <the previous commit>`, then rebuild the same way. A database migration is not undone by this: restore a backup if one must be reversed.
+
 ## 3. Many machines, and copies
 
 Nothing in the code is tied to one machine, because the parts only share the database. A typical layout:

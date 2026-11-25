@@ -10,9 +10,11 @@ $m = [Environment]::GetEnvironmentVariable('Path', 'Machine'); $u = [Environment
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) { Write-Host 'Docker is not on the PATH.' -ForegroundColor Yellow; exit 1 }
 
 function Get-EnvValue([string]$file, [string]$key) {
-  $f = Join-Path $root $file
-  if (-not (Test-Path $f)) { return '' }
-  foreach ($l in [System.IO.File]::ReadAllLines($f)) { if ($l -match "^$key=(.*)$") { $v = $Matches[1].Trim(); if ($v.StartsWith('#')) { return '' }; return ($v -replace '\s+#.*$', '') } }
+  foreach ($rel in @($file, 'deploy\all.env')) {        # the part's own file first; then the optional shared one
+    $f = Join-Path $root $rel
+    if (-not (Test-Path $f)) { continue }
+    foreach ($l in [System.IO.File]::ReadAllLines($f)) { if ($l -match "^$key=(.*)$") { $v = $Matches[1].Trim(); if ($v.StartsWith('#')) { $v = '' }; $v = ($v -replace '\s+#.*$', ''); if ($v) { return $v } } }
+  }
   return ''
 }
 # what each component is for, in plain words

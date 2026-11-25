@@ -11,7 +11,8 @@
 #   scripts/stack.sh all                         db, then web, admin, gateway and agent: everything on one machine
 #   add --build to rebuild the image first
 #
-# Each part reads only its own deploy/<part>/.env (copy .env.example), so it is handed only its own secrets.
+# Each part reads its own deploy/<part>/.env (copy .env.example) and, first, the optional shared deploy/all.env (copy all.env.example): one file for an easy deploy,
+# the part's own file wins. Either way a part is handed only the settings its own compose file names, so it gets only its own secrets.
 # The parts share the database and nothing else, so you can run any subset, on any machines.
 set -euo pipefail
 
@@ -31,12 +32,29 @@ while [ $# -gt 0 ]; do
 done
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/../deploy" && pwd)"
+tmp_files=()
+trap 'rm -f "${tmp_files[@]:-}"' EXIT          # a merged copy holds every secret: it never outlives the command
+
+# Layered settings: later files win, but an EMPTY value never blanks one set earlier (a part's .env copied from its example is full of empty lines).
+merge_env() {
+  awk '/^[[:space:]]*[A-Z][A-Z0-9_]*=/ {
+         line=$0; sub(/^[[:space:]]+/, "", line); k=substr(line, 1, index(line, "=") - 1); v=substr(line, index(line, "=") + 1)
+         t=v; sub(/^[[:space:]]+/, "", t); if (t ~ /^#/) t=""
+         if (t != "" || !(k in seen)) { if (!(k in seen)) order[++n]=k; val[k]=v; seen[k]=1 }
+       }
+       END { for (i = 1; i <= n; i++) print order[i] "=" val[order[i]] }' "$@"
+}
 
 run_part() {
   local p="$1" dir="$here/$1"
   [ -d "$dir" ] || { echo "unknown part '$p' (db | web | gateway | agent | admin | all)" >&2; exit 1; }
-  [ -f "$dir/.env" ] || { echo "Missing $dir/.env. Copy $dir/.env.example to $dir/.env and fill it in." >&2; exit 1; }
-  local base=(docker compose --env-file "$dir/.env" -f "$dir/docker-compose.yml")
+  local files=()
+  [ -f "$here/all.env" ] && files+=("$here/all.env")
+  [ -f "$dir/.env" ] && files+=("$dir/.env")
+  [ ${#files[@]} -gt 0 ] || { echo "Missing $dir/.env. Copy $dir/.env.example to $dir/.env and fill it in, or fill in the one shared file: copy $here/all.env.example to $here/all.env." >&2; exit 1; }
+  local envfile="${files[0]}"
+  if [ ${#files[@]} -gt 1 ]; then envfile="$(mktemp)"; tmp_files+=("$envfile"); merge_env "${files[@]}" > "$envfile"; fi
+  local base=(docker compose --env-file "$envfile" -f "$dir/docker-compose.yml")
   case "$action" in
     up)
       if [ "$p" = db ]; then

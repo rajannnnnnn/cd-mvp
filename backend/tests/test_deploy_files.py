@@ -215,9 +215,61 @@ def test_the_stand_in_wiring_script_only_writes_settings_each_part_documents_and
         assert all("${" + k in compose for k in keys), f"{part}: written but never passed to a container: {sorted(k for k in keys if '${' + k not in compose)}"
 
 
-@pytest.mark.parametrize("template", sorted([*DEPLOY.glob("*/.env.example"), DEPLOY.parent / ".env.example"]), ids=lambda p: str(p.relative_to(DEPLOY.parent)))
+@pytest.mark.parametrize("template", sorted([*DEPLOY.glob("*/.env.example"), DEPLOY.parent / ".env.example", DEPLOY / "all.env.example"]), ids=lambda p: str(p.relative_to(DEPLOY.parent)))
 def test_no_template_line_has_an_empty_value_followed_by_a_comment(template):
     """`KEY=   # note` is read by docker compose as the value "# note", so an untouched optional setting becomes garbage (an address list, an API key).
     A note goes on the line above; an empty setting is just `KEY=`."""
     bad = [ln for ln in template.read_text().splitlines() if re.match(r"^[A-Z0-9_]+=\s+#", ln)]
     assert not bad, f"{template.name}: put these notes on their own line: {[b.split('=')[0] for b in bad]}"
+
+
+# ---------------------------------------------------------------- the one shared file for an easy deploy (deploy/all.env)
+
+def _all_compose_vars() -> set[str]:
+    return {v for part in PARTS for v in re.findall(r"\$\{([A-Z0-9_]+)", (DEPLOY / part / "docker-compose.yml").read_text())}
+
+
+def test_the_shared_env_example_only_names_settings_some_part_actually_uses():
+    """A line in deploy/all.env that no compose file passes on would be silently ignored: the operator edits it and nothing changes."""
+    text = (DEPLOY / "all.env.example").read_text()
+    documented = set(re.findall(r"^#? ?([A-Z][A-Z0-9_]*)=", text, re.M))
+    assert documented, "deploy/all.env.example documents nothing"
+    unused = sorted(documented - _all_compose_vars())
+    assert not unused, f"in deploy/all.env.example but passed by no compose file: {unused}"
+
+
+def test_the_shared_env_example_covers_every_mandatory_setting_of_every_part():
+    """Fill in this one file and each part starts: every setting a compose file requires (`${X:?...}`) is in it."""
+    documented = set(re.findall(r"^([A-Z][A-Z0-9_]*)=", (DEPLOY / "all.env.example").read_text(), re.M))
+    required = set()
+    for part in PARTS:
+        required |= set(re.findall(r"\$\{([A-Z0-9_]+):\?", (DEPLOY / part / "docker-compose.yml").read_text()))
+    assert not (required - documented), f"required by a compose file but missing from deploy/all.env.example: {sorted(required - documented)}"
+
+
+def test_the_shared_env_file_is_never_committed_and_the_scripts_read_it_before_the_parts_own_file():
+    ignore = (DEPLOY.parent / ".gitignore").read_text()
+    assert "deploy/all.env" in ignore.replace("\\", "/")
+    ps, sh = (DEPLOY.parent / "scripts" / "stack.ps1").read_text(), (DEPLOY.parent / "scripts" / "stack.sh").read_text()
+    assert ps.index("$shared") < ps.index("$envFile") and "all.env" in ps                 # the shared file comes first, so the part's own file wins
+    assert sh.index('here/all.env') < sh.index('"$dir/.env"') and "all.env" in sh
+    assert "Merge-Env" in ps and "merge_env" in sh                                        # an empty value in a part's own file must not blank one set in the shared file
+
+
+def test_a_shared_value_survives_an_empty_line_in_a_parts_own_file():
+    """The rule the scripts implement, stated on the sample both files really have: copying a part's .env.example gives empty lines for settings that
+    all.env.example fills in once; the merge keeps the filled one."""
+    def merge(*texts: str) -> dict[str, str]:
+        out: dict[str, str] = {}
+        for text in texts:
+            for ln in text.splitlines():
+                m = re.match(r"^\s*([A-Z][A-Z0-9_]*)=(.*)$", ln)
+                if m:
+                    v = m.group(2).strip()
+                    v = "" if v.startswith("#") else v
+                    if v or m.group(1) not in out:
+                        out[m.group(1)] = m.group(2)
+        return out
+    merged = merge("JWT_SECRET=from-shared\nSES_REGION=ap-south-1\n", "JWT_SECRET=\nSES_REGION=   # note\nAPP_ENV=dev\n")
+    assert merged["JWT_SECRET"] == "from-shared" and merged["SES_REGION"] == "ap-south-1" and merged["APP_ENV"] == "dev"
+    assert merge("JWT_SECRET=shared\n", "JWT_SECRET=part\n")["JWT_SECRET"] == "part"        # a non-empty value in the part's own file still wins
